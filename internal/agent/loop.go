@@ -27,7 +27,7 @@ func RunLoop(ctx context.Context, a *Agent) (ai.AssistantMessage, error) {
 		a.emit(ctx, EventTurnStart{})
 
 		if len(pending) == 0 {
-			pending = []ai.Message{ai.UserMessage{Content: "hello"}}
+			pending = []ai.Message{ai.NewTextUserMessage("hello")}
 		}
 
 		stream, err := provider.Stream(ctx, a.llmRequest(pending))

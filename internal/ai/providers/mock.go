@@ -61,7 +61,12 @@ func (p *MockProvider) Stream(ctx context.Context, req ai.StreamRequest) (*ai.Ev
 func lastUserText(messages []ai.Message) string {
 	for i := len(messages) - 1; i >= 0; i-- {
 		if msg, ok := messages[i].(ai.UserMessage); ok {
-			return msg.Content
+			for _, block := range msg.Content {
+				if block.Type == "text" {
+					return block.Text
+				}
+			}
+			return "(empty user message)"
 		}
 	}
 	return "hello"

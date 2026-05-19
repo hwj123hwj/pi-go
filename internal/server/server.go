@@ -47,7 +47,7 @@ func (s *Server) chat(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Minute)
 	defer cancel()
-	assistant, err := s.agent.Prompt(ctx, ai.UserMessage{Content: req.Prompt})
+	assistant, err := s.agent.Prompt(ctx, ai.NewTextUserMessage(req.Prompt))
 	if err != nil {
 		slog.Error("chat failed", "error", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)

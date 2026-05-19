@@ -17,12 +17,29 @@ type TextBlock struct {
 	Text string `json:"text"`
 }
 
+type ImageBlock struct {
+	MediaType string `json:"media_type,omitempty"`
+	Data      []byte `json:"data,omitempty"`
+	URL       string `json:"url,omitempty"`
+}
+
+type ContentBlock struct {
+	Type  string      `json:"type"` // "text" | "image"
+	Text  string      `json:"text,omitempty"`
+	Image *ImageBlock `json:"image,omitempty"`
+}
+
 type UserMessage struct {
-	Content string `json:"content"`
+	Content []ContentBlock `json:"content"`
 }
 
 func (UserMessage) Role() Role     { return RoleUser }
 func (UserMessage) messageMarker() {}
+
+// NewTextUserMessage 快捷创建纯文本 user message
+func NewTextUserMessage(text string) UserMessage {
+	return UserMessage{Content: []ContentBlock{{Type: "text", Text: text}}}
+}
 
 type AssistantMessage struct {
 	Text       string     `json:"text,omitempty"`

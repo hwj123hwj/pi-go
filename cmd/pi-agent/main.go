@@ -21,6 +21,12 @@ import (
 
 func main() {
 	cfg := config.Default()
+
+	// 尝试加载 .env 文件（不存在则忽略）
+	_ = config.LoadDotEnv(".env")
+	_ = config.LoadDotEnv(".env.local")
+	cfg.LoadFromEnv()
+
 	mode := flag.String("mode", "run", "run, chat, or serve")
 	listen := flag.String("listen", fmt.Sprintf("%s:%d", cfg.Host, cfg.Port), "HTTP listen address")
 	input := flag.String("prompt", "hello", "prompt for run mode")
@@ -41,7 +47,7 @@ func main() {
 	case "run":
 		ctx, cancel := context.WithTimeout(context.Background(), cfg.Timeout)
 		defer cancel()
-		assistant, err := ag.Prompt(ctx, ai.UserMessage{Content: *input})
+		assistant, err := ag.Prompt(ctx, ai.NewTextUserMessage(*input))
 		if err != nil {
 			slog.Error("run failed", "error", err)
 			os.Exit(1)
@@ -55,11 +61,52 @@ func main() {
 
 func buildAgent(cfg config.Config) *agent.Agent {
 	registry := providers.NewRegistry()
+
+	// 注册 MockProvider（始终可用）
 	registry.Register(providers.NewMockProvider())
+
+	// 根据配置注册真实 Provider
+	switch cfg.Provider {
+	case "anthropic":
+		if cfg.AnthropicAPIKey != "" {
+			registry.Register(providers.NewAnthropicProvider(cfg.AnthropicAPIKey, cfg.AnthropicBaseURL))
+			slog.Info("registered anthropic provider", "model", cfg.AnthropicModel, "base_url", cfg.AnthropicBaseURL)
+		} else {
+			slog.Warn("anthropic provider selected but ANTHROPIC_API_KEY is empty, falling back to mock")
+		}
+	case "openai":
+		if cfg.OpenAIAPIKey != "" {
+			registry.Register(providers.NewOpenAIProvider(cfg.OpenAIAPIKey, cfg.OpenAIBaseURL))
+			slog.Info("registered openai provider", "model", cfg.OpenAIModel, "base_url", cfg.OpenAIBaseURL)
+		} else {
+			slog.Warn("openai provider selected but OPENAI_API_KEY is empty, falling back to mock")
+		}
+	default:
+		slog.Info("using mock provider (set PI_GO_PROVIDER=anthropic or openai for real LLM)")
+	}
+
 	toolList := []agent.Tool{tools.NewBashTool(), tools.NewReadTool(), tools.NewWriteTool()}
 	cwd, _ := os.Getwd()
+
+	// 确定实际使用的 model 和 provider name
+	modelID := cfg.AnthropicModel
+	providerName := cfg.Provider
+	if providerName == "openai" {
+		modelID = cfg.OpenAIModel
+	}
+	if providerName == "mock" || modelID == "" {
+		modelID = "mock"
+		providerName = "mock"
+	}
+
 	return agent.New(agent.Options{
-		Model:    ai.Model{ID: "mock", Name: "Mock", Provider: "mock", ContextWindow: 128000, MaxTokens: 4096},
+		Model: ai.Model{
+			ID:            modelID,
+			Name:          modelID,
+			Provider:      providerName,
+			ContextWindow: 128000,
+			MaxTokens:     4096,
+		},
 		Registry: registry,
 		System:   prompt.BuildSystemPrompt(prompt.Options{CWD: cwd, Tools: toolList}),
 		Tools:    toolList,
@@ -76,7 +123,7 @@ func runChat(ag *agent.Agent) {
 			return
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-		assistant, err := ag.Prompt(ctx, ai.UserMessage{Content: scanner.Text()})
+		assistant, err := ag.Prompt(ctx, ai.NewTextUserMessage(scanner.Text()))
 		cancel()
 		if err != nil {
 			fmt.Println("error:", err)
