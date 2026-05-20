@@ -58,7 +58,6 @@ func Default() Config {
 }
 
 // LoadFromEnv 从环境变量中加载配置，覆盖默认值。
-// 支持加载 .env 文件中的设置（os.Setenv 或 .env 文件读取后 export 到环境变量）。
 func (c *Config) LoadFromEnv() {
 	if v := os.Getenv("PI_GO_PROVIDER"); v != "" {
 		c.Provider = v
@@ -110,26 +109,24 @@ func (c *Config) LoadFromEnv() {
 }
 
 // LoadDotEnv 从 .env 文件读取键值对，设置到环境变量中。
+// .env 文件中的值会覆盖已有的环境变量。
 func LoadDotEnv(path string) error {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return err // 文件不存在也返回错误，由调用方决定是否忽略
+		return err
 	}
 	for _, line := range strings.Split(string(data), "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
-		// 只设置尚未设置的环境变量（不覆盖已有的）
 		parts := strings.SplitN(line, "=", 2)
 		if len(parts) != 2 {
 			continue
 		}
 		key := strings.TrimSpace(parts[0])
 		value := strings.TrimSpace(parts[1])
-		if os.Getenv(key) == "" {
-			_ = os.Setenv(key, value)
-		}
+		_ = os.Setenv(key, value)
 	}
 	return nil
 }

@@ -89,6 +89,7 @@ func (a *Agent) State() State {
 	return a.state
 }
 
+// Prompt 发起一次 Agent 对话，等待完成后返回最终 assistant message。
 func (a *Agent) Prompt(ctx context.Context, msg ai.Message) (ai.AssistantMessage, error) {
 	a.mu.Lock()
 	if a.state == StateRunning {
@@ -111,6 +112,134 @@ func (a *Agent) Prompt(ctx context.Context, msg ai.Message) (ai.AssistantMessage
 	a.mu.Unlock()
 	a.emit(ctx, EventAgentEnd{Messages: []ai.Message{msg}})
 	return assistant, err
+}
+
+// PromptStream 发起一次 Agent 对话，返回一个 event channel 供流式消费。
+// 消费者可以从 channel 读取 AgentStreamEvent，channel 关闭表示对话完成。
+// 最终结果通过最后一个 AgentStreamResult 事件传递。
+func (a *Agent) PromptStream(ctx context.Context, msg ai.Message) (<-chan AgentStreamEvent, error) {
+	ch := make(chan AgentStreamEvent, 64)
+
+	// 订阅事件，转发到 channel
+	unsubscribe := a.Subscribe(func(ctx context.Context, event AgentEvent) {
+		switch e := event.(type) {
+		case EventTurnEnd:
+			ch <- AgentStreamEvent{Type: StreamEventTurnEnd, Message: e.Message}
+		case EventToolExecutionStart:
+			ch <- AgentStreamEvent{Type: StreamEventToolStart, ToolName: e.ToolName, ToolCallID: e.ToolCallID}
+		case EventToolExecutionEnd:
+			ch <- AgentStreamEvent{Type: StreamEventToolEnd, ToolName: e.ToolName, ToolCallID: e.ToolCallID, ToolResult: e.Result, IsError: e.IsError}
+		}
+	})
+
+	a.mu.Lock()
+	if a.state == StateRunning {
+		a.followUpQueue.Enqueue(msg)
+		a.mu.Unlock()
+		unsubscribe()
+		close(ch)
+		return ch, nil
+	}
+	a.state = StateRunning
+	a.mu.Unlock()
+
+	go func() {
+		defer close(ch)
+		defer unsubscribe()
+
+		// 同时订阅 LLM stream 事件来获取 token delta
+		provider, pErr := a.provider()
+		if pErr != nil {
+			ch <- AgentStreamEvent{Type: StreamEventError, Error: pErr.Error()}
+			a.mu.Lock()
+			a.state = StateError
+			a.mu.Unlock()
+			return
+		}
+
+		a.emit(ctx, EventAgentStart{})
+		a.steeringQueue.Enqueue(msg)
+
+		pending := a.steeringQueue.Drain()
+		turns := 0
+		history := make([]ai.Message, 0, 32)
+		var lastAssistant ai.AssistantMessage
+
+		for {
+			if a.maxTurns > 0 && turns >= a.maxTurns {
+				break
+			}
+			turns++
+			a.emit(ctx, EventTurnStart{})
+
+			if len(pending) == 0 && len(history) == 0 {
+				pending = []ai.Message{ai.NewTextUserMessage("hello")}
+			}
+			if len(pending) > 0 {
+				history = append(history, pending...)
+			}
+			pending = nil
+
+			// 调用 LLM 并流式转发 token
+			stream, err := provider.Stream(ctx, a.llmRequest(history))
+			if err != nil {
+				ch <- AgentStreamEvent{Type: StreamEventError, Error: err.Error()}
+				break
+			}
+
+			var streamMsg ai.StreamAssistantMessage
+			for event := range stream.Events() {
+				switch e := event.(type) {
+				case ai.EventTextDelta:
+					ch <- AgentStreamEvent{Type: StreamEventTextDelta, TextDelta: e.Delta}
+				case ai.EventDone:
+					streamMsg = e.Message
+				case ai.EventError:
+					ch <- AgentStreamEvent{Type: StreamEventError, Error: e.Error}
+				}
+			}
+
+			message, err := a.handleAssistantMessage(streamMsg)
+			if err != nil {
+				ch <- AgentStreamEvent{Type: StreamEventError, Error: err.Error()}
+				break
+			}
+			lastAssistant = message
+			history = append(history, message)
+
+			if message.StopReason == ai.StopReasonError || message.StopReason == ai.StopReasonAborted {
+				break
+			}
+
+			// 执行工具
+			toolResults, err := executeToolCalls(ctx, a, message.ToolCalls)
+			if err != nil {
+				ch <- AgentStreamEvent{Type: StreamEventError, Error: err.Error()}
+				break
+			}
+			a.emit(ctx, EventTurnEnd{Message: message, ToolResults: toolResults})
+
+			if message.StopReason == ai.StopReasonToolUse && len(toolResults) > 0 {
+				history = append(history, toolResults...)
+				continue
+			}
+
+			if next := a.followUpQueue.Drain(); len(next) > 0 {
+				pending = next
+				continue
+			}
+			break
+		}
+
+		ch <- AgentStreamEvent{Type: StreamEventDone, FinalMessage: lastAssistant}
+
+		a.mu.Lock()
+		a.state = StateIdle
+		a.mu.Unlock()
+		a.emit(ctx, EventAgentEnd{Messages: history})
+	}()
+
+	return ch, nil
 }
 
 func (a *Agent) Steer(ctx context.Context, msg ai.Message) {
@@ -139,10 +268,6 @@ func (a *Agent) toolDefinitions() []ai.ToolDefinition {
 		})
 	}
 	return defs
-}
-
-func (a *Agent) marshalMessage(msg ai.Message) (ai.Message, error) {
-	return msg, nil
 }
 
 func (a *Agent) appendToolResult(call ai.ToolCall, result ToolResult) ai.ToolResultMessage {
@@ -184,4 +309,29 @@ func (a *Agent) decodeToolArgs(raw string, tool Tool) (json.RawMessage, error) {
 		return nil, err
 	}
 	return validated, nil
+}
+
+// ─── Stream Event 类型 ───────────────────────────────────────────────────────
+
+type StreamEventType string
+
+const (
+	StreamEventTextDelta StreamEventType = "text_delta"
+	StreamEventTurnEnd   StreamEventType = "turn_end"
+	StreamEventToolStart StreamEventType = "tool_start"
+	StreamEventToolEnd   StreamEventType = "tool_end"
+	StreamEventDone      StreamEventType = "done"
+	StreamEventError     StreamEventType = "error"
+)
+
+type AgentStreamEvent struct {
+	Type         StreamEventType    `json:"type"`
+	TextDelta    string             `json:"text_delta,omitempty"`
+	Message      ai.Message         `json:"message,omitempty"`
+	ToolName     string             `json:"tool_name,omitempty"`
+	ToolCallID   string             `json:"tool_call_id,omitempty"`
+	ToolResult   any                `json:"tool_result,omitempty"`
+	IsError      bool               `json:"is_error,omitempty"`
+	FinalMessage ai.AssistantMessage `json:"final_message,omitempty"`
+	Error        string             `json:"error,omitempty"`
 }

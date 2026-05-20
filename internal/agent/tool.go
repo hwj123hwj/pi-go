@@ -23,3 +23,17 @@ type PartialResult struct {
 	Content string
 	Done    bool
 }
+
+// ExecutionMode 控制并行/顺序执行。
+type ExecutionMode int
+
+const (
+	ExecutionModeParallel   ExecutionMode = iota
+	ExecutionModeSequential
+)
+
+// ToolWithMode 可选接口：工具可覆盖默认执行模式。
+type ToolWithMode interface {
+	Tool
+	ExecutionMode() ExecutionMode
+}

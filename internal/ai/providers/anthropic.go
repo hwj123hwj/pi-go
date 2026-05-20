@@ -48,11 +48,12 @@ func (p *AnthropicProvider) StreamSimple(ctx context.Context, req ai.SimpleStrea
 // ─── Anthropic API 请求/响应结构 ──────────────────────────────────────────────────
 
 type anthropicContentBlock struct {
-	Type  string          `json:"type"`
-	Text  string          `json:"text,omitempty"`
-	ID    string          `json:"id,omitempty"`
-	Name  string          `json:"name,omitempty"`
-	Input json.RawMessage `json:"input,omitempty"`
+	Type    string          `json:"type"`
+	Text    string          `json:"text,omitempty"`
+	ID      string          `json:"id,omitempty"`
+	Name    string          `json:"name,omitempty"`
+	Input   json.RawMessage `json:"input,omitempty"`
+	Content any             `json:"content,omitempty"` // tool_result 的嵌套内容
 }
 
 type anthropicMessage struct {
@@ -132,11 +133,14 @@ func (p *AnthropicProvider) handleSSE(ctx context.Context, stream *ai.EventStrea
 	_ = stream.Push(ctx, ai.EventStart{Partial: *partial})
 
 	scanner := bufio.NewScanner(body)
-	// 增大 buffer 防止长行截断
 	scanner.Buffer(make([]byte, 256*1024), 256*1024)
 
 	var currentEvent string
-	contentIndex := 0
+	// 追踪每个 content block index → 类型 ("text" | "tool_use" | "thinking")
+	blockTypes := map[int]string{}
+	// 追踪每个 tool_use content block index → ToolCall 在 partial.ToolCalls 中的位置
+	toolCallIndexMap := map[int]int{}
+	toolCallCounter := 0
 
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -146,20 +150,28 @@ func (p *AnthropicProvider) handleSSE(ctx context.Context, stream *ai.EventStrea
 		}
 		if strings.HasPrefix(line, "data: ") {
 			data := strings.TrimPrefix(line, "data: ")
-			p.handleSSEEvent(ctx, stream, partial, currentEvent, data, &contentIndex)
+			p.handleSSEEvent(ctx, stream, partial, currentEvent, data, blockTypes, toolCallIndexMap, &toolCallCounter)
 			currentEvent = ""
 		}
 	}
 
-	// 保险：如果流正常结束但没收到 message_stop
+	// 兜底：如果流异常结束但没收到 message_stop
 	if partial.StopReason == "" {
 		partial.StopReason = ai.StopReasonStop
 		_ = stream.Push(ctx, ai.EventDone{Reason: partial.StopReason, Message: *partial})
+		stream.SetResult(*partial, nil)
 	}
-	stream.SetResult(*partial, scanner.Err())
 }
 
-func (p *AnthropicProvider) handleSSEEvent(ctx context.Context, stream *ai.EventStream, partial *ai.StreamAssistantMessage, eventType, data string, contentIndex *int) {
+func (p *AnthropicProvider) handleSSEEvent(
+	ctx context.Context,
+	stream *ai.EventStream,
+	partial *ai.StreamAssistantMessage,
+	eventType, data string,
+	blockTypes map[int]string,
+	toolCallIndexMap map[int]int,
+	toolCallCounter *int,
+) {
 	switch eventType {
 	case "ping":
 		return
@@ -179,81 +191,113 @@ func (p *AnthropicProvider) handleSSEEvent(ctx context.Context, stream *ai.Event
 			partial.Usage = ai.Usage{InputTokens: msg.Message.Usage.InputTokens}
 		}
 
-		// 简化：直接用 map 判断类型
-		var raw map[string]any
+	case "content_block_start":
+		var raw struct {
+			Index        int `json:"index"`
+			ContentBlock struct {
+				Type  string `json:"type"`
+				ID    string `json:"id,omitempty"`
+				Name  string `json:"name,omitempty"`
+				Text  string `json:"text,omitempty"`
+				Input any    `json:"input,omitempty"`
+			} `json:"content_block"`
+		}
 		if err := json.Unmarshal([]byte(data), &raw); err != nil {
 			return
 		}
-		cb, _ := raw["content_block"].(map[string]any)
-		if cb == nil {
-			return
-		}
-		cbType, _ := cb["type"].(string)
-		switch cbType {
+		idx := raw.Index
+		blockTypes[idx] = raw.ContentBlock.Type
+
+		switch raw.ContentBlock.Type {
 		case "text":
-			_ = stream.Push(ctx, ai.EventTextStart{ContentIndex: *contentIndex, Partial: *partial})
+			_ = stream.Push(ctx, ai.EventTextStart{ContentIndex: idx, Partial: *partial})
 		case "tool_use":
-			id, _ := cb["id"].(string)
-			name, _ := cb["name"].(string)
-			tc := ai.ToolCall{ID: id, Name: name}
+			tc := ai.ToolCall{ID: raw.ContentBlock.ID, Name: raw.ContentBlock.Name}
 			partial.ToolCalls = append(partial.ToolCalls, tc)
-			_ = stream.Push(ctx, ai.EventToolCallStart{ContentIndex: *contentIndex, Partial: *partial})
+			toolCallIndexMap[idx] = *toolCallCounter
+			*toolCallCounter++
+			_ = stream.Push(ctx, ai.EventToolCallStart{ContentIndex: idx, Partial: *partial})
+		case "thinking":
+			// thinking 块暂不详细处理
 		}
 
 	case "content_block_delta":
-		var raw map[string]any
+		var raw struct {
+			Index int `json:"index"`
+			Delta struct {
+				Type        string `json:"type"`
+				Text        string `json:"text,omitempty"`
+				Thinking    string `json:"thinking,omitempty"`
+				PartialJSON string `json:"partial_json,omitempty"`
+			} `json:"delta"`
+		}
 		if err := json.Unmarshal([]byte(data), &raw); err != nil {
 			return
 		}
-		delta, _ := raw["delta"].(map[string]any)
-		if delta == nil {
-			return
-		}
-		deltaType, _ := delta["type"].(string)
-		switch deltaType {
+		idx := raw.Index
+
+		switch raw.Delta.Type {
 		case "text_delta":
-			text, _ := delta["text"].(string)
-			partial.Text += text
-			_ = stream.Push(ctx, ai.EventTextDelta{ContentIndex: *contentIndex, Delta: text, Partial: *partial})
+			partial.Text += raw.Delta.Text
+			_ = stream.Push(ctx, ai.EventTextDelta{ContentIndex: idx, Delta: raw.Delta.Text, Partial: *partial})
+		case "thinking_delta":
+			partial.Thinking += raw.Delta.Thinking
 		case "input_json_delta":
-			partialJSON, _ := delta["partial_json"].(string)
-			if len(partial.ToolCalls) > 0 {
-				idx := len(partial.ToolCalls) - 1
-				partial.ToolCalls[idx].Args += partialJSON
+			if tcIdx, ok := toolCallIndexMap[idx]; ok && tcIdx < len(partial.ToolCalls) {
+				partial.ToolCalls[tcIdx].Args += raw.Delta.PartialJSON
 			}
-			_ = stream.Push(ctx, ai.EventToolCallDelta{ContentIndex: *contentIndex, Delta: partialJSON, Partial: *partial})
+			_ = stream.Push(ctx, ai.EventToolCallDelta{ContentIndex: idx, Delta: raw.Delta.PartialJSON, Partial: *partial})
 		}
 
 	case "content_block_stop":
-		if *contentIndex < len(partial.ToolCalls) {
-			_ = stream.Push(ctx, ai.EventToolCallEnd{ContentIndex: *contentIndex, ToolCall: partial.ToolCalls[*contentIndex], Partial: *partial})
-		} else {
-			_ = stream.Push(ctx, ai.EventTextEnd{ContentIndex: *contentIndex, Text: partial.Text, Partial: *partial})
+		var raw struct {
+			Index int `json:"index"`
 		}
-		*contentIndex++
+		_ = json.Unmarshal([]byte(data), &raw)
+		idx := raw.Index
+		blockType := blockTypes[idx]
+
+		switch blockType {
+		case "tool_use":
+			if tcIdx, ok := toolCallIndexMap[idx]; ok && tcIdx < len(partial.ToolCalls) {
+				_ = stream.Push(ctx, ai.EventToolCallEnd{
+					ContentIndex: idx,
+					ToolCall:     partial.ToolCalls[tcIdx],
+					Partial:      *partial,
+				})
+			}
+		case "text":
+			_ = stream.Push(ctx, ai.EventTextEnd{
+				ContentIndex: idx,
+				Text:         partial.Text,
+				Partial:      *partial,
+			})
+		default:
+			// thinking 或其他类型，不推送事件
+		}
 
 	case "message_delta":
-		var raw map[string]any
+		var raw struct {
+			Delta struct {
+				StopReason string `json:"stop_reason"`
+			} `json:"delta"`
+			Usage struct {
+				OutputTokens int `json:"output_tokens"`
+			} `json:"usage"`
+		}
 		if err := json.Unmarshal([]byte(data), &raw); err != nil {
 			return
 		}
-		delta, _ := raw["delta"].(map[string]any)
-		if delta != nil {
-			stopReason, _ := delta["stop_reason"].(string)
-			switch stopReason {
-			case "end_turn", "stop":
-				partial.StopReason = ai.StopReasonStop
-			case "tool_use":
-				partial.StopReason = ai.StopReasonToolUse
-			case "max_tokens":
-				partial.StopReason = ai.StopReasonLength
-			}
+		switch raw.Delta.StopReason {
+		case "end_turn", "stop":
+			partial.StopReason = ai.StopReasonStop
+		case "tool_use":
+			partial.StopReason = ai.StopReasonToolUse
+		case "max_tokens":
+			partial.StopReason = ai.StopReasonLength
 		}
-		usage, _ := raw["usage"].(map[string]any)
-		if usage != nil {
-			if out, ok := usage["output_tokens"].(float64); ok {
-				partial.Usage.OutputTokens = int(out)
-			}
+		if raw.Usage.OutputTokens > 0 {
+			partial.Usage.OutputTokens = raw.Usage.OutputTokens
 		}
 
 	case "message_stop":
@@ -355,9 +399,9 @@ func convertToAnthropicMessages(msgs []ai.Message) []anthropicMessage {
 			result = append(result, anthropicMessage{
 				Role: "user",
 				Content: []anthropicContentBlock{{
-					Type: "tool_result",
-					ID:   m.ToolCallID,
-					Text: m.Content,
+					Type:    "tool_result",
+					ID:      m.ToolCallID,
+					Content: []anthropicContentBlock{{Type: "text", Text: m.Content}},
 				}},
 			})
 		}

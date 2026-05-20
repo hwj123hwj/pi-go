@@ -22,7 +22,7 @@ import (
 func main() {
 	cfg := config.Default()
 
-	// 尝试加载 .env 文件（不存在则忽略）
+	// 加载 .env 文件（不存在则忽略）
 	_ = config.LoadDotEnv(".env")
 	_ = config.LoadDotEnv(".env.local")
 	cfg.LoadFromEnv()
@@ -116,19 +116,49 @@ func buildAgent(cfg config.Config) *agent.Agent {
 
 func runChat(ag *agent.Agent) {
 	scanner := bufio.NewScanner(os.Stdin)
-	fmt.Println("pi-go chat mode. Ctrl-D to exit.")
+	fmt.Println("pi-go chat mode. Type your message and press Enter. Ctrl-D to exit.")
+	fmt.Println()
+
 	for {
-		fmt.Print("> ")
+		fmt.Print("You> ")
 		if !scanner.Scan() {
 			return
 		}
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-		assistant, err := ag.Prompt(ctx, ai.NewTextUserMessage(scanner.Text()))
-		cancel()
-		if err != nil {
-			fmt.Println("error:", err)
+		input := scanner.Text()
+		if input == "" {
 			continue
 		}
-		fmt.Println(assistant.Text)
+		if input == "exit" || input == "quit" {
+			return
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+
+		stream, err := ag.PromptStream(ctx, ai.NewTextUserMessage(input))
+		if err != nil {
+			fmt.Println("error:", err)
+			cancel()
+			continue
+		}
+
+		fmt.Print("Pi> ")
+		for event := range stream {
+			switch event.Type {
+			case agent.StreamEventTextDelta:
+				fmt.Print(event.TextDelta)
+			case agent.StreamEventToolStart:
+				fmt.Printf("\n[tool:%s] ", event.ToolName)
+			case agent.StreamEventToolEnd:
+				fmt.Print("✓ ")
+			case agent.StreamEventDone:
+				// 确保换行
+				fmt.Println()
+			case agent.StreamEventError:
+				fmt.Printf("\nerror: %s\n", event.Error)
+			}
+		}
+
+		cancel()
+		fmt.Println()
 	}
 }
