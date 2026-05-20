@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -83,13 +84,12 @@ func (s *Server) chat(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Minute)
 	defer cancel()
 
-	if s.agent.State() == agent.StateRunning {
-		writeError(w, http.StatusConflict, "agent is busy processing another request")
-		return
-	}
-
 	assistant, err := s.agent.Prompt(ctx, ai.NewTextUserMessage(req.Prompt))
 	if err != nil {
+		if errors.Is(err, agent.ErrAgentBusy) {
+			writeError(w, http.StatusConflict, "agent is busy processing another request")
+			return
+		}
 		slog.Error("chat failed", "error", err)
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -112,11 +112,6 @@ func (s *Server) chatStream(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if s.agent.State() == agent.StateRunning {
-		writeError(w, http.StatusConflict, "agent is busy processing another request")
-		return
-	}
-
 	// 设置 SSE headers
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
@@ -128,6 +123,10 @@ func (s *Server) chatStream(w http.ResponseWriter, r *http.Request) {
 
 	stream, err := s.agent.PromptStream(ctx, ai.NewTextUserMessage(req.Prompt))
 	if err != nil {
+		if errors.Is(err, agent.ErrAgentBusy) {
+			writeError(w, http.StatusConflict, "agent is busy processing another request")
+			return
+		}
 		writeSSE(w, "error", err.Error())
 		return
 	}

@@ -104,9 +104,8 @@ func (a *Agent) State() State {
 func (a *Agent) Prompt(ctx context.Context, msg ai.Message) (ai.AssistantMessage, error) {
 	a.mu.Lock()
 	if a.state == StateRunning {
-		a.followUpQueue.Enqueue(msg)
 		a.mu.Unlock()
-		return ai.AssistantMessage{}, nil
+		return ai.AssistantMessage{}, ErrAgentBusy
 	}
 	a.state = StateRunning
 	a.mu.Unlock()
@@ -156,11 +155,9 @@ func (a *Agent) PromptStream(ctx context.Context, msg ai.Message) (<-chan AgentS
 
 	a.mu.Lock()
 	if a.state == StateRunning {
-		a.followUpQueue.Enqueue(msg)
 		a.mu.Unlock()
 		unsubscribe()
-		close(ch)
-		return ch, nil
+		return nil, ErrAgentBusy
 	}
 	a.state = StateRunning
 	a.mu.Unlock()

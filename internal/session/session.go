@@ -77,8 +77,17 @@ func (s *Session) MoveTo(ctx context.Context, entryID string, summary string) er
 	if err := s.storage.SetLeaf(ctx, entryID); err != nil {
 		return err
 	}
+	s.leafID = entryID
 	if summary != "" {
-		return s.storage.Append(ctx, Entry{Type: EntryTypeBranchSummary, Summary: summary})
+		if err := s.storage.Append(ctx, Entry{Type: EntryTypeBranchSummary, Summary: summary, ParentID: s.leafID}); err != nil {
+			return err
+		}
+		// summary entry 追加后，leaf 指向该 entry
+		leaf, err := s.storage.GetLeaf(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to get leaf after summary append: %w", err)
+		}
+		s.leafID = leaf
 	}
 	return nil
 }
