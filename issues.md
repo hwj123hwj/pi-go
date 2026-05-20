@@ -15,7 +15,7 @@
 | 7 | Anthropic baseURL 拼接问题 | 🟡 中 | ❌ 误报 | 构造函数已规范化尾部斜杠 |
 | 8 | JSONL 全量加载到内存 | 🟡 中 | ✅ 已注释 | 添加详细注释标记为已知限制，后续优化 |
 | 9 | 并行 Tool 无 panic recovery | 🟡 中 | ✅ 已修复 | 并行和顺序执行均添加 `defer recover()` |
-| 10 | 缺少 README | 🟢 低 | ⬜ 待处理 | 项目根目录无 README.md |
+| 10 | 缺少 README | 🟢 低 | ✅ 已修复 | 添加 README.md，包含架构图、快速开始、API 文档、配置说明 |
 | 11 | loadIgnorePatterns 定义未使用 | 🟢 低 | ✅ 已修复 | `loadFromDir` 中调用 `loadIgnorePatterns`，配合 `shouldIgnoreDir` |
 | 12 | Error 缺少 %w wrap | 🟢 低 | ✅ 已修复 | 关键路径的 error 加上 `%w` 包装 |
 | 13 | ContextWindow 硬编码 128000 | 🟢 低 | ✅ 已修复 | 添加模型元数据表 `contextWindowForModel` |
