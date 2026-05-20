@@ -118,10 +118,39 @@ func (t *GrepTool) Execute(ctx context.Context, raw json.RawMessage, onUpdate fu
 
 	// 格式化输出
 	var b strings.Builder
-	for _, m := range matches {
-		if params.ShowContext > 0 {
-			b.WriteString(fmt.Sprintf("%s:%d: %s\n", m.File, m.Line, m.Content))
-		} else {
+	if params.ShowContext > 0 {
+		// 按文件分组，输出上下文行
+		grouped := groupMatchesByFile(matches)
+		for _, fileGroup := range grouped {
+			lines, err := readLines(fileGroup.file)
+			if err != nil {
+				for _, m := range fileGroup.matches {
+					b.WriteString(fmt.Sprintf("%s:%d: %s\n", m.File, m.Line, m.Content))
+				}
+				continue
+			}
+			ctx := params.ShowContext
+			for _, m := range fileGroup.matches {
+				start := m.Line - ctx
+				if start < 1 {
+					start = 1
+				}
+				end := m.Line + ctx
+				if end > len(lines) {
+					end = len(lines)
+				}
+				for i := start; i <= end; i++ {
+					prefix := "  "
+					if i == m.Line {
+						prefix = "> "
+					}
+					b.WriteString(fmt.Sprintf("%s%s:%d: %s\n", prefix, m.File, i, strings.TrimSpace(lines[i-1])))
+				}
+				b.WriteString("\n")
+			}
+		}
+	} else {
+		for _, m := range matches {
 			b.WriteString(fmt.Sprintf("%s:%d: %s\n", m.File, m.Line, m.Content))
 		}
 	}
@@ -242,4 +271,32 @@ func globToRegex(glob string) string {
 	}
 	b.WriteString("$")
 	return b.String()
+}
+
+type fileMatchGroup struct {
+	file    string
+	matches []grepMatch
+}
+
+func groupMatchesByFile(matches []grepMatch) []fileMatchGroup {
+	var groups []fileMatchGroup
+	groupMap := make(map[string]int)
+	for _, m := range matches {
+		idx, ok := groupMap[m.File]
+		if !ok {
+			idx = len(groups)
+			groups = append(groups, fileMatchGroup{file: m.File})
+			groupMap[m.File] = idx
+		}
+		groups[idx].matches = append(groups[idx].matches, m)
+	}
+	return groups
+}
+
+func readLines(path string) ([]string, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	return strings.Split(string(data), "\n"), nil
 }

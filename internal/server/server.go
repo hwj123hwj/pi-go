@@ -21,10 +21,7 @@ type Server struct {
 }
 
 type ChatRequest struct {
-	Prompt     string `json:"prompt"`
-	SessionID  string `json:"session_id,omitempty"`  // 可选：指定会话
-	Model      string `json:"model,omitempty"`
-	MaxTurns   int    `json:"max_turns,omitempty"`
+	Prompt string `json:"prompt"`
 }
 
 type ChatResponse struct {
@@ -86,6 +83,11 @@ func (s *Server) chat(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Minute)
 	defer cancel()
 
+	if s.agent.State() == agent.StateRunning {
+		writeError(w, http.StatusConflict, "agent is busy processing another request")
+		return
+	}
+
 	assistant, err := s.agent.Prompt(ctx, ai.NewTextUserMessage(req.Prompt))
 	if err != nil {
 		slog.Error("chat failed", "error", err)
@@ -107,6 +109,11 @@ func (s *Server) chatStream(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.Prompt == "" {
 		writeError(w, http.StatusBadRequest, "prompt is required")
+		return
+	}
+
+	if s.agent.State() == agent.StateRunning {
+		writeError(w, http.StatusConflict, "agent is busy processing another request")
 		return
 	}
 
@@ -138,11 +145,6 @@ func (s *Server) chatStream(w http.ResponseWriter, r *http.Request) {
 		if canFlush {
 			flusher.Flush()
 		}
-	}
-
-	fmt.Fprintf(w, "event: done\ndata: {}\n\n")
-	if canFlush {
-		flusher.Flush()
 	}
 }
 

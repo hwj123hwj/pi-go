@@ -116,3 +116,58 @@ func TestJSONLStorage_InitCreatesDir(t *testing.T) {
 	_, err := os.Stat(filepath.Join(dir, "sub", "dir"))
 	assert.NoError(t, err)
 }
+
+// TestSession_AppendMessage_BuildContext 端到端测试：
+// 验证通过 Session.AppendMessage 写入的消息可以通过 BuildContext 正确恢复。
+func TestSession_AppendMessage_BuildContext(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "session.jsonl")
+	storage := NewJSONLStorage(path)
+	require.NoError(t, storage.Init())
+	defer storage.Close()
+
+	ctx := context.Background()
+	sess := New(storage)
+
+	// 写入 user -> assistant -> tool result 序列
+	require.NoError(t, sess.AppendMessage(ctx, ai.NewTextUserMessage("hello")))
+	require.NoError(t, sess.AppendMessage(ctx, ai.AssistantMessage{Text: "world"}))
+	require.NoError(t, sess.AppendMessage(ctx, ai.ToolResultMessage{ToolCallID: "tc_1", Content: "ok"}))
+
+	// 通过 BuildContext 恢复
+	messages, err := sess.BuildContext(ctx)
+	require.NoError(t, err)
+	assert.Len(t, messages, 3)
+
+	assert.Equal(t, ai.RoleUser, messages[0].Role())
+	assert.Equal(t, ai.RoleAssistant, messages[1].Role())
+	assert.Equal(t, ai.RoleTool, messages[2].Role())
+}
+
+// TestSession_PersistenceAcrossReload 验证会话持久化后重载能恢复完整历史。
+func TestSession_PersistenceAcrossReload(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "session.jsonl")
+	ctx := context.Background()
+
+	// 第一次写入
+	storage1 := NewJSONLStorage(path)
+	require.NoError(t, storage1.Init())
+	sess1 := New(storage1)
+	require.NoError(t, sess1.AppendMessage(ctx, ai.NewTextUserMessage("first")))
+	require.NoError(t, sess1.AppendMessage(ctx, ai.AssistantMessage{Text: "second"}))
+	require.NoError(t, storage1.Close())
+
+	// 重新加载
+	storage2 := NewJSONLStorage(path)
+	require.NoError(t, storage2.Init())
+	defer storage2.Close()
+	sess2 := New(storage2)
+	require.NoError(t, sess2.InitFromStorage(ctx))
+
+	messages, err := sess2.BuildContext(ctx)
+	require.NoError(t, err)
+	assert.Len(t, messages, 2)
+	assert.Equal(t, ai.RoleUser, messages[0].Role())
+	assert.Equal(t, ai.RoleAssistant, messages[1].Role())
+}

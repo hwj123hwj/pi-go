@@ -134,6 +134,9 @@ func buildAgent(cfg config.Config, sessionID string, skillDir string) *agent.Age
 			slog.Warn("failed to init session storage", "error", err, "path", sessionPath)
 		} else {
 			sess = session.New(storage)
+			if err := sess.InitFromStorage(context.Background()); err != nil {
+				slog.Warn("failed to init session from storage", "error", err)
+			}
 			slog.Info("session initialized", "path", sessionPath)
 		}
 	}
