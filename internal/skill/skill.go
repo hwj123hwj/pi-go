@@ -140,13 +140,14 @@ func loadFromDir(dir string, includeRootFiles bool, rootDir string) LoadResult {
 	}
 
 	// 递归处理子目录
+	ignorePatterns := loadIgnorePatterns(dir)
+	ignore := newIgnoreMatcherWithPatterns(ignorePatterns)
 	for _, entry := range entries {
 		if !entry.IsDir() {
 			continue
 		}
 		name := entry.Name()
-		// 跳过隐藏目录和常见忽略目录
-		if strings.HasPrefix(name, ".") || name == "node_modules" || name == "vendor" || name == "__pycache__" {
+		if shouldIgnoreDir(name, ignore) {
 			continue
 		}
 		sub := loadFromDir(filepath.Join(dir, name), true, rootDir)
@@ -396,6 +397,28 @@ type ignoreMatcher struct {
 
 func newIgnoreMatcher() *ignoreMatcher {
 	return &ignoreMatcher{}
+}
+
+func newIgnoreMatcherWithPatterns(patterns []string) *ignoreMatcher {
+	return &ignoreMatcher{patterns: patterns}
+}
+
+// shouldIgnoreDir 判断目录是否应该被跳过。
+// 结合 ignore patterns 和基础规则（隐藏目录等）。
+func shouldIgnoreDir(name string, ignore *ignoreMatcher) bool {
+	// 基础规则：始终跳过隐藏目录
+	if strings.HasPrefix(name, ".") {
+		return true
+	}
+	// 基础规则：跳过常见无关目录
+	basicIgnores := []string{"node_modules", "vendor", "__pycache__", ".git", ".svn", ".hg"}
+	for _, pattern := range basicIgnores {
+		if name == pattern {
+			return true
+		}
+	}
+	// 自定义 ignore patterns
+	return ignore.match(name)
 }
 
 func (im *ignoreMatcher) match(name string) bool {

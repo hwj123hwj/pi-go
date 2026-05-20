@@ -58,7 +58,11 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /sessions/{id}/messages", s.getSessionMessages)
 	mux.HandleFunc("DELETE /sessions/{id}", s.deleteSession)
 	mux.HandleFunc("GET /tools", s.listTools)
-	return mux
+	var handler http.Handler = mux
+	handler = corsMiddleware(handler)
+	handler = recoveryMiddleware(handler)
+	handler = loggingMiddleware(handler)
+	return handler
 }
 
 func (s *Server) health(w http.ResponseWriter, r *http.Request) {
@@ -304,4 +308,59 @@ func joinTexts(texts []string) string {
 		result += t
 	}
 	return result
+}
+
+// ─── 中间件 ───────────────────────────────────────────────────────────────
+
+// loggingMiddleware 记录每个 HTTP 请求的方法、路径、状态码和耗时。
+func loggingMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		wrapped := &responseWriter{ResponseWriter: w, statusCode: http.StatusOK}
+		next.ServeHTTP(wrapped, r)
+		slog.Info("http request",
+			"method", r.Method,
+			"path", r.URL.Path,
+			"status", wrapped.statusCode,
+			"duration", time.Since(start).Round(time.Millisecond),
+		)
+	})
+}
+
+// recoveryMiddleware 捕获 handler 中的 panic，返回 500 错误。
+func recoveryMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer func() {
+			if err := recover(); err != nil {
+				slog.Error("handler panic", "error", err, "path", r.URL.Path)
+				writeError(w, http.StatusInternalServerError, fmt.Sprintf("internal error: %v", err))
+			}
+		}()
+		next.ServeHTTP(w, r)
+	})
+}
+
+// corsMiddleware 添加基本的 CORS 响应头。
+func corsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// responseWriter 包装 http.ResponseWriter 以捕获状态码。
+type responseWriter struct {
+	http.ResponseWriter
+	statusCode int
+}
+
+func (rw *responseWriter) WriteHeader(code int) {
+	rw.statusCode = code
+	rw.ResponseWriter.WriteHeader(code)
 }

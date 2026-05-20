@@ -131,19 +131,26 @@ func (a *Agent) Prompt(ctx context.Context, msg ai.Message) (ai.AssistantMessage
 func (a *Agent) PromptStream(ctx context.Context, msg ai.Message) (<-chan AgentStreamEvent, error) {
 	ch := make(chan AgentStreamEvent, 64)
 
-	// 订阅事件，转发到 channel
+	// 订阅事件，转发到 channel（带背压控制）
 	unsubscribe := a.Subscribe(func(ctx context.Context, event AgentEvent) {
+		var ev AgentStreamEvent
 		switch e := event.(type) {
 		case EventTurnEnd:
-			ch <- AgentStreamEvent{Type: StreamEventTurnEnd, Message: e.Message}
+			ev = AgentStreamEvent{Type: StreamEventTurnEnd, Message: e.Message}
 		case EventToolExecutionStart:
-			ch <- AgentStreamEvent{Type: StreamEventToolStart, ToolName: e.ToolName, ToolCallID: e.ToolCallID}
+			ev = AgentStreamEvent{Type: StreamEventToolStart, ToolName: e.ToolName, ToolCallID: e.ToolCallID}
 		case EventToolExecutionEnd:
-			ch <- AgentStreamEvent{Type: StreamEventToolEnd, ToolName: e.ToolName, ToolCallID: e.ToolCallID, ToolResult: e.Result, IsError: e.IsError}
+			ev = AgentStreamEvent{Type: StreamEventToolEnd, ToolName: e.ToolName, ToolCallID: e.ToolCallID, ToolResult: e.Result, IsError: e.IsError}
 		case EventCompacted:
-			ch <- AgentStreamEvent{Type: StreamEventCompacted, Summary: e.Summary}
+			ev = AgentStreamEvent{Type: StreamEventCompacted, Summary: e.Summary}
 		case EventCompactionFailed:
-			ch <- AgentStreamEvent{Type: StreamEventError, Error: "compaction failed: " + e.Error}
+			ev = AgentStreamEvent{Type: StreamEventError, Error: "compaction failed: " + e.Error}
+		default:
+			return
+		}
+		select {
+		case ch <- ev:
+		case <-ctx.Done():
 		}
 	})
 
@@ -174,115 +181,45 @@ func (a *Agent) PromptStream(ctx context.Context, msg ai.Message) (<-chan AgentS
 		a.emit(ctx, EventAgentStart{})
 		a.steeringQueue.Enqueue(msg)
 
-		pending := a.steeringQueue.Drain()
-		turns := 0
-		history := make([]ai.Message, 0, 32)
-
-		// 从 session 恢复历史
-		if a.session != nil {
-			sessionHistory, err := a.session.BuildContext(ctx)
-			if err == nil && len(sessionHistory) > 0 {
-				history = sessionHistory
-			}
-		}
-
-		var lastAssistant ai.AssistantMessage
-
-		for {
-			if a.maxTurns > 0 && turns >= a.maxTurns {
-				break
-			}
-			turns++
-			a.emit(ctx, EventTurnStart{})
-
-			if len(pending) == 0 && len(history) == 0 {
-				pending = []ai.Message{ai.NewTextUserMessage("hello")}
-			}
-			if len(pending) > 0 {
-				history = append(history, pending...)
-			}
-			pending = nil
-
-			// 保存到 session
-			if a.session != nil {
-				for _, msg := range history {
-					_ = a.session.AppendMessage(ctx, msg)
-				}
-			}
-
-			// 检查 compaction
-			history = a.maybeCompact(ctx, history)
-
-			// 调用 LLM 并流式转发 token
-			stream, err := provider.Stream(ctx, a.llmRequest(history))
-			if err != nil {
-				ch <- AgentStreamEvent{Type: StreamEventError, Error: err.Error()}
-				break
-			}
-
+		// PromptStream 的 stream consumer：转发 text delta 事件到 channel
+		consume := func(stream *ai.EventStream) (ai.StreamAssistantMessage, error) {
 			var streamMsg ai.StreamAssistantMessage
 			for event := range stream.Events() {
+				select {
+				case <-ctx.Done():
+					return streamMsg, ctx.Err()
+				default:
+				}
 				switch e := event.(type) {
 				case ai.EventTextDelta:
-					ch <- AgentStreamEvent{Type: StreamEventTextDelta, TextDelta: e.Delta}
+					select {
+					case ch <- AgentStreamEvent{Type: StreamEventTextDelta, TextDelta: e.Delta}:
+					case <-ctx.Done():
+						return streamMsg, ctx.Err()
+					}
 				case ai.EventDone:
 					streamMsg = e.Message
 				case ai.EventError:
-					ch <- AgentStreamEvent{Type: StreamEventError, Error: e.Error}
-				}
-			}
-
-			message, err := a.handleAssistantMessage(streamMsg)
-			if err != nil {
-				ch <- AgentStreamEvent{Type: StreamEventError, Error: err.Error()}
-				break
-			}
-			lastAssistant = message
-			history = append(history, message)
-
-			// 保存 assistant message 到 session
-			if a.session != nil {
-				_ = a.session.AppendMessage(ctx, message)
-			}
-
-			if message.StopReason == ai.StopReasonError || message.StopReason == ai.StopReasonAborted {
-				break
-			}
-
-			// 执行工具
-			toolResults, err := executeToolCalls(ctx, a, message.ToolCalls)
-			if err != nil {
-				ch <- AgentStreamEvent{Type: StreamEventError, Error: err.Error()}
-				break
-			}
-			a.emit(ctx, EventTurnEnd{Message: message, ToolResults: toolResults})
-
-			if message.StopReason == ai.StopReasonToolUse && len(toolResults) > 0 {
-				history = append(history, toolResults...)
-
-				// 保存 tool results 到 session
-				if a.session != nil {
-					for _, tr := range toolResults {
-						_ = a.session.AppendMessage(ctx, tr)
+					select {
+					case ch <- AgentStreamEvent{Type: StreamEventError, Error: e.Error}:
+					case <-ctx.Done():
+						return streamMsg, ctx.Err()
 					}
 				}
-
-				continue
 			}
-
-			if next := a.followUpQueue.Drain(); len(next) > 0 {
-				pending = next
-				continue
-			}
-			break
+			return streamMsg, nil
 		}
 
+		lastAssistant, err := runAgentLoop(ctx, a, provider, consume)
+		if err != nil {
+			ch <- AgentStreamEvent{Type: StreamEventError, Error: err.Error()}
+		}
 		ch <- AgentStreamEvent{Type: StreamEventDone, FinalMessage: lastAssistant}
 
 		a.mu.Lock()
 		a.state = StateIdle
 		a.mu.Unlock()
-		a.emit(ctx, EventAgentEnd{Messages: history})
+		a.emit(ctx, EventAgentEnd{})
 	}()
 
 	return ch, nil

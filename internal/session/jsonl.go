@@ -38,6 +38,9 @@ func (s *JSONLStorage) Init() error {
 	return nil
 }
 
+// load 将所有 entry 加载到内存中的 byID map。
+// 注意：长会话的内存占用会线性增长。MVP 阶段可接受，
+// 后续优化可考虑：分页加载、LRU 缓存、或按需加载。
 func (s *JSONLStorage) load() error {
 	file, err := os.Open(s.path)
 	if os.IsNotExist(err) {

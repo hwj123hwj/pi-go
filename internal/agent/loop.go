@@ -10,6 +10,26 @@ import (
 	"github.com/earendil-works/pi-go/internal/compaction"
 )
 
+// consumeStreamFunc 定义如何消费 LLM 事件流。
+// 不同的调用者（RunLoop vs PromptStream）提供不同的实现。
+type consumeStreamFunc func(stream *ai.EventStream) (ai.StreamAssistantMessage, error)
+
+// turnAction 表示一轮处理后的动作。
+type turnAction int
+
+const (
+	actionContinue turnAction = iota // 继续内层循环（有 tool call）
+	actionFollowUp                   // 有 follow-up 消息，继续外层循环
+	actionDone                       // 对话完成
+)
+
+// turnResult 表示一轮处理的结果。
+type turnResult struct {
+	assistant  ai.AssistantMessage
+	action     turnAction
+	followUp   []ai.Message // action == actionFollowUp 时有值
+}
+
 // RunLoop 实现双层 Agent 循环。
 // 外层循环处理 followUp 消息，内层循环处理 tool call + steering 消息。
 func RunLoop(ctx context.Context, a *Agent) (ai.AssistantMessage, error) {
@@ -18,13 +38,37 @@ func RunLoop(ctx context.Context, a *Agent) (ai.AssistantMessage, error) {
 		return ai.AssistantMessage{}, err
 	}
 
-	// 从 steering queue 获取初始用户消息
+	// RunLoop 的 stream consumer：只关注 EventDone 和 EventError
+	consume := func(stream *ai.EventStream) (ai.StreamAssistantMessage, error) {
+		var streamMsg ai.StreamAssistantMessage
+		for event := range stream.Events() {
+			select {
+			case <-ctx.Done():
+				return streamMsg, ctx.Err()
+			default:
+			}
+			switch e := event.(type) {
+			case ai.EventDone:
+				streamMsg = e.Message
+			case ai.EventError:
+				return streamMsg, fmt.Errorf("llm error: %s", e.Error)
+			}
+		}
+		return streamMsg, nil
+	}
+
+	return runAgentLoop(ctx, a, provider, consume)
+}
+
+// runAgentLoop 是共享的 Agent 循环核心逻辑。
+// RunLoop 和 PromptStream 都调用此函数，通过不同的 consume 回调区分行为。
+func runAgentLoop(ctx context.Context, a *Agent, provider interface {
+	Stream(ctx context.Context, req ai.StreamRequest) (*ai.EventStream, error)
+}, consume consumeStreamFunc) (ai.AssistantMessage, error) {
 	pending := a.steeringQueue.Drain()
 	turns := 0
 	var lastAssistant ai.AssistantMessage
 
-	// 完整的消息历史（累积所有轮次）
-	// 每次 LLM 调用都发送完整历史
 	history := make([]ai.Message, 0, 32)
 
 	// 如果有 session storage，从 session 恢复历史
@@ -42,92 +86,106 @@ func RunLoop(ctx context.Context, a *Agent) (ai.AssistantMessage, error) {
 		turns++
 		a.emit(ctx, EventTurnStart{})
 
-		if len(pending) == 0 && len(history) == 0 {
-			pending = []ai.Message{ai.NewTextUserMessage("hello")}
+		result, updatedHistory, err := processTurn(ctx, a, provider, consume, history, pending)
+		if err != nil {
+			return lastAssistant, err
 		}
 
-		// 将 pending 消息追加到历史
-		history = append(history, pending...)
+		history = updatedHistory
+		lastAssistant = result.assistant
 		pending = nil
 
-		// 保存新消息到 session
-		if a.session != nil {
-			for _, msg := range history {
-				_ = a.session.AppendMessage(ctx, msg)
-			}
-		}
-
-		// 检查是否需要 compaction
-		history = a.maybeCompact(ctx, history)
-
-		// 用完整历史调用 LLM
-		stream, err := provider.Stream(ctx, a.llmRequest(history))
-		if err != nil {
-			return lastAssistant, err
-		}
-
-		// 消费事件流，累积 assistant message
-		var streamMsg ai.StreamAssistantMessage
-		for event := range stream.Events() {
-			switch e := event.(type) {
-			case ai.EventDone:
-				streamMsg = e.Message
-			case ai.EventError:
-				return lastAssistant, fmt.Errorf("llm error: %s", e.Error)
-			}
-		}
-
-		message, err := a.handleAssistantMessage(streamMsg)
-		if err != nil {
-			return lastAssistant, err
-		}
-		lastAssistant = message
-
-		// 将 assistant message 追加到历史
-		history = append(history, message)
-
-		// 保存到 session
-		if a.session != nil {
-			_ = a.session.AppendMessage(ctx, message)
-		}
-
-		// 如果 LLM 返回 error/aborted，终止循环
-		if message.StopReason == ai.StopReasonError || message.StopReason == ai.StopReasonAborted {
+		switch result.action {
+		case actionContinue:
+			// 内层循环继续（tool call 后继续）
+		case actionFollowUp:
+			pending = result.followUp
+			// 外层循环继续
+		case actionDone:
 			return lastAssistant, nil
 		}
+	}
+}
 
-		// 执行 tool calls（如果有的话）
-		toolResults, err := executeToolCalls(ctx, a, message.ToolCalls)
-		if err != nil {
-			return lastAssistant, err
-		}
-		a.emit(ctx, EventTurnEnd{Message: message, ToolResults: toolResults})
-
-		// 如果有 tool calls，将 tool results 追加到历史并继续内层循环
-		if message.StopReason == ai.StopReasonToolUse && len(toolResults) > 0 {
-			history = append(history, toolResults...)
-
-			// 保存 tool results 到 session
-			if a.session != nil {
-				for _, tr := range toolResults {
-					_ = a.session.AppendMessage(ctx, tr)
-				}
-			}
-
-			// 继续内层循环
-			continue
-		}
-
-		// 内层循环结束（无 tool call），检查 follow-up
-		if next := a.followUpQueue.Drain(); len(next) > 0 {
-			pending = next
-			continue // 外层循环继续
-		}
-
-		break
+// processTurn 处理一个 Agent 轮次。
+// 返回轮次结果、更新后的历史和可能的错误。
+func processTurn(ctx context.Context, a *Agent, provider interface {
+	Stream(ctx context.Context, req ai.StreamRequest) (*ai.EventStream, error)
+}, consume consumeStreamFunc, history []ai.Message, pending []ai.Message) (turnResult, []ai.Message, error) {
+	if len(pending) == 0 && len(history) == 0 {
+		pending = []ai.Message{ai.NewTextUserMessage("hello")}
 	}
 
-	return lastAssistant, nil
+	// 将 pending 消息追加到历史
+	history = append(history, pending...)
+
+	// 只保存本轮新增的 pending 消息到 session（避免 O(n²)）
+	if a.session != nil {
+		for _, msg := range pending {
+			_ = a.session.AppendMessage(ctx, msg)
+		}
+	}
+
+	// 检查是否需要 compaction
+	history = a.maybeCompact(ctx, history)
+
+	// 用完整历史调用 LLM
+	stream, err := provider.Stream(ctx, a.llmRequest(history))
+	if err != nil {
+		return turnResult{}, history, err
+	}
+
+	// 消费事件流
+	streamMsg, err := consume(stream)
+	if err != nil {
+		return turnResult{}, history, err
+	}
+
+	message, err := a.handleAssistantMessage(streamMsg)
+	if err != nil {
+		return turnResult{}, history, err
+	}
+
+	// 将 assistant message 追加到历史
+	history = append(history, message)
+
+	// 保存到 session
+	if a.session != nil {
+		_ = a.session.AppendMessage(ctx, message)
+	}
+
+	// 如果 LLM 返回 error/aborted，终止循环
+	if message.StopReason == ai.StopReasonError || message.StopReason == ai.StopReasonAborted {
+		return turnResult{assistant: message, action: actionDone}, history, nil
+	}
+
+	// 执行 tool calls（如果有的话）
+	toolResults, err := executeToolCalls(ctx, a, message.ToolCalls)
+	if err != nil {
+		return turnResult{assistant: message}, history, err
+	}
+	a.emit(ctx, EventTurnEnd{Message: message, ToolResults: toolResults})
+
+	// 如果有 tool calls，将 tool results 追加到历史并继续内层循环
+	if message.StopReason == ai.StopReasonToolUse && len(toolResults) > 0 {
+		history = append(history, toolResults...)
+
+		// 保存 tool results 到 session
+		if a.session != nil {
+			for _, tr := range toolResults {
+				_ = a.session.AppendMessage(ctx, tr)
+			}
+		}
+
+		return turnResult{assistant: message, action: actionContinue}, history, nil
+	}
+
+	// 内层循环结束（无 tool call），检查 follow-up
+	if next := a.followUpQueue.Drain(); len(next) > 0 {
+		return turnResult{assistant: message, action: actionFollowUp, followUp: next}, history, nil
+	}
+
+	return turnResult{assistant: message, action: actionDone}, history, nil
 }
 
 // maybeCompact 检查是否需要压缩上下文，如果需要则执行压缩并返回新的历史。
@@ -203,6 +261,15 @@ func executeToolCallsParallel(ctx context.Context, a *Agent, calls []ai.ToolCall
 		wg.Add(1)
 		go func(idx int, call ai.ToolCall) {
 			defer wg.Done()
+			defer func() {
+				if r := recover(); r != nil {
+					results[idx] = ai.ToolResultMessage{
+						ToolCallID: call.ID,
+						Content:    fmt.Sprintf("tool panic: %v", r),
+						IsError:    true,
+					}
+				}
+			}()
 			results[idx] = executeOneTool(ctx, a, call)
 		}(i, call)
 	}
@@ -213,7 +280,18 @@ func executeToolCallsParallel(ctx context.Context, a *Agent, calls []ai.ToolCall
 func executeToolCallsSequential(ctx context.Context, a *Agent, calls []ai.ToolCall) ([]ai.Message, error) {
 	results := make([]ai.Message, len(calls))
 	for i, call := range calls {
-		results[i] = executeOneTool(ctx, a, call)
+		func(idx int, call ai.ToolCall) {
+			defer func() {
+				if r := recover(); r != nil {
+					results[idx] = ai.ToolResultMessage{
+						ToolCallID: call.ID,
+						Content:    fmt.Sprintf("tool panic: %v", r),
+						IsError:    true,
+					}
+				}
+			}()
+			results[idx] = executeOneTool(ctx, a, call)
+		}(i, call)
 	}
 	return results, nil
 }

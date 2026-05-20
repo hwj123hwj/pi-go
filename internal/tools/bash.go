@@ -10,14 +10,23 @@ import (
 	"github.com/earendil-works/pi-go/internal/agent"
 )
 
-type BashTool struct{}
+type BashTool struct {
+	workspace string // 工作目录限制，空字符串表示不限制
+}
 
 type BashParams struct {
 	Command string `json:"command"`
 	Timeout int    `json:"timeout,omitempty"`
 }
 
-func NewBashTool() *BashTool { return &BashTool{} }
+// NewBashTool 创建 BashTool。workspace 限制命令执行的工作目录。
+func NewBashTool(workspace ...string) *BashTool {
+	ws := ""
+	if len(workspace) > 0 {
+		ws = workspace[0]
+	}
+	return &BashTool{workspace: ws}
+}
 
 func (t *BashTool) Name() string        { return "bash" }
 func (t *BashTool) Description() string { return "Execute a shell command on the server." }
@@ -45,6 +54,10 @@ func (t *BashTool) Execute(ctx context.Context, raw json.RawMessage, onUpdate fu
 	cmdCtx, cancel := context.WithTimeout(ctx, time.Duration(params.Timeout)*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(cmdCtx, "sh", "-c", params.Command)
+	// 限制工作目录
+	if t.workspace != "" {
+		cmd.Dir = t.workspace
+	}
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return agent.ToolResult{Content: string(out), IsError: true}, err

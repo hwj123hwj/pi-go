@@ -91,8 +91,10 @@ func buildAgent(cfg config.Config, sessionID string, skillDir string) *agent.Age
 		slog.Info("using mock provider (set PI_GO_PROVIDER=anthropic or openai for real LLM)")
 	}
 
+	cwd, _ := os.Getwd()
+
 	toolList := []agent.Tool{
-		tools.NewBashTool(),
+		tools.NewBashTool(cwd),
 		tools.NewReadTool(),
 		tools.NewWriteTool(),
 		tools.NewEditTool(),
@@ -100,7 +102,6 @@ func buildAgent(cfg config.Config, sessionID string, skillDir string) *agent.Age
 		tools.NewFindTool(),
 		tools.NewLsTool(),
 	}
-	cwd, _ := os.Getwd()
 
 	// 确定实际使用的 model 和 provider name
 	modelID := cfg.AnthropicModel
@@ -117,7 +118,7 @@ func buildAgent(cfg config.Config, sessionID string, skillDir string) *agent.Age
 		ID:            modelID,
 		Name:          modelID,
 		Provider:      providerName,
-		ContextWindow: 128000,
+		ContextWindow: contextWindowForModel(modelID),
 		MaxTokens:     4096,
 	}
 
@@ -257,4 +258,28 @@ func homeDir() string {
 		return home
 	}
 	return ""
+}
+
+// contextWindowForModel 返回模型对应的上下文窗口大小。
+func contextWindowForModel(modelID string) int {
+	windows := map[string]int{
+		// Anthropic
+		"claude-3-5-sonnet":   200000,
+		"claude-3-5-haiku":    200000,
+		"claude-3-opus":       200000,
+		"claude-sonnet-4":     200000,
+		"claude-sonnet-4-5":   200000,
+		// OpenAI
+		"gpt-4o":              128000,
+		"gpt-4o-mini":         128000,
+		"gpt-4-turbo":         128000,
+		"gpt-4":               8192,
+		"o1":                  200000,
+		"o1-mini":             128000,
+		"o3-mini":             200000,
+	}
+	if w, ok := windows[modelID]; ok {
+		return w
+	}
+	return 128000 // 默认值
 }
