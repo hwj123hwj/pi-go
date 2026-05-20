@@ -54,3 +54,19 @@ type EventToolExecutionEnd struct {
 }
 
 func (EventToolExecutionEnd) agentEventMarker() {}
+
+// EventCompacted 上下文压缩完成事件。
+type EventCompacted struct {
+	Summary     string
+	TrimmedFrom int
+	TrimmedTo   int
+}
+
+func (EventCompacted) agentEventMarker() {}
+
+// EventCompactionFailed 上下文压缩失败事件。
+type EventCompactionFailed struct {
+	Error string
+}
+
+func (EventCompactionFailed) agentEventMarker() {}

@@ -37,3 +37,11 @@ type ToolWithMode interface {
 	Tool
 	ExecutionMode() ExecutionMode
 }
+
+// ToolWithPromptInfo 可选接口：工具提供系统提示中的 snippet 和 guidelines。
+// 工具可以实现此接口，让系统提示构建器自动收集这些信息。
+type ToolWithPromptInfo interface {
+	Tool
+	PromptSnippet() string      // 一句话描述工具用途，用于 Available tools 摘要
+	PromptGuidelines() []string // 使用指南条目，追加到 Guidelines 区域
+}

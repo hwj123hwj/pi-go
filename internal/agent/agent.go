@@ -8,6 +8,8 @@ import (
 
 	"github.com/earendil-works/pi-go/internal/ai"
 	"github.com/earendil-works/pi-go/internal/ai/providers"
+	"github.com/earendil-works/pi-go/internal/compaction"
+	"github.com/earendil-works/pi-go/internal/session"
 )
 
 type EventHandler func(ctx context.Context, event AgentEvent)
@@ -22,24 +24,30 @@ const (
 )
 
 type Options struct {
-	Model    ai.Model
-	Registry *providers.Registry
-	System   string
-	Tools    []Tool
-	MaxTurns int
+	Model              ai.Model
+	Registry           *providers.Registry
+	System             string
+	Tools              []Tool
+	MaxTurns           int
+	Session            *session.Session        // 可选：会话持久化
+	CompactionSettings compaction.Settings      // 上下文压缩设置
+	SummarizeFunc      compaction.SummarizeFunc // 可选：摘要生成函数
 }
 
 type Agent struct {
-	mu            sync.RWMutex
-	state         State
-	registry      *providers.Registry
-	model         ai.Model
-	system        string
-	tools         map[string]Tool
-	listeners     []EventHandler
-	steeringQueue *MessageQueue
-	followUpQueue *MessageQueue
-	maxTurns      int
+	mu                 sync.RWMutex
+	state              State
+	registry           *providers.Registry
+	model              ai.Model
+	system             string
+	tools              map[string]Tool
+	listeners          []EventHandler
+	steeringQueue      *MessageQueue
+	followUpQueue      *MessageQueue
+	maxTurns           int
+	session            *session.Session
+	compactionSettings compaction.Settings
+	summarizeFunc      compaction.SummarizeFunc
 }
 
 func New(opts Options) *Agent {
@@ -48,15 +56,18 @@ func New(opts Options) *Agent {
 		tools[tool.Name()] = tool
 	}
 	return &Agent{
-		state:         StateIdle,
-		registry:      opts.Registry,
-		model:         opts.Model,
-		system:        opts.System,
-		tools:         tools,
-		listeners:     make([]EventHandler, 0),
-		steeringQueue: NewMessageQueue(),
-		followUpQueue: NewMessageQueue(),
-		maxTurns:      opts.MaxTurns,
+		state:              StateIdle,
+		registry:           opts.Registry,
+		model:              opts.Model,
+		system:             opts.System,
+		tools:              tools,
+		listeners:          make([]EventHandler, 0),
+		steeringQueue:      NewMessageQueue(),
+		followUpQueue:      NewMessageQueue(),
+		maxTurns:           opts.MaxTurns,
+		session:            opts.Session,
+		compactionSettings: opts.CompactionSettings,
+		summarizeFunc:      opts.SummarizeFunc,
 	}
 }
 
@@ -129,6 +140,10 @@ func (a *Agent) PromptStream(ctx context.Context, msg ai.Message) (<-chan AgentS
 			ch <- AgentStreamEvent{Type: StreamEventToolStart, ToolName: e.ToolName, ToolCallID: e.ToolCallID}
 		case EventToolExecutionEnd:
 			ch <- AgentStreamEvent{Type: StreamEventToolEnd, ToolName: e.ToolName, ToolCallID: e.ToolCallID, ToolResult: e.Result, IsError: e.IsError}
+		case EventCompacted:
+			ch <- AgentStreamEvent{Type: StreamEventCompacted, Summary: e.Summary}
+		case EventCompactionFailed:
+			ch <- AgentStreamEvent{Type: StreamEventError, Error: "compaction failed: " + e.Error}
 		}
 	})
 
@@ -147,7 +162,6 @@ func (a *Agent) PromptStream(ctx context.Context, msg ai.Message) (<-chan AgentS
 		defer close(ch)
 		defer unsubscribe()
 
-		// 同时订阅 LLM stream 事件来获取 token delta
 		provider, pErr := a.provider()
 		if pErr != nil {
 			ch <- AgentStreamEvent{Type: StreamEventError, Error: pErr.Error()}
@@ -163,6 +177,15 @@ func (a *Agent) PromptStream(ctx context.Context, msg ai.Message) (<-chan AgentS
 		pending := a.steeringQueue.Drain()
 		turns := 0
 		history := make([]ai.Message, 0, 32)
+
+		// 从 session 恢复历史
+		if a.session != nil {
+			sessionHistory, err := a.session.BuildContext(ctx)
+			if err == nil && len(sessionHistory) > 0 {
+				history = sessionHistory
+			}
+		}
+
 		var lastAssistant ai.AssistantMessage
 
 		for {
@@ -179,6 +202,16 @@ func (a *Agent) PromptStream(ctx context.Context, msg ai.Message) (<-chan AgentS
 				history = append(history, pending...)
 			}
 			pending = nil
+
+			// 保存到 session
+			if a.session != nil {
+				for _, msg := range history {
+					_ = a.session.AppendMessage(ctx, msg)
+				}
+			}
+
+			// 检查 compaction
+			history = a.maybeCompact(ctx, history)
 
 			// 调用 LLM 并流式转发 token
 			stream, err := provider.Stream(ctx, a.llmRequest(history))
@@ -207,6 +240,11 @@ func (a *Agent) PromptStream(ctx context.Context, msg ai.Message) (<-chan AgentS
 			lastAssistant = message
 			history = append(history, message)
 
+			// 保存 assistant message 到 session
+			if a.session != nil {
+				_ = a.session.AppendMessage(ctx, message)
+			}
+
 			if message.StopReason == ai.StopReasonError || message.StopReason == ai.StopReasonAborted {
 				break
 			}
@@ -221,6 +259,14 @@ func (a *Agent) PromptStream(ctx context.Context, msg ai.Message) (<-chan AgentS
 
 			if message.StopReason == ai.StopReasonToolUse && len(toolResults) > 0 {
 				history = append(history, toolResults...)
+
+				// 保存 tool results 到 session
+				if a.session != nil {
+					for _, tr := range toolResults {
+						_ = a.session.AppendMessage(ctx, tr)
+					}
+				}
+
 				continue
 			}
 
@@ -316,22 +362,24 @@ func (a *Agent) decodeToolArgs(raw string, tool Tool) (json.RawMessage, error) {
 type StreamEventType string
 
 const (
-	StreamEventTextDelta StreamEventType = "text_delta"
-	StreamEventTurnEnd   StreamEventType = "turn_end"
-	StreamEventToolStart StreamEventType = "tool_start"
-	StreamEventToolEnd   StreamEventType = "tool_end"
-	StreamEventDone      StreamEventType = "done"
-	StreamEventError     StreamEventType = "error"
+	StreamEventTextDelta  StreamEventType = "text_delta"
+	StreamEventTurnEnd    StreamEventType = "turn_end"
+	StreamEventToolStart  StreamEventType = "tool_start"
+	StreamEventToolEnd    StreamEventType = "tool_end"
+	StreamEventDone       StreamEventType = "done"
+	StreamEventError      StreamEventType = "error"
+	StreamEventCompacted  StreamEventType = "compacted"
 )
 
 type AgentStreamEvent struct {
-	Type         StreamEventType    `json:"type"`
-	TextDelta    string             `json:"text_delta,omitempty"`
-	Message      ai.Message         `json:"message,omitempty"`
-	ToolName     string             `json:"tool_name,omitempty"`
-	ToolCallID   string             `json:"tool_call_id,omitempty"`
-	ToolResult   any                `json:"tool_result,omitempty"`
-	IsError      bool               `json:"is_error,omitempty"`
+	Type         StreamEventType     `json:"type"`
+	TextDelta    string              `json:"text_delta,omitempty"`
+	Message      ai.Message          `json:"message,omitempty"`
+	ToolName     string              `json:"tool_name,omitempty"`
+	ToolCallID   string              `json:"tool_call_id,omitempty"`
+	ToolResult   any                 `json:"tool_result,omitempty"`
+	IsError      bool                `json:"is_error,omitempty"`
 	FinalMessage ai.AssistantMessage `json:"final_message,omitempty"`
-	Error        string             `json:"error,omitempty"`
+	Error        string              `json:"error,omitempty"`
+	Summary      string              `json:"summary,omitempty"`
 }

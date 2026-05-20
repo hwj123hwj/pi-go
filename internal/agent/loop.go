@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/earendil-works/pi-go/internal/ai"
+	"github.com/earendil-works/pi-go/internal/compaction"
 )
 
 // RunLoop 实现双层 Agent 循环。
@@ -26,6 +27,14 @@ func RunLoop(ctx context.Context, a *Agent) (ai.AssistantMessage, error) {
 	// 每次 LLM 调用都发送完整历史
 	history := make([]ai.Message, 0, 32)
 
+	// 如果有 session storage，从 session 恢复历史
+	if a.session != nil {
+		sessionHistory, err := a.session.BuildContext(ctx)
+		if err == nil && len(sessionHistory) > 0 {
+			history = sessionHistory
+		}
+	}
+
 	for {
 		if a.maxTurns > 0 && turns >= a.maxTurns {
 			return lastAssistant, nil
@@ -40,6 +49,16 @@ func RunLoop(ctx context.Context, a *Agent) (ai.AssistantMessage, error) {
 		// 将 pending 消息追加到历史
 		history = append(history, pending...)
 		pending = nil
+
+		// 保存新消息到 session
+		if a.session != nil {
+			for _, msg := range history {
+				_ = a.session.AppendMessage(ctx, msg)
+			}
+		}
+
+		// 检查是否需要 compaction
+		history = a.maybeCompact(ctx, history)
 
 		// 用完整历史调用 LLM
 		stream, err := provider.Stream(ctx, a.llmRequest(history))
@@ -67,6 +86,11 @@ func RunLoop(ctx context.Context, a *Agent) (ai.AssistantMessage, error) {
 		// 将 assistant message 追加到历史
 		history = append(history, message)
 
+		// 保存到 session
+		if a.session != nil {
+			_ = a.session.AppendMessage(ctx, message)
+		}
+
 		// 如果 LLM 返回 error/aborted，终止循环
 		if message.StopReason == ai.StopReasonError || message.StopReason == ai.StopReasonAborted {
 			return lastAssistant, nil
@@ -82,6 +106,14 @@ func RunLoop(ctx context.Context, a *Agent) (ai.AssistantMessage, error) {
 		// 如果有 tool calls，将 tool results 追加到历史并继续内层循环
 		if message.StopReason == ai.StopReasonToolUse && len(toolResults) > 0 {
 			history = append(history, toolResults...)
+
+			// 保存 tool results 到 session
+			if a.session != nil {
+				for _, tr := range toolResults {
+					_ = a.session.AppendMessage(ctx, tr)
+				}
+			}
+
 			// 继续内层循环
 			continue
 		}
@@ -96,6 +128,50 @@ func RunLoop(ctx context.Context, a *Agent) (ai.AssistantMessage, error) {
 	}
 
 	return lastAssistant, nil
+}
+
+// maybeCompact 检查是否需要压缩上下文，如果需要则执行压缩并返回新的历史。
+func (a *Agent) maybeCompact(ctx context.Context, history []ai.Message) []ai.Message {
+	if !a.compactionSettings.Enabled || a.summarizeFunc == nil {
+		return history
+	}
+
+	// 估算当前 token 数
+	contextTokens := compaction.EstimateTokens(history)
+	contextWindow := a.model.ContextWindow
+	if contextWindow <= 0 {
+		contextWindow = 128000
+	}
+
+	if !compaction.ShouldCompact(contextTokens, contextWindow, a.compactionSettings) {
+		return history
+	}
+
+	// 执行压缩
+	historyPart, recentPart := compaction.SplitMessages(history, a.compactionSettings.KeepRecentTokens)
+	if len(historyPart) == 0 {
+		return history
+	}
+
+	summary, err := compaction.Compact(ctx, historyPart, recentPart, a.summarizeFunc)
+	if err != nil {
+		// 压缩失败，继续使用完整历史
+		a.emit(ctx, EventCompactionFailed{Error: err.Error()})
+		return history
+	}
+
+	a.emit(ctx, EventCompacted{
+		Summary:     summary,
+		TrimmedFrom: len(historyPart),
+		TrimmedTo:   len(recentPart) + 1,
+	})
+
+	// 替换历史：summary + recent
+	newHistory := make([]ai.Message, 0, len(recentPart)+1)
+	newHistory = append(newHistory, ai.NewTextUserMessage("Context summary from previous conversation:\n\n"+summary))
+	newHistory = append(newHistory, recentPart...)
+
+	return newHistory
 }
 
 func executeToolCalls(ctx context.Context, a *Agent, calls []ai.ToolCall) ([]ai.Message, error) {

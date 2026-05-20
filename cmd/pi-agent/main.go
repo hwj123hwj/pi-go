@@ -8,14 +8,18 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/earendil-works/pi-go/internal/agent"
 	"github.com/earendil-works/pi-go/internal/ai"
 	"github.com/earendil-works/pi-go/internal/ai/providers"
+	"github.com/earendil-works/pi-go/internal/compaction"
 	"github.com/earendil-works/pi-go/internal/config"
 	"github.com/earendil-works/pi-go/internal/prompt"
 	"github.com/earendil-works/pi-go/internal/server"
+	"github.com/earendil-works/pi-go/internal/session"
+	"github.com/earendil-works/pi-go/internal/skill"
 	"github.com/earendil-works/pi-go/internal/tools"
 )
 
@@ -30,9 +34,11 @@ func main() {
 	mode := flag.String("mode", "run", "run, chat, or serve")
 	listen := flag.String("listen", fmt.Sprintf("%s:%d", cfg.Host, cfg.Port), "HTTP listen address")
 	input := flag.String("prompt", "hello", "prompt for run mode")
+	sessionFlag := flag.String("session", "", "session ID for chat mode (empty = new session)")
+	skillDir := flag.String("skill-dir", "", "directory containing skills (SKILL.md files)")
 	flag.Parse()
 
-	ag := buildAgent(cfg)
+	ag := buildAgent(cfg, *sessionFlag, *skillDir)
 
 	switch *mode {
 	case "serve":
@@ -59,7 +65,7 @@ func main() {
 	}
 }
 
-func buildAgent(cfg config.Config) *agent.Agent {
+func buildAgent(cfg config.Config, sessionID string, skillDir string) *agent.Agent {
 	registry := providers.NewRegistry()
 
 	// 注册 MockProvider（始终可用）
@@ -85,7 +91,15 @@ func buildAgent(cfg config.Config) *agent.Agent {
 		slog.Info("using mock provider (set PI_GO_PROVIDER=anthropic or openai for real LLM)")
 	}
 
-	toolList := []agent.Tool{tools.NewBashTool(), tools.NewReadTool(), tools.NewWriteTool()}
+	toolList := []agent.Tool{
+		tools.NewBashTool(),
+		tools.NewReadTool(),
+		tools.NewWriteTool(),
+		tools.NewEditTool(),
+		tools.NewGrepTool(),
+		tools.NewFindTool(),
+		tools.NewLsTool(),
+	}
 	cwd, _ := os.Getwd()
 
 	// 确定实际使用的 model 和 provider name
@@ -99,18 +113,90 @@ func buildAgent(cfg config.Config) *agent.Agent {
 		providerName = "mock"
 	}
 
+	model := ai.Model{
+		ID:            modelID,
+		Name:          modelID,
+		Provider:      providerName,
+		ContextWindow: 128000,
+		MaxTokens:     4096,
+	}
+
+	// 会话持久化（可选）
+	var sess *session.Session
+	if sessionID != "" || cfg.SessionFile != "" {
+		sessionPath := cfg.SessionFile
+		if sessionID != "" {
+			sessionPath = fmt.Sprintf("./data/sessions/%s/session.jsonl", sessionID)
+		}
+		storage := session.NewJSONLStorage(sessionPath)
+		if err := storage.Init(); err != nil {
+			slog.Warn("failed to init session storage", "error", err, "path", sessionPath)
+		} else {
+			sess = session.New(storage)
+			slog.Info("session initialized", "path", sessionPath)
+		}
+	}
+
+	// 上下文压缩配置
+	compactionSettings := compaction.DefaultSettings()
+	var summarizeFunc compaction.SummarizeFunc
+	if providerName != "mock" {
+		summarizeFunc = compaction.LLMSummarizer(registry, model)
+	}
+
+	// 加载项目上下文文件（CLAUDE.md 等）
+	contextFiles := prompt.LoadProjectContextFiles(cwd, "")
+	if len(contextFiles) > 0 {
+		for _, cf := range contextFiles {
+			slog.Info("loaded context file", "path", cf.Path, "size", len(cf.Content))
+		}
+	}
+
+	// 加载技能
+	var skills []skill.Skill
+	skillDirs := []string{}
+	if skillDir != "" {
+		skillDirs = append(skillDirs, skillDir)
+	}
+	// 默认也查找 .claude/skills 目录
+	defaultSkillDir := filepath.Join(cwd, ".claude", "skills")
+	if fi, err := os.Stat(defaultSkillDir); err == nil && fi.IsDir() {
+		skillDirs = append(skillDirs, defaultSkillDir)
+	}
+	// 也查找 home 目录下的全局技能
+	homeSkillDir := filepath.Join(homeDir(), ".claude", "skills")
+	if fi, err := os.Stat(homeSkillDir); err == nil && fi.IsDir() {
+		skillDirs = append(skillDirs, homeSkillDir)
+	}
+
+	if len(skillDirs) > 0 {
+		result := skill.LoadFromDirs(skillDirs...)
+		skills = result.Skills
+		for _, s := range skills {
+			slog.Info("loaded skill", "name", s.Name, "path", s.FilePath)
+		}
+		for _, d := range result.Diagnostics {
+			slog.Warn("skill diagnostic", "code", d.Code, "message", d.Message, "path", d.Path)
+		}
+	}
+
+	// 构建系统提示
+	systemPrompt := prompt.BuildSystemPrompt(prompt.Options{
+		CWD:          cwd,
+		Tools:        toolList,
+		ContextFiles: contextFiles,
+		Skills:       skills,
+	})
+
 	return agent.New(agent.Options{
-		Model: ai.Model{
-			ID:            modelID,
-			Name:          modelID,
-			Provider:      providerName,
-			ContextWindow: 128000,
-			MaxTokens:     4096,
-		},
-		Registry: registry,
-		System:   prompt.BuildSystemPrompt(prompt.Options{CWD: cwd, Tools: toolList}),
-		Tools:    toolList,
-		MaxTurns: cfg.MaxTurns,
+		Model:              model,
+		Registry:           registry,
+		System:             systemPrompt,
+		Tools:              toolList,
+		MaxTurns:           cfg.MaxTurns,
+		Session:            sess,
+		CompactionSettings: compactionSettings,
+		SummarizeFunc:      summarizeFunc,
 	})
 }
 
@@ -150,6 +236,8 @@ func runChat(ag *agent.Agent) {
 				fmt.Printf("\n[tool:%s] ", event.ToolName)
 			case agent.StreamEventToolEnd:
 				fmt.Print("✓ ")
+			case agent.StreamEventCompacted:
+				fmt.Printf("\n[compacted: %d chars trimmed] ", len(event.Summary))
 			case agent.StreamEventDone:
 				// 确保换行
 				fmt.Println()
@@ -161,4 +249,12 @@ func runChat(ag *agent.Agent) {
 		cancel()
 		fmt.Println()
 	}
+}
+
+// homeDir 获取用户 home 目录。
+func homeDir() string {
+	if home := os.Getenv("HOME"); home != "" {
+		return home
+	}
+	return ""
 }

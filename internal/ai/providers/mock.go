@@ -100,6 +100,22 @@ func mockToolCall(text string, tools []ai.ToolDefinition) *ai.ToolCall {
 			if strings.Contains(lower, "tool:write") {
 				return &ai.ToolCall{ID: "mock_write_1", Name: "write", Args: `{"path":"tmp/mock.txt","content":"hello from pi-go\n"}`}
 			}
+		case "edit":
+			if strings.Contains(lower, "tool:edit") {
+				return &ai.ToolCall{ID: "mock_edit_1", Name: "edit", Args: `{"path":"tmp/mock.txt","old_string":"hello","new_string":"hello world"}`}
+			}
+		case "grep":
+			if strings.Contains(lower, "tool:grep") {
+				return &ai.ToolCall{ID: "mock_grep_1", Name: "grep", Args: `{"pattern":"TODO","path":"."}`}
+			}
+		case "find":
+			if strings.Contains(lower, "tool:find") {
+				return &ai.ToolCall{ID: "mock_find_1", Name: "find", Args: `{"path":".","pattern":"*.go"}`}
+			}
+		case "ls":
+			if strings.Contains(lower, "tool:ls") {
+				return &ai.ToolCall{ID: "mock_ls_1", Name: "ls", Args: `{"path":"."}`}
+			}
 		}
 	}
 	return nil
