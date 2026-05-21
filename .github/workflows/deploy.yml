@@ -65,7 +65,6 @@ jobs:
             "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/tmp/"
 
       - name: Write env file
-        if: ${{ secrets.PI_GO_ENV != '' }}
         run: |
           printf '%s' "${{ secrets.PI_GO_ENV }}" | \
             ssh -p "${{ secrets.DEPLOY_PORT || '22' }}" "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
