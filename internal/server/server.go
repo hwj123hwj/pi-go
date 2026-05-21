@@ -7,45 +7,51 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/earendil-works/pi-go/internal/agent"
 	"github.com/earendil-works/pi-go/internal/ai"
-	"github.com/earendil-works/pi-go/internal/session"
+	"github.com/earendil-works/pi-go/internal/app"
+	"github.com/earendil-works/pi-go/internal/runtime"
 )
 
+// Server provides HTTP REST + SSE endpoints for the coding agent.
+// It routes requests to AgentSessions via the App's SessionRegistry.
 type Server struct {
-	agent   *agent.Agent
-	dataDir string
+	app *app.App
 }
 
+// ChatRequest is the request body for chat endpoints.
 type ChatRequest struct {
-	Prompt string `json:"prompt"`
+	Prompt    string `json:"prompt"`
+	SessionID string `json:"session_id,omitempty"`
 }
 
+// ChatResponse is the response for non-streaming chat.
 type ChatResponse struct {
 	Text      string        `json:"text"`
 	ToolCalls []ai.ToolCall `json:"tool_calls,omitempty"`
 	SessionID string        `json:"session_id,omitempty"`
 }
 
+// SessionResponse is the response for session metadata.
 type SessionResponse struct {
-	ID        string `json:"id"`
-	CreatedAt int64  `json:"created_at"`
-	MessageCount int  `json:"message_count"`
+	ID           string `json:"id"`
+	CreatedAt    int64  `json:"created_at"`
+	MessageCount int    `json:"message_count"`
 }
 
+// ErrorResponse is the standard error response.
 type ErrorResponse struct {
 	Error string `json:"error"`
 }
 
-func New(ag *agent.Agent) *Server {
-	dataDir := "./data"
-	return &Server{agent: ag, dataDir: dataDir}
+// New creates a new Server backed by the given App.
+func New(application *app.App) *Server {
+	return &Server{app: application}
 }
 
+// Handler returns the HTTP handler with all routes and middleware.
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", s.health)
@@ -63,12 +69,20 @@ func (s *Server) Handler() http.Handler {
 	return handler
 }
 
+// ListenAndServe starts the HTTP server on the given address.
+func (s *Server) ListenAndServe(addr string) error {
+	slog.Info("starting pi-go server", "listen", addr)
+	return http.ListenAndServe(addr, s.Handler())
+}
+
+// ─── GET /health ──────────────────────────────────────────────────────────────
+
 func (s *Server) health(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 }
 
-// ─── POST /chat ──────────────────────────────────────────────────────────────
+// ─── POST /chat ───────────────────────────────────────────────────────────────
 
 func (s *Server) chat(w http.ResponseWriter, r *http.Request) {
 	var req ChatRequest
@@ -84,7 +98,13 @@ func (s *Server) chat(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Minute)
 	defer cancel()
 
-	assistant, err := s.agent.Prompt(ctx, ai.NewTextUserMessage(req.Prompt))
+	sess, err := s.resolveSession(ctx, req.SessionID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	assistant, err := sess.Prompt(ctx, req.Prompt)
 	if err != nil {
 		if errors.Is(err, agent.ErrAgentBusy) {
 			writeError(w, http.StatusConflict, "agent is busy processing another request")
@@ -96,10 +116,14 @@ func (s *Server) chat(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(ChatResponse{Text: assistant.Text, ToolCalls: assistant.ToolCalls})
+	_ = json.NewEncoder(w).Encode(ChatResponse{
+		Text:      assistant.Text,
+		ToolCalls: assistant.ToolCalls,
+		SessionID: sess.SessionID(),
+	})
 }
 
-// ─── POST /chat/stream ──────────────────────────────────────────────────────
+// ─── POST /chat/stream ────────────────────────────────────────────────────────
 
 func (s *Server) chatStream(w http.ResponseWriter, r *http.Request) {
 	var req ChatRequest
@@ -112,7 +136,6 @@ func (s *Server) chatStream(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 设置 SSE headers
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
@@ -121,10 +144,18 @@ func (s *Server) chatStream(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Minute)
 	defer cancel()
 
-	stream, err := s.agent.PromptStream(ctx, ai.NewTextUserMessage(req.Prompt))
+	sess, err := s.resolveSession(ctx, req.SessionID)
+	if err != nil {
+		writeSSE(w, "error", err.Error())
+		return
+	}
+
+	writeSSE(w, "session_id", sess.SessionID())
+
+	stream, err := sess.PromptStream(ctx, req.Prompt)
 	if err != nil {
 		if errors.Is(err, agent.ErrAgentBusy) {
-			writeError(w, http.StatusConflict, "agent is busy processing another request")
+			writeSSE(w, "error", "agent is busy processing another request")
 			return
 		}
 		writeSSE(w, "error", err.Error())
@@ -132,98 +163,66 @@ func (s *Server) chatStream(w http.ResponseWriter, r *http.Request) {
 	}
 
 	flusher, canFlush := w.(http.Flusher)
-
 	for event := range stream {
 		data, err := json.Marshal(event)
 		if err != nil {
 			continue
 		}
-
 		fmt.Fprintf(w, "event: %s\ndata: %s\n\n", event.Type, data)
-
 		if canFlush {
 			flusher.Flush()
 		}
 	}
 }
 
-// ─── GET /sessions ───────────────────────────────────────────────────────────
+// ─── GET /sessions ────────────────────────────────────────────────────────────
 
 func (s *Server) listSessions(w http.ResponseWriter, r *http.Request) {
-	sessionsDir := filepath.Join(s.dataDir, "sessions")
-	entries, err := os.ReadDir(sessionsDir)
+	mgr := s.app.SessionManager()
+	sessions, err := mgr.List(r.Context())
 	if err != nil {
-		if os.IsNotExist(err) {
-			w.Header().Set("Content-Type", "application/json")
-			_ = json.NewEncoder(w).Encode([]SessionResponse{})
-			return
-		}
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
-	}
-
-	var sessions []SessionResponse
-	for _, entry := range entries {
-		if entry.IsDir() {
-			info, err := entry.Info()
-			if err != nil {
-				continue
-			}
-			sessions = append(sessions, SessionResponse{
-				ID:        entry.Name(),
-				CreatedAt: info.ModTime().Unix(),
-			})
-		}
-	}
-
-	if sessions == nil {
-		sessions = []SessionResponse{}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(sessions)
 }
 
-// ─── POST /sessions ──────────────────────────────────────────────────────────
+// ─── POST /sessions ───────────────────────────────────────────────────────────
 
 func (s *Server) createSession(w http.ResponseWriter, r *http.Request) {
-	id := fmt.Sprintf("sess_%d", time.Now().UnixNano())
-	sessionsDir := filepath.Join(s.dataDir, "sessions", id)
-	if err := os.MkdirAll(sessionsDir, 0o755); err != nil {
+	sess, err := s.app.NewSession(r.Context())
+	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(SessionResponse{
-		ID:        id,
+		ID:        sess.SessionID(),
 		CreatedAt: time.Now().Unix(),
 	})
 }
 
-// ─── GET /sessions/{id}/messages ────────────────────────────────────────────
+// ─── GET /sessions/{id}/messages ──────────────────────────────────────────────
 
 func (s *Server) getSessionMessages(w http.ResponseWriter, r *http.Request) {
 	sessionID := r.PathValue("id")
-	sessionDir := filepath.Join(s.dataDir, "sessions", sessionID)
 
-	// 检查 session 目录是否存在
-	if _, err := os.Stat(sessionDir); os.IsNotExist(err) {
+	// Check if session exists in the session manager
+	if !s.app.SessionManager().Exists(sessionID) {
 		writeError(w, http.StatusNotFound, "session not found")
 		return
 	}
 
-	sessionPath := filepath.Join(sessionDir, "session.jsonl")
-
-	storage := session.NewJSONLStorage(sessionPath)
-	if err := storage.Init(); err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+	sess, err := s.app.LoadSession(r.Context(), sessionID)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "session not found")
 		return
 	}
-	defer storage.Close()
 
-	sess := session.New(storage)
-	messages, err := sess.BuildContext(r.Context())
+	messages, err := sess.Session().BuildContext(r.Context())
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -262,30 +261,39 @@ func (s *Server) getSessionMessages(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(result)
 }
 
-// ─── DELETE /sessions/{id} ──────────────────────────────────────────────────
+// ─── DELETE /sessions/{id} ────────────────────────────────────────────────────
 
 func (s *Server) deleteSession(w http.ResponseWriter, r *http.Request) {
 	sessionID := r.PathValue("id")
-	sessionDir := filepath.Join(s.dataDir, "sessions", sessionID)
-	if err := os.RemoveAll(sessionDir); err != nil {
+	mgr := s.app.SessionManager()
+	if err := mgr.Delete(sessionID); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+
+	_ = s.app.SessionStore().Delete(sessionID)
+
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]string{"status": "deleted"})
 }
 
-// ─── GET /tools ──────────────────────────────────────────────────────────────
+// ─── GET /tools ───────────────────────────────────────────────────────────────
 
 func (s *Server) listTools(w http.ResponseWriter, r *http.Request) {
-	// 通过 agent 获取工具定义 - 使用简单的方式
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{
 		"tools": []string{"bash", "read", "write", "edit", "grep", "find", "ls"},
 	})
 }
 
-// ─── helpers ─────────────────────────────────────────────────────────────────
+// ─── session resolution ──────────────────────────────────────────────────────
+
+// resolveSession gets an existing session or creates a new one.
+func (s *Server) resolveSession(ctx context.Context, sessionID string) (*runtime.AgentSession, error) {
+	return s.app.LoadOrCreateSession(ctx, sessionID)
+}
+
+// ─── helpers ──────────────────────────────────────────────────────────────────
 
 func writeError(w http.ResponseWriter, code int, msg string) {
 	w.Header().Set("Content-Type", "application/json")
@@ -311,9 +319,8 @@ func joinTexts(texts []string) string {
 	return result
 }
 
-// ─── 中间件 ───────────────────────────────────────────────────────────────
+// ─── middleware ───────────────────────────────────────────────────────────────
 
-// loggingMiddleware 记录每个 HTTP 请求的方法、路径、状态码和耗时。
 func loggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
@@ -328,7 +335,6 @@ func loggingMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-// recoveryMiddleware 捕获 handler 中的 panic，返回 500 错误。
 func recoveryMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
@@ -341,7 +347,6 @@ func recoveryMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-// corsMiddleware 添加基本的 CORS 响应头。
 func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -355,7 +360,6 @@ func corsMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-// responseWriter 包装 http.ResponseWriter 以捕获状态码。
 type responseWriter struct {
 	http.ResponseWriter
 	statusCode int

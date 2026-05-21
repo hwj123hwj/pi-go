@@ -1,0 +1,172 @@
+package sessionmgr
+
+import (
+	"context"
+	"os"
+	"path/filepath"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+func tempDir(t *testing.T) string {
+	dir := t.TempDir()
+	return dir
+}
+
+func TestManager_Create(t *testing.T) {
+	dir := tempDir(t)
+	mgr := NewManager(dir)
+
+	id, path, err := mgr.Create(context.Background())
+	require.NoError(t, err)
+	assert.NotEmpty(t, id)
+	assert.Contains(t, path, id)
+	assert.FileExists(t, path)
+}
+
+func TestManager_Open(t *testing.T) {
+	dir := tempDir(t)
+	mgr := NewManager(dir)
+
+	id, _, err := mgr.Create(context.Background())
+	require.NoError(t, err)
+
+	sess, path, err := mgr.Open(context.Background(), id)
+	require.NoError(t, err)
+	assert.NotNil(t, sess)
+	assert.Contains(t, path, id)
+}
+
+func TestManager_Open_NotFound(t *testing.T) {
+	dir := tempDir(t)
+	mgr := NewManager(dir)
+
+	_, _, err := mgr.Open(context.Background(), "nonexistent")
+	assert.Error(t, err)
+}
+
+func TestManager_List_Empty(t *testing.T) {
+	dir := tempDir(t)
+	mgr := NewManager(dir)
+
+	sessions, err := mgr.List(context.Background())
+	require.NoError(t, err)
+	assert.Len(t, sessions, 0)
+}
+
+func TestManager_List_WithSessions(t *testing.T) {
+	dir := tempDir(t)
+	mgr := NewManager(dir)
+
+	id1, _, _ := mgr.Create(context.Background())
+	id2, _, _ := mgr.Create(context.Background())
+
+	sessions, err := mgr.List(context.Background())
+	require.NoError(t, err)
+	assert.Len(t, sessions, 2)
+
+	ids := make(map[string]bool)
+	for _, s := range sessions {
+		ids[s.ID] = true
+	}
+	assert.True(t, ids[id1])
+	assert.True(t, ids[id2])
+}
+
+func TestManager_Delete(t *testing.T) {
+	dir := tempDir(t)
+	mgr := NewManager(dir)
+
+	id, _, _ := mgr.Create(context.Background())
+	assert.True(t, mgr.Exists(id))
+
+	err := mgr.Delete(id)
+	require.NoError(t, err)
+	assert.False(t, mgr.Exists(id))
+}
+
+func TestManager_Delete_NotFound(t *testing.T) {
+	dir := tempDir(t)
+	mgr := NewManager(dir)
+
+	// os.RemoveAll on nonexistent path doesn't error, but
+	// our Delete wraps the path inside sessions dir
+	err := mgr.Delete("nonexistent")
+	// This may or may not error depending on os.RemoveAll behavior
+	// The important thing is it doesn't panic
+	_ = err
+}
+
+func TestManager_Exists(t *testing.T) {
+	dir := tempDir(t)
+	mgr := NewManager(dir)
+
+	assert.False(t, mgr.Exists("nonexistent"))
+
+	id, _, _ := mgr.Create(context.Background())
+	assert.True(t, mgr.Exists(id))
+}
+
+func TestManager_Fork(t *testing.T) {
+	dir := tempDir(t)
+	mgr := NewManager(dir)
+
+	sourceID, _, err := mgr.Create(context.Background())
+	require.NoError(t, err)
+
+	newID, newPath, err := mgr.Fork(context.Background(), sourceID, "")
+	require.NoError(t, err)
+	assert.NotEqual(t, sourceID, newID)
+	assert.FileExists(t, newPath)
+}
+
+func TestManager_Fork_NotFound(t *testing.T) {
+	dir := tempDir(t)
+	mgr := NewManager(dir)
+
+	_, _, err := mgr.Fork(context.Background(), "nonexistent", "")
+	assert.Error(t, err)
+}
+
+func TestManager_SessionPath(t *testing.T) {
+	mgr := NewManager("/data")
+	expected := filepath.Join("/data", "sessions", "test123", "session.jsonl")
+	assert.Equal(t, expected, mgr.SessionPath("test123"))
+}
+
+func TestManager_SessionsDir(t *testing.T) {
+	mgr := NewManager("/data")
+	expected := filepath.Join("/data", "sessions")
+	assert.Equal(t, expected, mgr.SessionsDir())
+}
+
+func TestManager_MessageCount(t *testing.T) {
+	dir := tempDir(t)
+	mgr := NewManager(dir)
+	ctx := context.Background()
+
+	id, _, err := mgr.Create(ctx)
+	require.NoError(t, err)
+
+	// Open and add a message
+	sess, _, err := mgr.Open(ctx, id)
+	require.NoError(t, err)
+
+	// Write a message entry manually to the session file
+	sessionPath := mgr.SessionPath(id)
+	f, err := os.OpenFile(sessionPath, os.O_APPEND|os.O_WRONLY, 0o644)
+	require.NoError(t, err)
+	f.WriteString(`{"id":"e1","type":"message","timestamp":1234,"parent_id":""}` + "\n")
+	f.WriteString(`{"id":"e2","type":"leaf","timestamp":1235,"target_id":"e1"}` + "\n")
+	f.Close()
+	sess.Storage().Close()
+
+	// List and check count
+	sessions, err := mgr.List(ctx)
+	require.NoError(t, err)
+	assert.Len(t, sessions, 1)
+	// MessageCount should be 1 (only EntryTypeMessage)
+	assert.Equal(t, 1, sessions[0].MessageCount)
+}

@@ -16,6 +16,11 @@ func New(storage SessionStorage) *Session {
 	return &Session{storage: storage}
 }
 
+// Storage returns the underlying storage backend.
+func (s *Session) Storage() SessionStorage {
+	return s.storage
+}
+
 // InitFromStorage 从 storage 中加载当前 leaf，用于恢复已有会话。
 func (s *Session) InitFromStorage(ctx context.Context) error {
 	leaf, err := s.storage.GetLeaf(ctx)

@@ -33,6 +33,17 @@ type Config struct {
 	Workspace          string
 	EnableBash         bool
 	BashTimeoutSeconds int
+
+	// Tool output
+	MaxOutputLen int
+
+	// Tool filtering
+	AllowedTools []string
+	BlockedTools []string
+
+	// Prompt
+	HistoryFile    string
+	PromptTemplate string
 }
 
 func Default() Config {
@@ -54,6 +65,8 @@ func Default() Config {
 		Workspace:          "/tmp/pi-go-workspace",
 		EnableBash:         false,
 		BashTimeoutSeconds: 30,
+
+		MaxOutputLen: 30000,
 	}
 }
 
@@ -105,6 +118,29 @@ func (c *Config) LoadFromEnv() {
 	}
 	if v := os.Getenv("OPENAI_BASE_URL"); v != "" {
 		c.OpenAIBaseURL = v
+	}
+
+	// Tool output
+	if v := os.Getenv("PI_GO_MAX_OUTPUT_LEN"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			c.MaxOutputLen = n
+		}
+	}
+
+	// Tool filtering
+	if v := os.Getenv("PI_GO_ALLOWED_TOOLS"); v != "" {
+		c.AllowedTools = strings.Split(v, ",")
+	}
+	if v := os.Getenv("PI_GO_BLOCKED_TOOLS"); v != "" {
+		c.BlockedTools = strings.Split(v, ",")
+	}
+
+	// Prompt
+	if v := os.Getenv("PI_GO_HISTORY_FILE"); v != "" {
+		c.HistoryFile = v
+	}
+	if v := os.Getenv("PI_GO_PROMPT_TEMPLATE"); v != "" {
+		c.PromptTemplate = v
 	}
 }
 

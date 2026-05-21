@@ -12,16 +12,25 @@ import (
 	"github.com/earendil-works/pi-go/internal/agent"
 )
 
-// FindTool 在目录中搜索匹配名称模式的文件。
-// 支持递归搜索和 glob 模式匹配。
+// defaultSkipDirs are directories that are always skipped during search.
+var defaultSkipDirs = map[string]bool{
+	".git":         true,
+	"node_modules": true,
+	"vendor":       true,
+	"__pycache__":  true,
+	".svn":         true,
+	".hg":          true,
+}
+
+// FindTool searches for files and directories matching name patterns.
 type FindTool struct{}
 
 type FindParams struct {
 	Path       string `json:"path"`
-	Pattern    string `json:"pattern,omitempty"`    // 文件名 glob 模式（如 "*.go"）
-	MaxDepth   int    `json:"max_depth,omitempty"`  // 最大搜索深度
-	MaxResults int    `json:"max_results,omitempty"` // 最大结果数
-	Type       string `json:"type,omitempty"`       // "file" | "dir" | "" (both)
+	Pattern    string `json:"pattern,omitempty"`
+	MaxDepth   int    `json:"max_depth,omitempty"`
+	MaxResults int    `json:"max_results,omitempty"`
+	Type       string `json:"type,omitempty"` // "file" | "dir" | "" (both)
 }
 
 func NewFindTool() *FindTool { return &FindTool{} }
@@ -29,7 +38,7 @@ func NewFindTool() *FindTool { return &FindTool{} }
 func (t *FindTool) Name() string { return "find" }
 
 func (t *FindTool) Description() string {
-	return "Find files and directories by name pattern. Supports glob patterns and recursive search."
+	return "Find files and directories by name pattern. Supports glob patterns and recursive search. Skips .git, node_modules, vendor, __pycache__ by default."
 }
 
 func (t *FindTool) Parameters() map[string]any {
@@ -92,7 +101,17 @@ func (t *FindTool) Execute(ctx context.Context, raw json.RawMessage, onUpdate fu
 		default:
 		}
 
-		// 深度控制
+		// Skip default directories
+		if d.IsDir() && defaultSkipDirs[d.Name()] {
+			return filepath.SkipDir
+		}
+
+		// Skip hidden directories
+		if d.IsDir() && strings.HasPrefix(d.Name(), ".") {
+			return filepath.SkipDir
+		}
+
+		// Depth control
 		if params.MaxDepth > 0 {
 			currentDepth := strings.Count(path, string(filepath.Separator)) - rootDepth
 			if currentDepth > params.MaxDepth {
@@ -103,12 +122,7 @@ func (t *FindTool) Execute(ctx context.Context, raw json.RawMessage, onUpdate fu
 			}
 		}
 
-		// 跳过隐藏目录
-		if d.IsDir() && strings.HasPrefix(d.Name(), ".") {
-			return filepath.SkipDir
-		}
-
-		// 类型过滤
+		// Type filter
 		if params.Type == "file" && d.IsDir() {
 			return nil
 		}
@@ -116,7 +130,7 @@ func (t *FindTool) Execute(ctx context.Context, raw json.RawMessage, onUpdate fu
 			return nil
 		}
 
-		// 名称模式匹配
+		// Pattern matching
 		if params.Pattern != "" {
 			matched, _ := filepath.Match(params.Pattern, d.Name())
 			if !matched {
