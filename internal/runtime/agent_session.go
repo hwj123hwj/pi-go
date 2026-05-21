@@ -246,16 +246,46 @@ func (s *AgentSession) buildAgent(ctx context.Context, registry *providers.Regis
 func (s *AgentSession) buildToolList(cwd string) []agent.Tool {
 	cfg := s.cfg
 
-	// Get base tools
-	toolList := []agent.Tool{
-		tools.NewBashTool(cwd),
-		tools.NewReadTool(),
-		tools.NewWriteTool(),
-		tools.NewEditTool(),
-		tools.NewGrepTool(),
-		tools.NewFindTool(),
-		tools.NewLsTool(),
+	// Resolve workspace: prefer config, fallback to cwd
+	workspace := cfg.Workspace
+	if workspace == "" {
+		workspace = cwd
 	}
+
+	// Get base tools (all tools receive workspace for path resolution)
+	toolList := []agent.Tool{}
+
+	// Bash tool respects EnableBash config
+	if cfg.EnableBash {
+		toolList = append(toolList, tools.NewBashTool(
+			tools.WithBashWorkspace(workspace),
+			tools.WithBashMaxOutputLen(cfg.MaxOutputLen),
+		))
+	}
+
+	toolList = append(toolList,
+		tools.NewReadTool(
+			tools.WithReadWorkspace(workspace),
+			tools.WithReadMaxOutputLen(cfg.MaxOutputLen),
+		),
+		tools.NewWriteTool(
+			tools.WithWriteWorkspace(workspace),
+		),
+		tools.NewEditTool(
+			tools.WithEditWorkspace(workspace),
+		),
+		tools.NewGrepTool(
+			tools.WithGrepWorkspace(workspace),
+			tools.WithGrepMaxOutputLen(cfg.MaxOutputLen),
+		),
+		tools.NewFindTool(
+			tools.WithFindWorkspace(workspace),
+		),
+		tools.NewLsTool(
+			tools.WithLsWorkspace(workspace),
+			tools.WithLsMaxOutputLen(cfg.MaxOutputLen),
+		),
+	)
 
 	// Add extension tools
 	if s.extRegistry != nil {

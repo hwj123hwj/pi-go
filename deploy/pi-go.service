@@ -1,0 +1,17 @@
+[Unit]
+Description=Pi-Go coding agent service
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=__DEPLOY_PATH__/current
+EnvironmentFile=__DEPLOY_PATH__/shared/.env
+ExecStart=__DEPLOY_PATH__/current/pi-agent -mode serve -listen 127.0.0.1:8080
+Restart=always
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

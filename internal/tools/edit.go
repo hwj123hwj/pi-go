@@ -14,7 +14,9 @@ import (
 // EditTool performs exact string replacements in files.
 // Supports single replacement (old_string must be unique) and replace_all mode.
 // If file doesn't exist and old_string is empty, creates a new file.
-type EditTool struct{}
+type EditTool struct {
+	workspace string // 工作目录，用于解析相对路径
+}
 
 type EditParams struct {
 	Path       string `json:"path"`
@@ -23,7 +25,21 @@ type EditParams struct {
 	ReplaceAll bool   `json:"replace_all,omitempty"`
 }
 
-func NewEditTool() *EditTool { return &EditTool{} }
+// EditToolOption configures an EditTool during construction.
+type EditToolOption func(*EditTool)
+
+// WithEditWorkspace sets the workspace for path resolution.
+func WithEditWorkspace(ws string) EditToolOption {
+	return func(t *EditTool) { t.workspace = ws }
+}
+
+func NewEditTool(opts ...EditToolOption) *EditTool {
+	t := &EditTool{}
+	for _, opt := range opts {
+		opt(t)
+	}
+	return t
+}
 
 func (t *EditTool) Name() string { return "edit" }
 
@@ -61,7 +77,15 @@ func (t *EditTool) Execute(ctx context.Context, raw json.RawMessage, onUpdate fu
 		return agent.ToolResult{IsError: true}, err
 	}
 
-	cleanPath := filepath.Clean(params.Path)
+	cleanPath := ResolvePath(t.workspace, params.Path)
+
+	// Check path safety if workspace is set
+	if t.workspace != "" && !IsPathSafe(t.workspace, cleanPath) {
+		return agent.ToolResult{
+			IsError: true,
+			Content: fmt.Sprintf("path %s is outside workspace %s", params.Path, t.workspace),
+		}, fmt.Errorf("path escapes workspace")
+	}
 
 	// Read existing file
 	data, err := os.ReadFile(cleanPath)

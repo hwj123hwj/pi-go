@@ -5,14 +5,16 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 
 	"github.com/earendil-works/pi-go/internal/agent"
 )
 
-type ReadTool struct{}
+type ReadTool struct {
+	workspace    string // 工作目录，用于解析相对路径
+	maxOutputLen int    // 最大输出长度，0 表示使用 DefaultMaxOutputLen
+}
 
 type ReadParams struct {
 	Path   string `json:"path"`
@@ -20,7 +22,26 @@ type ReadParams struct {
 	Limit  int    `json:"limit,omitempty"`
 }
 
-func NewReadTool() *ReadTool            { return &ReadTool{} }
+// ReadToolOption configures a ReadTool during construction.
+type ReadToolOption func(*ReadTool)
+
+// WithReadWorkspace sets the workspace for path resolution.
+func WithReadWorkspace(ws string) ReadToolOption {
+	return func(t *ReadTool) { t.workspace = ws }
+}
+
+// WithReadMaxOutputLen sets the max output truncation length.
+func WithReadMaxOutputLen(n int) ReadToolOption {
+	return func(t *ReadTool) { t.maxOutputLen = n }
+}
+
+func NewReadTool(opts ...ReadToolOption) *ReadTool {
+	t := &ReadTool{}
+	for _, opt := range opts {
+		opt(t)
+	}
+	return t
+}
 func (t *ReadTool) Name() string        { return "read" }
 func (t *ReadTool) Description() string { return "Read a file from disk." }
 func (t *ReadTool) Parameters() map[string]any {
@@ -53,8 +74,16 @@ func (t *ReadTool) Execute(ctx context.Context, raw json.RawMessage, onUpdate fu
 		return agent.ToolResult{IsError: true}, err
 	}
 
-	// Resolve path
-	cleanPath := filepath.Clean(params.Path)
+	// Resolve path against workspace
+	cleanPath := ResolvePath(t.workspace, params.Path)
+
+	// Check path safety if workspace is set
+	if t.workspace != "" && !IsPathSafe(t.workspace, cleanPath) {
+		return agent.ToolResult{
+			IsError: true,
+			Content: fmt.Sprintf("path %s is outside workspace %s", params.Path, t.workspace),
+		}, fmt.Errorf("path escapes workspace")
+	}
 
 	data, err := os.ReadFile(cleanPath)
 	if err != nil {
@@ -91,7 +120,7 @@ func (t *ReadTool) Execute(ctx context.Context, raw json.RawMessage, onUpdate fu
 	}
 
 	content := b.String()
-	content = TruncateOutput(content, DefaultMaxOutputLen)
+	content = TruncateOutput(content, t.maxOutputLen)
 
 	return agent.ToolResult{Content: content}, nil
 }

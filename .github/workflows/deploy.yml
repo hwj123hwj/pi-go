@@ -1,0 +1,87 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  test-and-deploy:
+    runs-on: ubuntu-latest
+    env:
+      GO_VERSION: "1.22.0"
+      BINARY_NAME: pi-agent
+      SERVICE_NAME: pi-go
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Run tests
+        run: go test ./...
+
+      - name: Build linux binary
+        run: |
+          mkdir -p dist
+          GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o "dist/${BINARY_NAME}" ./cmd/pi-agent
+
+      - name: Package release
+        run: |
+          RELEASE_NAME="release-${GITHUB_SHA}"
+          mkdir -p "dist/${RELEASE_NAME}"
+          cp "dist/${BINARY_NAME}" "dist/${RELEASE_NAME}/${BINARY_NAME}"
+          cp README.md "dist/${RELEASE_NAME}/README.md"
+          tar -C dist -czf "dist/${RELEASE_NAME}.tar.gz" "${RELEASE_NAME}"
+          echo "RELEASE_NAME=${RELEASE_NAME}" >> "$GITHUB_ENV"
+
+      - name: Start ssh-agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
+
+      - name: Add server to known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -p "${{ secrets.DEPLOY_PORT || '22' }}" "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Prepare deployment assets
+        run: |
+          mkdir -p dist/deploy
+          sed "s#__DEPLOY_PATH__#${{ secrets.DEPLOY_PATH }}#g" deploy/pi-go.service > dist/deploy/pi-go.service
+          cp scripts/install_release.sh dist/deploy/install_release.sh
+          chmod +x dist/deploy/install_release.sh
+
+      - name: Upload release bundle
+        run: |
+          scp -P "${{ secrets.DEPLOY_PORT || '22' }}" \
+            "dist/${RELEASE_NAME}.tar.gz" \
+            "dist/deploy/install_release.sh" \
+            "dist/deploy/pi-go.service" \
+            "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/tmp/"
+
+      - name: Write env file
+        if: ${{ secrets.PI_GO_ENV != '' }}
+        run: |
+          printf '%s' "${{ secrets.PI_GO_ENV }}" | \
+            ssh -p "${{ secrets.DEPLOY_PORT || '22' }}" "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+              "mkdir -p '${{ secrets.DEPLOY_PATH }}/shared' && cat > '${{ secrets.DEPLOY_PATH }}/shared/.env'"
+
+      - name: Install release on server
+        run: |
+          ssh -p "${{ secrets.DEPLOY_PORT || '22' }}" "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+            "chmod +x /tmp/install_release.sh && \
+             DEPLOY_PATH='${{ secrets.DEPLOY_PATH }}' \
+             RELEASE_NAME='${RELEASE_NAME}' \
+             SERVICE_NAME='${SERVICE_NAME}' \
+             BINARY_NAME='${BINARY_NAME}' \
+             /tmp/install_release.sh"
+
+      - name: Health check
+        run: |
+          ssh -p "${{ secrets.DEPLOY_PORT || '22' }}" "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+            "curl --fail --silent http://127.0.0.1:8080/health >/dev/null"

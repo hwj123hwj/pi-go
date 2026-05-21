@@ -14,7 +14,10 @@ import (
 )
 
 // LsTool 列出目录内容，显示文件/目录名称、大小和修改时间。
-type LsTool struct{}
+type LsTool struct {
+	workspace    string // 工作目录，用于解析相对路径
+	maxOutputLen int    // 最大输出长度，0 表示使用 DefaultMaxOutputLen
+}
 
 type LsParams struct {
 	Path    string `json:"path"`
@@ -29,7 +32,26 @@ type lsEntry struct {
 	ModTime time.Time `json:"mod_time"`
 }
 
-func NewLsTool() *LsTool { return &LsTool{} }
+// LsToolOption configures an LsTool during construction.
+type LsToolOption func(*LsTool)
+
+// WithLsWorkspace sets the workspace for path resolution.
+func WithLsWorkspace(ws string) LsToolOption {
+	return func(t *LsTool) { t.workspace = ws }
+}
+
+// WithLsMaxOutputLen sets the max output truncation length.
+func WithLsMaxOutputLen(n int) LsToolOption {
+	return func(t *LsTool) { t.maxOutputLen = n }
+}
+
+func NewLsTool(opts ...LsToolOption) *LsTool {
+	t := &LsTool{}
+	for _, opt := range opts {
+		opt(t)
+	}
+	return t
+}
 
 func (t *LsTool) Name() string { return "ls" }
 
@@ -41,9 +63,9 @@ func (t *LsTool) Parameters() map[string]any {
 	return map[string]any{
 		"type": "object",
 		"properties": map[string]any{
-			"path":     map[string]any{"type": "string", "description": "Directory path to list."},
-			"all":      map[string]any{"type": "boolean", "description": "Show hidden files."},
-			"recurse":  map[string]any{"type": "boolean", "description": "Recursively list subdirectories."},
+			"path":    map[string]any{"type": "string", "description": "Directory path to list."},
+			"all":     map[string]any{"type": "boolean", "description": "Show hidden files."},
+			"recurse": map[string]any{"type": "boolean", "description": "Recursively list subdirectories."},
 		},
 		"required": []string{"path"},
 	}
@@ -66,7 +88,15 @@ func (t *LsTool) Execute(ctx context.Context, raw json.RawMessage, onUpdate func
 		return agent.ToolResult{IsError: true}, err
 	}
 
-	dirPath := filepath.Clean(params.Path)
+	dirPath := ResolvePath(t.workspace, params.Path)
+
+	// Check path safety if workspace is set
+	if t.workspace != "" && !IsPathSafe(t.workspace, dirPath) {
+		return agent.ToolResult{
+			IsError: true,
+			Content: fmt.Sprintf("path %s is outside workspace %s", params.Path, t.workspace),
+		}, fmt.Errorf("path escapes workspace")
+	}
 
 	info, err := os.Stat(dirPath)
 	if err != nil {
@@ -89,7 +119,7 @@ func (t *LsTool) Execute(ctx context.Context, raw json.RawMessage, onUpdate func
 		t.listDirectory(dirPath, params, &b)
 	}
 
-	return agent.ToolResult{Content: b.String()}, nil
+	return agent.ToolResult{Content: TruncateOutput(b.String(), t.maxOutputLen)}, nil
 }
 
 func (t *LsTool) listDirectory(dirPath string, params LsParams, b *strings.Builder) {

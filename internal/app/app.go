@@ -18,6 +18,7 @@ import (
 // but does NOT carry session-specific behavior — that belongs to AgentSession.
 type App struct {
 	cfg          config.Config
+	skillDirs    []string
 	sessionMgr   *sessionmgr.Manager
 	registry     *providers.Registry
 	sessionStore *runtime.SessionRegistry
@@ -49,6 +50,7 @@ func New(opts AppOptions) (*App, error) {
 
 	return &App{
 		cfg:          cfg,
+		skillDirs:    opts.SkillDirs,
 		sessionMgr:   mgr,
 		registry:     reg,
 		sessionStore: store,
@@ -61,7 +63,7 @@ func (a *App) NewSession(ctx context.Context) (*runtime.AgentSession, error) {
 	deps := a.deps()
 	opts := runtime.AgentSessionOptions{
 		Config:    a.cfg,
-		SkillDirs: a.skillDirs(),
+		SkillDirs: a.skillDirs,
 	}
 	return a.sessionStore.Create(ctx, opts, deps)
 }
@@ -72,7 +74,7 @@ func (a *App) LoadSession(ctx context.Context, sessionID string) (*runtime.Agent
 	deps := a.deps()
 	opts := runtime.AgentSessionOptions{
 		Config:    a.cfg,
-		SkillDirs: a.skillDirs(),
+		SkillDirs: a.skillDirs,
 	}
 	return a.sessionStore.Load(ctx, sessionID, opts, deps)
 }
@@ -120,10 +122,48 @@ func (a *App) deps() runtime.Dependencies {
 	}
 }
 
-// skillDirs returns the configured skill directories.
-func (a *App) skillDirs() []string {
-	// For now, use default skill dirs (the AgentSession handles the logic)
-	return nil
+// ToolNames returns the names of tools available given the current config and extensions.
+// This accounts for EnableBash, AllowedTools, BlockedTools, and extension tools.
+func (a *App) ToolNames() []string {
+	cfg := a.cfg
+
+	baseNames := []string{"read", "write", "edit", "grep", "find", "ls"}
+	if cfg.EnableBash {
+		baseNames = append([]string{"bash"}, baseNames...)
+	}
+
+	// Extension tools
+	if a.extRegistry != nil {
+		for _, t := range a.extRegistry.Tools() {
+			baseNames = append(baseNames, t.Name())
+		}
+	}
+
+	// Apply filtering
+	if len(cfg.AllowedTools) == 0 && len(cfg.BlockedTools) == 0 {
+		return baseNames
+	}
+
+	allowedSet := make(map[string]bool, len(cfg.AllowedTools))
+	for _, name := range cfg.AllowedTools {
+		allowedSet[name] = true
+	}
+	blockedSet := make(map[string]bool, len(cfg.BlockedTools))
+	for _, name := range cfg.BlockedTools {
+		blockedSet[name] = true
+	}
+
+	var filtered []string
+	for _, name := range baseNames {
+		if len(cfg.AllowedTools) > 0 && !allowedSet[name] {
+			continue
+		}
+		if blockedSet[name] {
+			continue
+		}
+		filtered = append(filtered, name)
+	}
+	return filtered
 }
 
 // registerProviders registers AI providers based on config.

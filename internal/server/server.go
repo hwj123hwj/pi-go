@@ -280,9 +280,10 @@ func (s *Server) deleteSession(w http.ResponseWriter, r *http.Request) {
 // ─── GET /tools ───────────────────────────────────────────────────────────────
 
 func (s *Server) listTools(w http.ResponseWriter, r *http.Request) {
+	toolNames := s.app.ToolNames()
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{
-		"tools": []string{"bash", "read", "write", "edit", "grep", "find", "ls"},
+		"tools": toolNames,
 	})
 }
 

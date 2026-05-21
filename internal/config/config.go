@@ -62,7 +62,7 @@ func Default() Config {
 
 		OpenAIBaseURL: "https://api.openai.com/v1",
 
-		Workspace:          "/tmp/pi-go-workspace",
+		Workspace:          "", // empty = use cwd
 		EnableBash:         false,
 		BashTimeoutSeconds: 30,
 

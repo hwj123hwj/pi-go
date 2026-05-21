@@ -12,7 +12,8 @@ import (
 )
 
 type BashTool struct {
-	workspace string // 工作目录限制，空字符串表示不限制
+	workspace    string // 工作目录限制，空字符串表示不限制
+	maxOutputLen int    // 最大输出长度，0 表示使用 DefaultMaxOutputLen
 }
 
 type BashParams struct {
@@ -20,13 +21,26 @@ type BashParams struct {
 	Timeout int    `json:"timeout,omitempty"`
 }
 
-// NewBashTool creates BashTool. workspace limits command execution directory.
-func NewBashTool(workspace ...string) *BashTool {
-	ws := ""
-	if len(workspace) > 0 {
-		ws = workspace[0]
+// BashToolOption configures a BashTool during construction.
+type BashToolOption func(*BashTool)
+
+// WithBashWorkspace sets the working directory for command execution.
+func WithBashWorkspace(ws string) BashToolOption {
+	return func(t *BashTool) { t.workspace = ws }
+}
+
+// WithBashMaxOutputLen sets the max output truncation length.
+func WithBashMaxOutputLen(n int) BashToolOption {
+	return func(t *BashTool) { t.maxOutputLen = n }
+}
+
+// NewBashTool creates BashTool with optional configuration.
+func NewBashTool(opts ...BashToolOption) *BashTool {
+	t := &BashTool{}
+	for _, opt := range opts {
+		opt(t)
 	}
-	return &BashTool{workspace: ws}
+	return t
 }
 
 func (t *BashTool) Name() string        { return "bash" }
@@ -81,7 +95,7 @@ func (t *BashTool) Execute(ctx context.Context, raw json.RawMessage, onUpdate fu
 	output = stripANSI(output)
 
 	// Truncate output
-	output = TruncateOutput(output, DefaultMaxOutputLen)
+	output = TruncateOutput(output, t.maxOutputLen)
 
 	if err != nil {
 		return agent.ToolResult{Content: output, IsError: true}, err

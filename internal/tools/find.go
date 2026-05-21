@@ -23,7 +23,9 @@ var defaultSkipDirs = map[string]bool{
 }
 
 // FindTool searches for files and directories matching name patterns.
-type FindTool struct{}
+type FindTool struct {
+	workspace string // 工作目录，用于解析相对路径
+}
 
 type FindParams struct {
 	Path       string `json:"path"`
@@ -33,7 +35,21 @@ type FindParams struct {
 	Type       string `json:"type,omitempty"` // "file" | "dir" | "" (both)
 }
 
-func NewFindTool() *FindTool { return &FindTool{} }
+// FindToolOption configures a FindTool during construction.
+type FindToolOption func(*FindTool)
+
+// WithFindWorkspace sets the workspace for path resolution.
+func WithFindWorkspace(ws string) FindToolOption {
+	return func(t *FindTool) { t.workspace = ws }
+}
+
+func NewFindTool(opts ...FindToolOption) *FindTool {
+	t := &FindTool{}
+	for _, opt := range opts {
+		opt(t)
+	}
+	return t
+}
 
 func (t *FindTool) Name() string { return "find" }
 
@@ -78,7 +94,15 @@ func (t *FindTool) Execute(ctx context.Context, raw json.RawMessage, onUpdate fu
 		return agent.ToolResult{IsError: true}, err
 	}
 
-	searchPath := filepath.Clean(params.Path)
+	searchPath := ResolvePath(t.workspace, params.Path)
+
+	// Check path safety if workspace is set
+	if t.workspace != "" && !IsPathSafe(t.workspace, searchPath) {
+		return agent.ToolResult{
+			IsError: true,
+			Content: fmt.Sprintf("path %s is outside workspace %s", params.Path, t.workspace),
+		}, fmt.Errorf("path escapes workspace")
+	}
 
 	info, err := os.Stat(searchPath)
 	if err != nil {

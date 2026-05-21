@@ -16,14 +16,17 @@ import (
 
 // GrepTool 在文件中搜索正则表达式模式。
 // 支持递归目录搜索，返回匹配的文件路径、行号和行内容。
-type GrepTool struct{}
+type GrepTool struct {
+	workspace    string // 工作目录，用于解析相对路径
+	maxOutputLen int    // 最大输出长度，0 表示使用 DefaultMaxOutputLen
+}
 
 type GrepParams struct {
 	Pattern     string `json:"pattern"`
 	Path        string `json:"path"`
-	Include     string `json:"include,omitempty"`     // glob 模式过滤文件名（如 "*.go"）
-	IgnoreCase  bool   `json:"ignore_case,omitempty"` // 忽略大小写
-	MaxResults  int    `json:"max_results,omitempty"` // 最大结果数
+	Include     string `json:"include,omitempty"`      // glob 模式过滤文件名（如 "*.go"）
+	IgnoreCase  bool   `json:"ignore_case,omitempty"`  // 忽略大小写
+	MaxResults  int    `json:"max_results,omitempty"`  // 最大结果数
 	ShowContext int    `json:"show_context,omitempty"` // 显示匹配行上下文行数
 }
 
@@ -33,7 +36,26 @@ type grepMatch struct {
 	Content string `json:"content"`
 }
 
-func NewGrepTool() *GrepTool { return &GrepTool{} }
+// GrepToolOption configures a GrepTool during construction.
+type GrepToolOption func(*GrepTool)
+
+// WithGrepWorkspace sets the workspace for path resolution.
+func WithGrepWorkspace(ws string) GrepToolOption {
+	return func(t *GrepTool) { t.workspace = ws }
+}
+
+// WithGrepMaxOutputLen sets the max output truncation length.
+func WithGrepMaxOutputLen(n int) GrepToolOption {
+	return func(t *GrepTool) { t.maxOutputLen = n }
+}
+
+func NewGrepTool(opts ...GrepToolOption) *GrepTool {
+	t := &GrepTool{}
+	for _, opt := range opts {
+		opt(t)
+	}
+	return t
+}
 
 func (t *GrepTool) Name() string { return "grep" }
 
@@ -96,7 +118,15 @@ func (t *GrepTool) Execute(ctx context.Context, raw json.RawMessage, onUpdate fu
 		return agent.ToolResult{IsError: true}, err
 	}
 
-	searchPath := filepath.Clean(params.Path)
+	searchPath := ResolvePath(t.workspace, params.Path)
+
+	// Check path safety if workspace is set
+	if t.workspace != "" && !IsPathSafe(t.workspace, searchPath) {
+		return agent.ToolResult{
+			IsError: true,
+			Content: fmt.Sprintf("path %s is outside workspace %s", params.Path, t.workspace),
+		}, fmt.Errorf("path escapes workspace")
+	}
 
 	// 判断是文件还是目录
 	info, err := os.Stat(searchPath)
@@ -156,7 +186,7 @@ func (t *GrepTool) Execute(ctx context.Context, raw json.RawMessage, onUpdate fu
 	}
 	b.WriteString(fmt.Sprintf("\n%d matches found.", len(matches)))
 
-	return agent.ToolResult{Content: b.String()}, nil
+	return agent.ToolResult{Content: TruncateOutput(b.String(), t.maxOutputLen)}, nil
 }
 
 func (t *GrepTool) searchDir(ctx context.Context, re *regexp.Regexp, root string, params GrepParams, maxResults int) []grepMatch {
