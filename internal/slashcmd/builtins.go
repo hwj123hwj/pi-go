@@ -86,13 +86,25 @@ func RegisterBuiltins(registry *Registry) {
 
 	registry.Register(Command{
 		Name:        "model",
-		Description: "Show current model info",
+		Description: "Show or switch model (/model [model_name])",
 		Handler: func(ctx Context, args string) (string, error) {
 			if ctx.Session == nil {
 				return "no active session", nil
 			}
 			provider, modelID := ctx.Session.ModelInfo()
-			return fmt.Sprintf("provider: %s, model: %s", provider, modelID), nil
+
+			newModel := strings.TrimSpace(args)
+			if newModel == "" {
+				// 无参数：显示当前模型
+				return fmt.Sprintf("provider: %s, model: %s", provider, modelID), nil
+			}
+
+			// 有参数：切换模型
+			if err := ctx.Session.SwitchModel(ctx.Ctx, newModel); err != nil {
+				return "", fmt.Errorf("switch model: %w", err)
+			}
+			newProvider, newModelID := ctx.Session.ModelInfo()
+			return fmt.Sprintf("switched: %s/%s -> %s/%s", provider, modelID, newProvider, newModelID), nil
 		},
 	})
 }

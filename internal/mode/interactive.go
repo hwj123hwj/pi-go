@@ -52,6 +52,7 @@ func (m *InteractiveMode) Run(ctx context.Context) error {
 		// Handle slash commands
 		if slashcmd.IsSlashCommand(input) {
 			cmdCtx := slashcmd.Context{
+				Ctx:     ctx,
 				Session: m.session,
 				App:     m.app,
 			}

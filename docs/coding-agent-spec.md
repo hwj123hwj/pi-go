@@ -1,7 +1,31 @@
 # Coding Agent 实现规格
 
-> 目标：在现有通用 Agent 框架之上，实现完整的 coding-agent 应用层。
-> 本文档供执行 agent 使用，包含目录结构、文件清单、接口定义和实现要求。
+> 目标：在现有通用 Agent 框架之上，实现完整的 coding-agent 应用层。  
+> 本文档供执行 agent 使用，包含目录结构、核心抽象、接口定义和实现要求。  
+> 重要参考实现：`/Users/weijian/Desktop/develop/test/pi/packages/coding-agent`
+
+## 0. 设计原则
+
+这份规格不是简单给 `pi-go` 补一些命令和工具，而是要让它在架构上逐步对齐参考实现 `packages/coding-agent` 的核心思路。
+
+最重要的设计判断：
+
+1. **核心抽象不是 `App`，而是 `AgentSession` 式运行时**
+   - 参考实现真正的中心在 `src/core/agent-session.ts`
+   - 它统一承接 agent 生命周期、会话、事件、compaction、tree navigation、mode 复用
+   - Go 版也应先建立这一层，再让 `app`、`mode`、`slashcmd`、`server` 围绕它展开
+
+2. **`sessionmgr` 负责“持久化与索引”，不负责“运行时行为”**
+   - `sessionmgr` 应管理 session 文件、header、list、fork、load、delete
+   - 但 prompt、stream、切 branch、compact、切 model、slash command 上下文，都应属于运行时对象
+
+3. **`server` 不能再只持有一个全局 `*agent.Agent`**
+   - HTTP 模式必须支持 `session_id -> runtime` 的路由
+   - 否则 session API 只是“能列目录”，真正聊天仍然共用一个 agent 状态
+
+4. **扩展系统先做“进程内注册 + hook/event 模型”，不要把 `.so` 当第一优先级**
+   - 参考实现的价值不在动态库，而在 runtime/event bus/resource loader 这一套组合能力
+   - MVP 阶段优先保证扩展能注册工具、命令和钩子
 
 ## 1. 当前已有（不改或微调）
 
@@ -9,14 +33,14 @@
 |---|---|---|
 | ai 抽象层 | `internal/ai/` | 多 Provider LLM API，已完成 |
 | agent 运行时 | `internal/agent/` | 循环、Tool 接口、状态机、事件、busy 检测，已完成 |
-| session 管理 | `internal/session/` | JSONL 树状存储、分支、leaf，已完成 |
+| session 存储 | `internal/session/` | JSONL 树状存储、leaf、MoveTo，已完成 |
 | compaction | `internal/compaction/` | 上下文压缩，已完成 |
-| server | `internal/server/` | HTTP REST + SSE，已完成 |
-| config | `internal/config/` | 配置加载，已完成 |
+| server | `internal/server/` | HTTP REST + SSE，已有基础版，需重构 |
+| config | `internal/config/` | 配置加载，需扩展 |
 | skill | `internal/skill/` | SKILL.md 加载，已完成 |
-| prompt | `internal/prompt/` | 系统提示构建，已完成 |
-| tools（基础版） | `internal/tools/` | 7 个工具骨架已存在，需增强 |
-| CLI 入口 | `cmd/pi-agent/main.go` | serve/chat/run 三种模式，需重构 |
+| prompt | `internal/prompt/` | 系统提示构建，需增强 coding 场景 |
+| tools（基础版） | `internal/tools/` | 7 个工具已存在，需增强 |
+| CLI 入口 | `cmd/pi-agent/main.go` | serve/chat/run 三种模式，需大幅变薄 |
 
 ## 2. 目标目录结构
 
@@ -24,126 +48,197 @@
 pi-go/
 ├── cmd/
 │   └── pi-agent/
-│       └── main.go                    # 重构：薄入口，委托给 app
+│       └── main.go                    # 薄入口：解析参数，创建 app，进入 mode
 │
 ├── internal/
-│   ├── ai/                            # [不改] LLM 抽象层
-│   ├── agent/                         # [不改] Agent 运行时
-│   ├── session/                       # [不改] 会话管理
-│   ├── compaction/                    # [不改] 上下文压缩
-│   ├── config/                        # [微调] 增加 coding-agent 配置项
-│   ├── server/                        # [不改] HTTP 接口
-│   ├── prompt/                        # [微调] 增强 coding 场景的系统提示
-│   ├── skill/                         # [不改] 技能加载
+│   ├── ai/                            # [不改]
+│   ├── agent/                         # [不改]
+│   ├── session/                       # [不改] 底层 JSONL storage
+│   ├── compaction/                    # [不改]
+│   ├── config/                        # [微调]
+│   ├── prompt/                        # [微调]
+│   ├── skill/                         # [不改]
 │   │
-│   ├── app/                           # [新建] coding-agent 应用核心
-│   │   ├── app.go                     # Application 主结构：组装 agent、session、tools
+│   ├── app/                           # [新建] 应用装配层（薄）
+│   │   ├── app.go
 │   │   └── app_test.go
 │   │
-│   ├── sessionmgr/                    # [新建] 会话生命周期管理
-│   │   ├── manager.go                 # SessionManager：create/resume/fork/list/delete
+│   ├── runtime/                       # [新建] 核心运行时（最重要）
+│   │   ├── agent_session.go           # AgentSession：统一生命周期、prompt、branch、compact
+│   │   ├── session_registry.go        # session_id -> runtime 的管理与复用
+│   │   └── agent_session_test.go
+│   │
+│   ├── sessionmgr/                    # [新建] 会话持久化与索引
+│   │   ├── manager.go
 │   │   └── manager_test.go
 │   │
 │   ├── tools/                         # [增强] 7 个内置工具
-│   │   ├── bash.go                    # [增强] 输出截断、ANSI 清理、超时改进
-│   │   ├── read.go                    # [增强] 行号格式、相对路径、截图支持
-│   │   ├── write.go                   # [增强] 目录创建提示、diff 预览
-│   │   ├── edit.go                    # [增强] 多处替换（replace_all）、diff 输出
-│   │   ├── grep.go                    # [增强] 上下文行数、二进制文件跳过
-│   │   ├── find.go                    # [增强] gitignore 支持、类型过滤
-│   │   ├── ls.go                      # [增强] 递归列表、详细信息
-│   │   ├── truncate.go                # [新建] 统一的输出截断工具
-│   │   ├── path.go                    # [新建] 路径工具：相对路径解析、安全检查
-│   │   └── tools_test.go              # [更新] 补充增强后的测试
+│   │   ├── bash.go
+│   │   ├── read.go
+│   │   ├── write.go
+│   │   ├── edit.go
+│   │   ├── grep.go
+│   │   ├── find.go
+│   │   ├── ls.go
+│   │   ├── truncate.go
+│   │   ├── path.go
+│   │   └── tools_test.go
 │   │
-│   ├── extensions/                    # [新建] 扩展系统
-│   │   ├── types.go                   # Extension 接口定义
-│   │   ├── loader.go                  # 扩展发现和加载
-│   │   └── runner.go                  # 扩展执行：工具/命令/钩子
+│   ├── extensions/                    # [新建] 扩展注册与事件钩子
+│   │   ├── types.go
+│   │   ├── registry.go
+│   │   ├── hooks.go
+│   │   └── extensions_test.go
 │   │
 │   ├── slashcmd/                      # [新建] 斜杠命令
-│   │   ├── registry.go                # 命令注册表
-│   │   └── builtins.go                # 内置命令：/help, /clear, /compact, /branch
+│   │   ├── registry.go
+│   │   ├── context.go                 # 命令上下文，绑定 runtime/app 能力
+│   │   └── builtins.go
 │   │
 │   ├── mode/                          # [新建] 交互模式
-│   │   ├── interactive.go             # 交互式 TUI 模式（改进现有 chat 模式）
-│   │   ├── print.go                   # 单次执行 + 输出模式（改进现有 run 模式）
-│   │   └── serve.go                   # HTTP 服务模式（改进现有 serve 模式）
+│   │   ├── interactive.go
+│   │   ├── print.go
+│   │   └── serve.go
 │   │
 │   └── util/                          # [新建] 通用工具
-│       ├── git.go                     # Git 操作辅助
-│       └── shell.go                   # Shell 环境检测
+│       ├── git.go
+│       └── shell.go
 │
 └── docs/
-    └── archive/                       # 已有
+    └── archive/
 ```
 
-## 3. 各模块详细规格
+## 3. 核心抽象与职责边界
 
-### 3.1 `internal/app/app.go` — 应用核心
+### 3.1 `internal/runtime/agent_session.go` — 核心运行时
 
-**职责**：组装 coding-agent 的所有组件，提供统一的启动入口。把当前 `main.go` 中 `buildAgent()` 的逻辑搬到此处。
+**职责**：这是 Go 版 coding-agent 的中心抽象，对齐参考实现的 `AgentSession` 思路。  
+它统一承接：
+
+- 底层 `agent.Agent`
+- 当前 session
+- prompt / prompt stream
+- branch/tree navigation
+- compaction
+- model / thinking level 之类的运行时设置
+- 斜杠命令所需的操作上下文
+- mode 间复用
+
+```go
+package runtime
+
+type AgentSession struct {
+    agent          *agent.Agent
+    session        *session.Session
+    sessionID      string
+    sessionMgr     *sessionmgr.Manager
+    cfg            config.Config
+    slashCtx       *slashcmd.Context
+    extRegistry    *extensions.Registry
+}
+
+type AgentSessionOptions struct {
+    SessionID   string
+    Config      config.Config
+    SkillDirs   []string
+}
+
+func NewAgentSession(opts AgentSessionOptions, deps Dependencies) (*AgentSession, error)
+func (s *AgentSession) Prompt(ctx context.Context, input string) (ai.AssistantMessage, error)
+func (s *AgentSession) PromptStream(ctx context.Context, input string) (<-chan agent.AgentStreamEvent, error)
+func (s *AgentSession) SessionID() string
+func (s *AgentSession) Session() *session.Session
+func (s *AgentSession) Agent() *agent.Agent
+func (s *AgentSession) Compact(ctx context.Context, reason string) error
+func (s *AgentSession) MoveTo(ctx context.Context, entryID string, summary string) error
+func (s *AgentSession) Close() error
+```
+
+**实现要求**：
+- 这里承接当前 `main.go` 里的 `buildAgent()` 主逻辑
+- `interactive`、`print`、`serve` 三种 mode 都只能依赖这个对象，不直接拼装 `agent.Agent`
+- slash command 的处理上下文也从这里拿，不在 mode 里各自实现
+- 如果后面要支持模型切换、branch summary、tree view，这一层必须能承接
+
+### 3.2 `internal/runtime/session_registry.go` — 会话运行时注册表
+
+**职责**：解决 HTTP 模式和多 session 模式下，`session_id -> runtime` 的路由问题。
+
+```go
+package runtime
+
+type SessionRegistry struct {
+    mu       sync.Mutex
+    sessions map[string]*AgentSession
+}
+
+func NewSessionRegistry() *SessionRegistry
+func (r *SessionRegistry) Get(id string) (*AgentSession, bool)
+func (r *SessionRegistry) Create(ctx context.Context, opts AgentSessionOptions, deps Dependencies) (*AgentSession, error)
+func (r *SessionRegistry) Load(ctx context.Context, id string, opts AgentSessionOptions, deps Dependencies) (*AgentSession, error)
+func (r *SessionRegistry) Delete(id string) error
+```
+
+**实现要求**：
+- `serve` 模式不能继续只持有一个全局 `*agent.Agent`
+- 每个会话应对应自己的 `AgentSession`
+- REST/SSE 请求必须明确绑定 session
+- 如果请求没带 session id，可由服务端创建并返回
+
+## 4. 应用层与会话层
+
+### 4.1 `internal/app/app.go` — 薄装配层
+
+**职责**：组装依赖，不承载具体会话行为。
 
 ```go
 package app
 
 type App struct {
-    agent       *agent.Agent
-    sessionMgr  *sessionmgr.Manager
-    config      config.Config
-    registry    *providers.Registry
+    cfg          config.Config
+    sessionMgr   *sessionmgr.Manager
+    registry     *providers.Registry
+    sessionStore *runtime.SessionRegistry
 }
 
 type AppOptions struct {
-    Config     config.Config
-    SessionID  string   // 空=新会话，非空=恢复会话
-    SkillDirs  []string
+    Config    config.Config
+    SkillDirs []string
 }
 
-// New 创建并初始化 coding-agent 应用
 func New(opts AppOptions) (*App, error)
-
-// Agent 返回底层 agent 实例
-func (a *App) Agent() *agent.Agent
-
-// Close 清理资源
+func (a *App) NewSession(ctx context.Context, sessionID string) (*runtime.AgentSession, error)
+func (a *App) LoadSession(ctx context.Context, sessionID string) (*runtime.AgentSession, error)
+func (a *App) SessionManager() *sessionmgr.Manager
 func (a *App) Close() error
 ```
 
 **实现要求**：
-- 将 `main.go` 的 `buildAgent()` 逻辑搬到 `New()` 中
-- 集成 `sessionmgr.Manager`，统一管理会话生命周期
-- 加载工具时使用增强后的工具（传入 workspace、config 等参数）
-- 构建 coding 场景的 system prompt
+- `App` 负责 provider、sessionmgr、runtime registry、技能目录等依赖装配
+- 但不再自己暴露一个唯一 `agent.Agent`
+- `main.go` 和 `serve.go` 以后都通过 `App` 创建/加载 `AgentSession`
 
-### 3.2 `internal/sessionmgr/manager.go` — 会话管理器
+### 4.2 `internal/sessionmgr/manager.go` — 会话持久化与索引
 
-**职责**：管理会话的创建、恢复、分支、列表、删除。当前 server.go 里的 `listSessions`/`createSession` 等逻辑应提取到此处。
+**职责**：管理 session 文件、header、fork、list、delete。  
+这里是存储与索引层，不是 prompt/runtime 层。
 
 ```go
 package sessionmgr
 
 type Manager struct {
-    dataDir string  // 会话数据根目录，如 "./data/sessions"
+    dataDir string
 }
 
 func NewManager(dataDir string) *Manager
-
-// Create 创建一个新会话，返回 session ID
-func (m *Manager) Create(ctx context.Context) (string, error)
-
-// Load 加载一个已有会话，返回 *session.Session
-func (m *Manager) Load(ctx context.Context, id string) (*session.Session, error)
-
-// Fork 从指定会话的某个 entry 分叉出新会话
-func (m *Manager) Fork(ctx context.Context, sourceID string, entryID string) (string, error)
-
-// List 列出所有会话的摘要信息
+func (m *Manager) Create(ctx context.Context) (string, string, error) // id, sessionFile
+func (m *Manager) Open(ctx context.Context, id string) (*session.Session, string, error)
+func (m *Manager) Fork(ctx context.Context, sourceID string, entryID string) (string, string, error)
 func (m *Manager) List(ctx context.Context) ([]SessionInfo, error)
-
-// Delete 删除指定会话
 func (m *Manager) Delete(id string) error
+```
 
+```go
 type SessionInfo struct {
     ID           string
     CreatedAt    int64
@@ -153,138 +248,96 @@ type SessionInfo struct {
 ```
 
 **实现要求**：
-- 会话存储在 `{dataDir}/{sessionID}/session.jsonl`
-- ID 格式：`sess_{unix_nano}`
-- `Fork` 需要复制源会话的 JSONL 文件，然后在新会话上调用 `MoveTo(entryID, "")` 创建分支点
-- `List` 扫描目录，读取每个 session.jsonl 的行数作为 MessageCount
+- 会话路径：`{dataDir}/sessions/{sessionID}/session.jsonl`
+- `Create` 不仅创建目录，也要初始化 storage
+- `MessageCount` 必须按 `EntryTypeMessage` 计数，不能简单按 JSONL 行数
+- `Fork` 基于现有 session 文件复制，再用 `MoveTo(entryID, "")` 切到分支点
+- 后续如果加入 header / version，也由这层负责初始化
 
-### 3.3 `internal/tools/` — 工具增强
+## 5. 工具增强
 
-#### 3.3.1 `truncate.go` — 统一输出截断
+### 5.1 `truncate.go`
 
 ```go
 package tools
 
-// MaxOutputLen 工具输出的最大长度（字符数）
-const MaxOutputLen = 30000
-
-// TruncateOutput 截断过长输出，保留头部和尾部，中间插入省略标记
+const DefaultMaxOutputLen = 30000
 func TruncateOutput(output string, maxLen int) string
 ```
 
 **实现要求**：
-- 默认最大 30000 字符（参考 TS 原版）
-- 截断时保留前 80% 和后 20%，中间插入 `\n... [truncated N characters] ...\n`
-- 所有工具的 `Execute` 返回前都应调用此函数
+- 默认最大 30000 字符
+- 保留前 80% 和后 20%
+- 中间插入 `\n... [truncated N characters] ...\n`
+- 所有工具最终输出前都调用
 
-#### 3.3.2 `path.go` — 路径工具
+### 5.2 `path.go`
 
 ```go
 package tools
 
-// ResolvePath 将相对路径解析为绝对路径（基于 workspace）
 func ResolvePath(workspace, path string) string
-
-// IsPathSafe 检查路径是否在 workspace 内（防止路径穿越）
 func IsPathSafe(workspace, path string) bool
 ```
 
 **实现要求**：
-- `ResolvePath`：如果 path 不是绝对路径，则拼接 workspace
-- `IsPathSafe`：用 `filepath.Rel` 检查解析后的路径不会跳出 workspace
-- 所有文件操作工具都应使用这两个函数
+- 所有文件工具都走这层，不要各写一套 `filepath.Clean`
+- `workspace` 为空时可退化为当前行为
+- 一旦启用 workspace，读写编辑必须做路径越界检查
 
-#### 3.3.3 各工具增强点
+### 5.3 各工具增强点
 
-**bash.go 增强**：
-- `Execute` 返回前截断输出
-- 清理 ANSI 转义码（写一个 `StripANSI(s string) string`）
-- 二进制输出检测：如果输出包含 `\x00`，返回 `[binary output, N bytes]` 而不是原始内容
+**bash.go**：
+- 截断输出
+- ANSI 清理
+- 二进制输出检测
+- 支持 workspace
 
-**read.go 增强**：
-- 输出格式改为带行号：`     1\t第一行内容`（参考 `cat -n` 格式，行号右对齐 6 位）
-- 支持相对路径（通过 workspace 参数）
-- 超大文件提示：如果文件行数超过 limit，末尾追加 `... (N more lines, use offset to continue reading)`
+**read.go**：
+- 输出带行号
+- 支持相对路径解析
+- 超大文件提示剩余行数
 
-**write.go 增强**：
-- 写入前检查目标路径是否在 workspace 内
-- 返回写入的行数和字节数
+**write.go**：
+- 写入前检查路径安全
+- 返回字节数与行数
 
-**edit.go 增强**：
-- 支持 `replace_all` 参数（bool），为 true 时不检查唯一性，替换所有匹配
-- 返回替换的次数
-- 输出前后各 3 行的 diff 上下文
+**edit.go**：
+- `replace_all`
+- 返回替换次数
+- 输出 diff 上下文
 
-**grep.go 增强**：
-- `-i` 忽略大小写参数
-- 二进制文件自动跳过
-- 匹配行高亮（在输出中用 `>>` 标记匹配行）
+**grep.go**：
+- 忽略大小写
+- 二进制文件跳过
+- 匹配行标记
 
-**find.go 增强**：
-- 支持 `type` 参数过滤：`f`（文件）/ `d`（目录）
-- 支持 `pattern` 参数用 filepath.Match 匹配文件名
-- 默认跳过 `.git`、`node_modules`、`vendor`、`__pycache__` 目录
+**find.go**：
+- `type=f/d`
+- `pattern` 匹配
+- 默认跳过 `.git`、`node_modules`、`vendor`、`__pycache__`
 
-**ls.go 增强**：
-- 支持 `-l` 详细信息模式：显示大小、修改时间、权限
-- 支持 `-R` 递归模式
+**ls.go**：
+- `-l`
+- `-R`
 
-### 3.4 `internal/extensions/` — 扩展系统
+## 6. 斜杠命令
+
+### 6.1 `internal/slashcmd/context.go`
+
+参考实现里 slash command 不只是字符串命令表，而是运行时控制入口。  
+Go 版也要先把命令上下文抽出来：
 
 ```go
-package extensions
+package slashcmd
 
-// Extension 扩展接口
-type Extension interface {
-    Name() string
-    Init(ctx InitContext) error
-    Tools() []agent.Tool          // 扩展提供的工具
-    Commands() []Command          // 扩展提供的斜杠命令
-    Hooks() []Hook                // 事件钩子
+type Context struct {
+    Session      *runtime.AgentSession
+    App          *app.App
 }
-
-type InitContext struct {
-    Workspace string
-    Config    map[string]any
-    Agent     *agent.Agent
-}
-
-type Command struct {
-    Name        string
-    Description string
-    Handler     func(ctx context.Context, args string) error
-}
-
-type Hook struct {
-    Event   string  // "agent:start", "turn:end", "tool:after" 等
-    Handler func(ctx context.Context, data any) error
-}
-
-// Manager 扩展管理器
-type Manager struct {
-    extensions []Extension
-}
-
-func NewManager() *Manager
-
-// LoadFromDir 从目录加载所有扩展
-func (m *Manager) LoadFromDir(dir string) error
-
-// AllTools 返回所有扩展提供的工具
-func (m *Manager) AllTools() []agent.Tool
-
-// AllCommands 返回所有扩展提供的命令
-func (m *Manager) AllCommands() []Command
-
-// EmitHook 触发指定事件的所有钩子
-func (m *Manager) EmitHook(ctx context.Context, event string, data any) error
 ```
 
-**实现要求**：
-- MVP 阶段：支持从目录加载 Go plugin（`.so` 文件），或先实现为硬编码注册
-- 如果 Go plugin 太复杂，可以先实现为一个简单的注册表，后续再支持动态加载
-
-### 3.5 `internal/slashcmd/` — 斜杠命令
+### 6.2 `internal/slashcmd/registry.go`
 
 ```go
 package slashcmd
@@ -296,142 +349,156 @@ type Registry struct {
 type Command struct {
     Name        string
     Description string
-    Handler     func(ctx context.Context, args string) (string, error)
+    Handler     func(ctx context.Context, cmdCtx *Context, args string) (string, error)
 }
 
 func NewRegistry() *Registry
-
-// Register 注册一个命令
 func (r *Registry) Register(cmd Command)
-
-// Execute 执行命令，返回输出文本
-func (r *Registry) Execute(ctx context.Context, input string) (string, error)
-
-// Help 返回所有命令的帮助文本
+func (r *Registry) Execute(ctx context.Context, cmdCtx *Context, input string) (string, error)
 func (r *Registry) Help() string
-
-// IsSlashCommand 检查输入是否是斜杠命令（以 / 开头）
 func IsSlashCommand(input string) bool
 ```
 
-**内置命令**（在 `builtins.go` 中注册）：
+### 6.3 内置命令
+
+MVP 阶段优先支持：
 
 | 命令 | 功能 |
 |---|---|
-| `/help` | 列出所有可用命令 |
-| `/clear` | 清空当前会话历史 |
-| `/compact` | 手动触发上下文压缩 |
-| `/branch <entry_id>` | 从指定 entry 创建分支 |
-| `/sessions` | 列出所有会话 |
-| `/model` | 显示当前使用的模型信息 |
-| `/tools` | 列出可用工具及说明 |
+| `/help` | 列出所有命令 |
+| `/compact` | 手动触发 compact |
+| `/sessions` | 列出会话 |
+| `/session` | 显示当前会话信息 |
+| `/branch <entry_id>` | 切到指定 entry |
+| `/new` | 创建新会话 |
+| `/tools` | 显示当前工具 |
+| `/model` | 显示当前模型信息（后续可扩展切换） |
 
-### 3.6 `internal/mode/` — 交互模式
+**实现要求**：
+- 命令逻辑尽量调用 `AgentSession` / `App`，不要直接操作底层文件
+- 后续若要扩成 `/tree`、`/fork`、`/clone`，也应该自然落在这层
 
-#### 3.6.1 `interactive.go` — 交互式模式
+## 7. 扩展系统
 
-**职责**：改进现有的 `runChat()` 函数，增加斜杠命令支持、更友好的输出格式。
+### 7.1 目标
+
+这里要对齐参考实现的思想，但不直接照搬 TypeScript 扩展运行时。
+
+MVP 重点不是 `.so` 动态加载，而是：
+- 能注册额外工具
+- 能注册 slash command
+- 能监听运行时事件
+
+### 7.2 `internal/extensions/types.go`
 
 ```go
-package mode
+package extensions
 
-type InteractiveMode struct {
-    app        *app.App
-    slashCmds  *slashcmd.Registry
+type Extension interface {
+    Name() string
+    Init(ctx InitContext) error
+    Tools() []agent.Tool
+    Commands() []slashcmd.Command
+    Hooks() []Hook
 }
 
-func NewInteractiveMode(app *app.App, cmds *slashcmd.Registry) *InteractiveMode
+type InitContext struct {
+    Workspace string
+    Config    map[string]any
+}
 
-// Run 启动交互式会话循环
-func (m *InteractiveMode) Run(ctx context.Context) error
+type Hook struct {
+    Event   string
+    Handler func(ctx context.Context, data any) error
+}
+```
+
+### 7.3 `internal/extensions/registry.go`
+
+```go
+package extensions
+
+type Registry struct {
+    extensions []Extension
+}
+
+func NewRegistry() *Registry
+func (r *Registry) Register(ext Extension)
+func (r *Registry) Tools() []agent.Tool
+func (r *Registry) Commands() []slashcmd.Command
+func (r *Registry) EmitHook(ctx context.Context, event string, data any) error
 ```
 
 **实现要求**：
-- 从 stdin 读取输入
-- 如果输入以 `/` 开头，交给 slash command registry 处理
-- 否则作为用户消息发给 agent
-- 流式输出（复用 agent.PromptStream）
-- 显示格式改进：
-  - `You>` 提示符
-  - `Pi>` 前缀 + 流式文本
-  - `[tool:bash]` 工具执行指示器
-  - `[done]` 完成标记
+- MVP 先用进程内注册表
+- 不强求 `.so`
+- 后续要做动态扩展时，再在注册表外层包 loader
 
-#### 3.6.2 `print.go` — 单次执行模式
+## 8. 模式层
+
+### 8.1 `interactive.go`
+
+**职责**：对话 UI 层，不承载会话业务。
 
 ```go
-package mode
-
-type PrintMode struct {
-    app *app.App
+type InteractiveMode struct {
+    session   *runtime.AgentSession
+    slashCmds *slashcmd.Registry
 }
 
-func NewPrintMode(app *app.App) *PrintMode
+func NewInteractiveMode(session *runtime.AgentSession, cmds *slashcmd.Registry) *InteractiveMode
+func (m *InteractiveMode) Run(ctx context.Context) error
+```
 
-// Run 执行单次 prompt，输出结果到 stdout
+**要求**：
+- 输入 `/` 命令时走 slash registry
+- 普通输入走 `AgentSession.PromptStream`
+- 只负责 stdin/stdout 呈现
+
+### 8.2 `print.go`
+
+```go
+type PrintMode struct {
+    session *runtime.AgentSession
+}
+
+func NewPrintMode(session *runtime.AgentSession) *PrintMode
 func (m *PrintMode) Run(ctx context.Context, prompt string) error
 ```
 
-#### 3.6.3 `serve.go` — HTTP 服务模式
+### 8.3 `serve.go`
 
 ```go
-package mode
-
 type ServeMode struct {
     app *app.App
 }
 
 func NewServeMode(app *app.App) *ServeMode
-
-// Run 启动 HTTP 服务器
 func (m *ServeMode) Run(ctx context.Context, listenAddr string) error
 ```
 
-**实现要求**：
-- 复用 `internal/server/` 的 Handler
-- 将 sessionmgr 的 API 也暴露出去（会话列表、创建、删除）
+**关键要求**：
+- HTTP 请求必须能指定或创建 `session_id`
+- `chat` / `chat/stream` 不再直接绑定一个全局 agent
+- `internal/server/` 如果保留，也应改成依赖 `App + SessionRegistry`
 
-### 3.7 `internal/util/` — 通用工具
+## 9. CLI 入口
 
-#### 3.7.1 `git.go`
+### 9.1 `cmd/pi-agent/main.go`
 
-```go
-package util
-
-// CurrentBranch 返回当前 git 分支名
-func CurrentBranch(dir string) string
-
-// IsGitRepo 检查目录是否是 git 仓库
-func IsGitRepo(dir string) bool
-
-// DiffStats 返回当前未提交变更的统计
-func DiffStats(dir string) (staged, unstaged int, err error)
-```
-
-#### 3.7.2 `shell.go`
-
-```go
-package util
-
-// DetectShell 返回当前用户的默认 shell
-func DetectShell() string
-
-// IsCommandAvailable 检查命令是否可用
-func IsCommandAvailable(name string) bool
-```
-
-### 3.8 `cmd/pi-agent/main.go` — 重构 CLI 入口
-
-**重构后结构**：
+目标：尽可能变薄。
 
 ```go
 func main() {
-    cfg := config.Load()           // 加载配置
-    opts := parseFlags()           // 解析命令行参数
+    cfg := config.Default()
+    _ = config.LoadDotEnv(".env")
+    _ = config.LoadDotEnv(".env.local")
+    cfg.LoadFromEnv()
+
+    opts := parseFlags()
 
     application, err := app.New(app.AppOptions{
         Config:    cfg,
-        SessionID: opts.SessionID,
         SkillDirs: opts.SkillDirs,
     })
     if err != nil {
@@ -441,71 +508,113 @@ func main() {
 
     switch opts.Mode {
     case "interactive", "chat":
-        mode.NewInteractiveMode(application, slashCmds).Run(ctx)
+        sess, err := application.LoadOrCreateSession(context.Background(), opts.SessionID)
+        must(err)
+        cmds := buildSlashRegistry(application, sess)
+        must(mode.NewInteractiveMode(sess, cmds).Run(context.Background()))
     case "run":
-        mode.NewPrintMode(application).Run(ctx, opts.Prompt)
+        sess, err := application.LoadOrCreateSession(context.Background(), opts.SessionID)
+        must(err)
+        must(mode.NewPrintMode(sess).Run(context.Background(), opts.Prompt))
     case "serve":
-        mode.NewServeMode(application).Run(ctx, opts.Listen)
+        must(mode.NewServeMode(application).Run(context.Background(), opts.Listen))
     }
 }
 ```
 
-### 3.9 `internal/config/config.go` 微调
+## 10. 配置扩展
 
-需要增加的配置项：
+`internal/config/config.go` 可增加以下字段：
 
 ```go
 type Config struct {
-    // ... 现有字段 ...
-
-    // 新增
-    MaxOutputLen    int      // 工具输出截断长度，默认 30000
-    AllowedTools    []string // 工具白名单，空=全部允许
-    BlockedTools    []string // 工具黑名单
-    HistoryFile     string   // 交互模式的历史记录文件路径
-    PromptTemplate  string   // 自定义 prompt 模板文件路径
+    // ... existing ...
+    MaxOutputLen   int
+    AllowedTools   []string
+    BlockedTools   []string
+    HistoryFile    string
+    PromptTemplate string
 }
 ```
 
-## 4. 实现优先级
+**要求**：
+- `MaxOutputLen` 真正传入工具层
+- `AllowedTools/BlockedTools` 在 `AgentSession` 构建工具集时生效
+- `PromptTemplate` 在系统提示生成前生效
 
-### Phase 1：核心骨架（必做）
+## 11. 实现优先级
 
-1. `internal/tools/truncate.go` — 输出截断
-2. `internal/tools/path.go` — 路径解析
-3. 增强 7 个现有工具（加入截断、路径安全检查等）
-4. `internal/sessionmgr/manager.go` — 会话管理器
-5. `internal/app/app.go` — 应用核心（组装）
-6. 重构 `cmd/pi-agent/main.go`
+### Phase 1：运行时骨架（必做）
 
-### Phase 2：交互增强（建议做）
+1. `internal/runtime/agent_session.go`
+2. `internal/runtime/session_registry.go`
+3. `internal/sessionmgr/manager.go`
+4. `internal/app/app.go`
+5. `cmd/pi-agent/main.go` 变薄
 
-7. `internal/slashcmd/` — 斜杠命令系统
-8. `internal/mode/interactive.go` — 改进交互模式
-9. `internal/mode/print.go` — 单次执行模式
-10. `internal/mode/serve.go` — HTTP 服务模式
+### Phase 2：工具与命令（建议做）
 
-### Phase 3：扩展能力（可选）
+6. `tools/truncate.go`
+7. `tools/path.go`
+8. 7 个内置工具增强
+9. `slashcmd/context.go`
+10. `slashcmd/registry.go`
+11. `slashcmd/builtins.go`
 
-11. `internal/extensions/` — 扩展系统
-12. `internal/util/` — Git/Shell 工具
+### Phase 3：交互模式与 HTTP 路由
 
-## 5. 测试要求
+12. `mode/interactive.go`
+13. `mode/print.go`
+14. `mode/serve.go`
+15. `internal/server/` 改成按 session 路由 runtime
 
-每个新建包都必须有 `*_test.go`：
+### Phase 4：扩展能力（可选）
 
-- `app/app_test.go`：测试 App 初始化、工具注册、session 集成
-- `sessionmgr/manager_test.go`：测试 Create/Load/Fork/List/Delete
-- `tools/truncate_test.go`：测试截断边界（刚好不超过、超过、空字符串）
-- `tools/path_test.go`：测试相对路径解析、路径穿越检测
-- `slashcmd/registry_test.go`：测试注册和执行
+16. `extensions/registry.go`
+17. `extensions/hooks.go`
+18. `util/git.go`
+19. `util/shell.go`
 
-所有测试通过标准：`go test ./...` 零失败。
+## 12. 测试要求
 
-## 6. 约束
+每个新建包都必须带 `*_test.go`，但测试重点要围绕真实主线：
 
-- **不改** `internal/agent/`、`internal/ai/`、`internal/session/`、`internal/compaction/` 的现有接口
-- **不改** `internal/server/` 的现有路由（可新增路由）
+- `runtime/agent_session_test.go`
+  - prompt / stream 是否能驱动 session 持久化
+  - branch / move 是否正确影响上下文
+
+- `runtime/session_registry_test.go`
+  - `session_id -> runtime` 路由是否正确
+
+- `sessionmgr/manager_test.go`
+  - Create / Open / Fork / List / Delete
+  - `MessageCount` 必须按 message entry 计算
+
+- `tools/*_test.go`
+  - 路径安全
+  - 输出截断
+  - 大文件 / 大输出边界
+
+- `slashcmd/registry_test.go`
+  - 注册、执行、上下文绑定
+
+最终标准：
+
+```bash
+go test ./...
+```
+
+零失败。
+
+## 13. 约束
+
+- **不改** `internal/agent/`、`internal/ai/`、`internal/session/`、`internal/compaction/` 的现有核心接口，除非确实被运行时抽象阻塞
+- **优先围绕 `AgentSession` 式运行时设计，不要把逻辑散进 mode/app/server**
+- **不把 `.so` 动态加载当 MVP 阶段目标**
 - 所有工具必须满足 `agent.Tool` 接口
 - 错误使用 `%w` 包装
-- 不引入新的外部依赖（纯标准库实现）
+- 尽量不引入新的外部依赖
+
+## 14. 给执行 Agent 的一句话目标
+
+`先把 Go 版 coding-agent 的核心抽象收敛成一个可复用的 AgentSession 运行时，再围绕它补 session 管理、工具增强、slash command 和 serve 路由，而不是继续把逻辑堆在 main.go 和 mode 里。`

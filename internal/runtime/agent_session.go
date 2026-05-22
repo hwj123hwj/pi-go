@@ -47,6 +47,8 @@ type AgentSession struct {
 	cfg         config.Config
 	extRegistry *extensions.Registry
 	sessionPath string
+	deps        Dependencies
+	skillDirs   []string
 }
 
 // NewAgentSession creates a new AgentSession.
@@ -57,6 +59,8 @@ func NewAgentSession(ctx context.Context, opts AgentSessionOptions, deps Depende
 		cfg:         opts.Config,
 		sessionMgr:  deps.SessionMgr,
 		extRegistry: deps.ExtRegistry,
+		deps:        deps,
+		skillDirs:   opts.SkillDirs,
 	}
 
 	var err error
@@ -130,11 +134,42 @@ func (s *AgentSession) ModelInfo() (string, string) {
 	if providerName == "openai" {
 		modelID = s.cfg.OpenAIModel
 	}
+	if providerName == "deepv" {
+		modelID = s.cfg.DeepVModel
+	}
 	if providerName == "mock" || modelID == "" {
 		modelID = "mock"
 		providerName = "mock"
 	}
 	return providerName, modelID
+}
+
+// SwitchModel changes the model at runtime and rebuilds the agent.
+// The model change takes effect for subsequent prompts.
+func (s *AgentSession) SwitchModel(ctx context.Context, modelID string) error {
+	providerName := s.cfg.Provider
+	switch providerName {
+	case "openai":
+		s.cfg.OpenAIModel = modelID
+	case "deepv":
+		s.cfg.DeepVModel = modelID
+	case "anthropic":
+		s.cfg.AnthropicModel = modelID
+	default:
+		s.cfg.Provider = "deepv"
+		s.cfg.DeepVModel = modelID
+		providerName = "deepv"
+	}
+
+	// Rebuild agent with new model
+	ag, err := s.buildAgent(ctx, s.deps.Registry, s.skillDirs)
+	if err != nil {
+		return fmt.Errorf("rebuild agent with model %q: %w", modelID, err)
+	}
+	s.agent = ag
+
+	slog.Info("switched model", "provider", providerName, "model", modelID)
+	return nil
 }
 
 // Compact manually triggers context compaction.
@@ -175,6 +210,9 @@ func (s *AgentSession) buildAgent(ctx context.Context, registry *providers.Regis
 	providerName := cfg.Provider
 	if providerName == "openai" {
 		modelID = cfg.OpenAIModel
+	}
+	if providerName == "deepv" {
+		modelID = cfg.DeepVModel
 	}
 	if providerName == "mock" || modelID == "" {
 		modelID = "mock"
@@ -343,6 +381,9 @@ func contextWindowForModel(modelID string) int {
 		"o1":                  200000,
 		"o1-mini":             128000,
 		"o3-mini":             200000,
+		"claude-sonnet-4-6":   200000,
+		"glm-5":               128000,
+		"deepseek-v4-flash":   128000,
 	}
 	if w, ok := windows[modelID]; ok {
 		return w

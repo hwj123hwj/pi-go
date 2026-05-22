@@ -186,8 +186,19 @@ func registerProviders(registry *providers.Registry, cfg config.Config) {
 		} else {
 			slog.Warn("openai provider selected but OPENAI_API_KEY is empty, falling back to mock")
 		}
+	case "deepv":
+		if cfg.DeepVEnabled {
+			workDir := cfg.DeepVWorkDir
+			if workDir == "" {
+				workDir, _ = os.Getwd()
+			}
+			registry.Register(providers.NewDeepVProvider(cfg.DeepVServerURL, workDir))
+			slog.Info("registered deepv provider", "model", cfg.DeepVModel, "server", cfg.DeepVServerURL)
+		} else {
+			slog.Warn("deepv provider selected but DEEPV_ENABLED is not true, falling back to mock")
+		}
 	default:
-		slog.Info("using mock provider (set PI_GO_PROVIDER=anthropic or openai for real LLM)")
+		slog.Info("using mock provider (set PI_GO_PROVIDER=anthropic, openai, or deepv for real LLM)")
 	}
 }
 
