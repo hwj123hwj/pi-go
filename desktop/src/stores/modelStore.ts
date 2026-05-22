@@ -14,7 +14,7 @@ interface ModelState {
   loading: boolean;
 
   loadModels: () => Promise<void>;
-  switchModel: (sessionId: string, modelId: string) => Promise<void>;
+  switchModel: (sessionId: string, modelId: string, provider?: string) => Promise<void>;
   setCurrentModel: (provider: string, model: string) => void;
 }
 
@@ -43,8 +43,8 @@ export const useModelStore = create<ModelState>((set) => ({
     }
   },
 
-  switchModel: async (sessionId: string, modelId: string) => {
-    const result = await api.switchModel(sessionId, modelId);
+  switchModel: async (sessionId: string, modelId: string, provider?: string) => {
+    const result = await api.switchModel(sessionId, modelId, provider);
     set({ currentModel: { provider: result.provider, model: result.model } });
   },
 

@@ -71,8 +71,18 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     return result.id;
   },
 
-  switchSession: (id: string) => {
+  switchSession: async (id: string) => {
     set({ currentSessionId: id });
+    // Sync model state from backend for this session
+    try {
+      const info = await api.getSessionInfo(id);
+      if (info.provider || info.model) {
+        const { useModelStore } = await import('./modelStore');
+        useModelStore.getState().setCurrentModel(info.provider || '', info.model || '');
+      }
+    } catch {
+      // Session info fetch failed — keep current model state
+    }
   },
 
   deleteSession: async (id: string) => {

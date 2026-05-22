@@ -22,10 +22,11 @@ var upgrader = websocket.Upgrader{
 
 // wsClientMessage represents a message from the client to the server.
 type wsClientMessage struct {
-	Type      string `json:"type"`       // "prompt", "cancel", "switch_model", "ping"
-	SessionID string `json:"session_id"` // Target session
+	Type      string `json:"type"`                  // "prompt", "cancel", "switch_model", "ping"
+	SessionID string `json:"session_id"`            // Target session
 	Prompt    string `json:"prompt,omitempty"`
 	Model     string `json:"model,omitempty"`
+	Provider  string `json:"provider,omitempty"`     // For switch_model: optional provider change
 }
 
 // wsServerMessage represents a message from the server to the client.
@@ -247,7 +248,7 @@ func (s *Server) handleWSSwitchModel(ws *wsConn, msg wsClientMessage) {
 		return
 	}
 
-	if err := sess.SwitchModel(ctx, msg.Model); err != nil {
+	if err := sess.SwitchModel(ctx, msg.Model, msg.Provider); err != nil {
 		_ = ws.writeJSON(wsServerMessage{
 			Type:      "error",
 			SessionID: sess.SessionID(),

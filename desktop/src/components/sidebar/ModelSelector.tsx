@@ -11,8 +11,10 @@ export function ModelSelector() {
 
   const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const modelId = e.target.value;
+    // Find the selected model to get its provider
+    const selectedModel = models.find((m: Model) => m.id === modelId);
     if (currentSessionId) {
-      switchModel(currentSessionId, modelId);
+      switchModel(currentSessionId, modelId, selectedModel?.provider);
     }
   };
 

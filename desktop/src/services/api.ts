@@ -76,8 +76,8 @@ export function listModels(): Promise<ModelsResponse> {
   return request('GET', '/models');
 }
 
-export function switchModel(sessionId: string, model: string): Promise<{ provider: string; model: string }> {
-  return request('POST', `/sessions/${sessionId}/model`, { model });
+export function switchModel(sessionId: string, model: string, provider?: string): Promise<{ provider: string; model: string }> {
+  return request('POST', `/sessions/${sessionId}/model`, { model, provider });
 }
 
 // Tools

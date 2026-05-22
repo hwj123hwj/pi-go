@@ -100,7 +100,7 @@ func RegisterBuiltins(registry *Registry) {
 			}
 
 			// 有参数：切换模型
-			if err := ctx.Session.SwitchModel(ctx.Ctx, newModel); err != nil {
+			if err := ctx.Session.SwitchModel(ctx.Ctx, newModel, ""); err != nil {
 				return "", fmt.Errorf("switch model: %w", err)
 			}
 			newProvider, newModelID := ctx.Session.ModelInfo()

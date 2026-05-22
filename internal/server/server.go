@@ -376,7 +376,8 @@ func (s *Server) getSessionInfo(w http.ResponseWriter, r *http.Request) {
 
 // SwitchModelRequest is the request body for switching a session's model.
 type SwitchModelRequest struct {
-	Model string `json:"model"`
+	Model    string `json:"model"`
+	Provider string `json:"provider,omitempty"` // Optional: change provider along with model
 }
 
 func (s *Server) switchModel(w http.ResponseWriter, r *http.Request) {
@@ -398,7 +399,7 @@ func (s *Server) switchModel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := sess.SwitchModel(r.Context(), req.Model); err != nil {
+	if err := sess.SwitchModel(r.Context(), req.Model, req.Provider); err != nil {
 		writeError(w, http.StatusInternalServerError, "switch model failed: "+err.Error())
 		return
 	}
