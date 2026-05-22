@@ -1,7 +1,8 @@
 // main.ts — Electron main process for pi-go desktop client.
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain, shell } from 'electron';
 import * as path from 'path';
 import { PiGoManager } from './pi-go-manager';
+import { checkForUpdate } from './update-checker';
 
 let mainWindow: BrowserWindow | null = null;
 const piGoManager = new PiGoManager();
@@ -52,6 +53,15 @@ ipcMain.handle('start-server', async () => {
   } catch (err: any) {
     return { error: err.message };
   }
+});
+
+// Update IPC handlers
+ipcMain.handle('check-for-update', async () => {
+  return await checkForUpdate();
+});
+
+ipcMain.handle('open-download-page', async (_event, url: string) => {
+  await shell.openExternal(url);
 });
 
 // App lifecycle

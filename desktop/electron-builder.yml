@@ -2,6 +2,12 @@ appId: com.earendil-works.pi-go-desktop
 productName: Pi-Go
 copyright: Copyright © 2024 Earendil Works
 
+# Publish to GitHub Releases (for future electron-updater support)
+publish:
+  provider: github
+  owner: hwj123hwj
+  repo: pi-go
+
 directories:
   output: release
   buildResources: build

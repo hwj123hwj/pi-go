@@ -15,6 +15,12 @@ declare global {
     piAPI?: {
       getServerUrl: () => Promise<string | null>;
       startServer: () => Promise<{ url: string; port: number } | { error: string }>;
+      checkForUpdate: () => Promise<{
+        version: string;
+        downloadUrl: string;
+        releaseNotes: string;
+      } | null>;
+      openDownloadPage: (url: string) => Promise<void>;
     };
   }
 }
