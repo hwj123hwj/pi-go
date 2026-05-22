@@ -13,6 +13,7 @@ import (
 	"github.com/earendil-works/pi-go/internal/compaction"
 	"github.com/earendil-works/pi-go/internal/config"
 	"github.com/earendil-works/pi-go/internal/extensions"
+	"github.com/earendil-works/pi-go/internal/operations"
 	"github.com/earendil-works/pi-go/internal/prompt"
 	"github.com/earendil-works/pi-go/internal/session"
 	"github.com/earendil-works/pi-go/internal/sessionmgr"
@@ -292,9 +293,19 @@ func (s *AgentSession) buildToolList(cwd string) []agent.Tool {
 	cfg := s.cfg
 
 	// Resolve workspace: prefer config, fallback to cwd
+	// For SSH mode, workspace must be the remote working directory
 	workspace := cfg.Workspace
 	if workspace == "" {
 		workspace = cwd
+	}
+
+	// Build operations backend based on execution mode
+	ops := s.buildOperations(workspace)
+
+	// In SSH mode, override workspace with remote working directory
+	// so tools resolve paths against the remote filesystem
+	if cfg.ExecutionMode == "ssh" && cfg.SSHWorkDir != "" {
+		workspace = cfg.SSHWorkDir
 	}
 
 	// Get base tools (all tools receive workspace for path resolution)
@@ -305,6 +316,7 @@ func (s *AgentSession) buildToolList(cwd string) []agent.Tool {
 		toolList = append(toolList, tools.NewBashTool(
 			tools.WithBashWorkspace(workspace),
 			tools.WithBashMaxOutputLen(cfg.MaxOutputLen),
+			tools.WithBashOperations(ops.Bash),
 		))
 	}
 
@@ -312,23 +324,29 @@ func (s *AgentSession) buildToolList(cwd string) []agent.Tool {
 		tools.NewReadTool(
 			tools.WithReadWorkspace(workspace),
 			tools.WithReadMaxOutputLen(cfg.MaxOutputLen),
+			tools.WithReadOperations(ops.Files),
 		),
 		tools.NewWriteTool(
 			tools.WithWriteWorkspace(workspace),
+			tools.WithWriteOperations(ops.Files),
 		),
 		tools.NewEditTool(
 			tools.WithEditWorkspace(workspace),
+			tools.WithEditOperations(ops.Files),
 		),
 		tools.NewGrepTool(
 			tools.WithGrepWorkspace(workspace),
 			tools.WithGrepMaxOutputLen(cfg.MaxOutputLen),
+			tools.WithGrepOperations(ops.Files),
 		),
 		tools.NewFindTool(
 			tools.WithFindWorkspace(workspace),
+			tools.WithFindOperations(ops.Files),
 		),
 		tools.NewLsTool(
 			tools.WithLsWorkspace(workspace),
 			tools.WithLsMaxOutputLen(cfg.MaxOutputLen),
+			tools.WithLsOperations(ops.Files),
 		),
 	)
 
@@ -342,6 +360,20 @@ func (s *AgentSession) buildToolList(cwd string) []agent.Tool {
 	toolList = filterTools(toolList, cfg.AllowedTools, cfg.BlockedTools)
 
 	return toolList
+}
+
+// buildOperations creates the Operations container based on config.ExecutionMode.
+func (s *AgentSession) buildOperations(workspace string) *operations.Operations {
+	switch s.cfg.ExecutionMode {
+	case "ssh":
+		return operations.NewSSHOperations(operations.SSHConfig{
+			Host:    s.cfg.SSHHost,
+			Port:    s.cfg.SSHPort,
+			WorkDir: s.cfg.SSHWorkDir,
+		})
+	default:
+		return operations.NewLocalOperations()
+	}
 }
 
 // filterTools applies allowed/blocked tool filters from config.

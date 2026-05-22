@@ -4,19 +4,19 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/earendil-works/pi-go/internal/agent"
+	"github.com/earendil-works/pi-go/internal/operations"
 )
 
 // LsTool 列出目录内容，显示文件/目录名称、大小和修改时间。
 type LsTool struct {
 	workspace    string // 工作目录，用于解析相对路径
 	maxOutputLen int    // 最大输出长度，0 表示使用 DefaultMaxOutputLen
+	ops          operations.FileOperations
 }
 
 type LsParams struct {
@@ -45,10 +45,18 @@ func WithLsMaxOutputLen(n int) LsToolOption {
 	return func(t *LsTool) { t.maxOutputLen = n }
 }
 
+// WithLsOperations sets the FileOperations backend.
+func WithLsOperations(ops operations.FileOperations) LsToolOption {
+	return func(t *LsTool) { t.ops = ops }
+}
+
 func NewLsTool(opts ...LsToolOption) *LsTool {
 	t := &LsTool{}
 	for _, opt := range opts {
 		opt(t)
+	}
+	if t.ops == nil {
+		t.ops = operations.LocalFileOperations{}
 	}
 	return t
 }
@@ -98,11 +106,11 @@ func (t *LsTool) Execute(ctx context.Context, raw json.RawMessage, onUpdate func
 		}, fmt.Errorf("path escapes workspace")
 	}
 
-	info, err := os.Stat(dirPath)
+	info, err := t.ops.Stat(ctx, dirPath)
 	if err != nil {
 		return agent.ToolResult{IsError: true}, err
 	}
-	if !info.IsDir() {
+	if !info.IsDir {
 		// 如果是文件，返回文件信息
 		return agent.ToolResult{
 			Content: formatFileEntry(dirPath, info),
@@ -116,14 +124,14 @@ func (t *LsTool) Execute(ctx context.Context, raw json.RawMessage, onUpdate func
 	if params.Recurse {
 		t.listRecursive(ctx, dirPath, params, &b, "")
 	} else {
-		t.listDirectory(dirPath, params, &b)
+		t.listDirectory(ctx, dirPath, params, &b)
 	}
 
 	return agent.ToolResult{Content: TruncateOutput(b.String(), t.maxOutputLen)}, nil
 }
 
-func (t *LsTool) listDirectory(dirPath string, params LsParams, b *strings.Builder) {
-	entries, err := os.ReadDir(dirPath)
+func (t *LsTool) listDirectory(ctx context.Context, dirPath string, params LsParams, b *strings.Builder) {
+	entries, err := t.ops.ReadDir(ctx, dirPath)
 	if err != nil {
 		b.WriteString(fmt.Sprintf("  error: %s\n", err))
 		return
@@ -132,19 +140,15 @@ func (t *LsTool) listDirectory(dirPath string, params LsParams, b *strings.Build
 	// 收集并排序
 	var fileEntries []lsEntry
 	for _, e := range entries {
-		name := e.Name()
+		name := e.Name
 		if !params.All && strings.HasPrefix(name, ".") {
-			continue
-		}
-		info, err := e.Info()
-		if err != nil {
 			continue
 		}
 		fileEntries = append(fileEntries, lsEntry{
 			Name:    name,
-			IsDir:   e.IsDir(),
-			Size:    info.Size(),
-			ModTime: info.ModTime(),
+			IsDir:   e.IsDir,
+			Size:    e.Size,
+			ModTime: e.ModTime,
 		})
 	}
 
@@ -167,7 +171,7 @@ func (t *LsTool) listDirectory(dirPath string, params LsParams, b *strings.Build
 }
 
 func (t *LsTool) listRecursive(ctx context.Context, dirPath string, params LsParams, b *strings.Builder, prefix string) {
-	entries, err := os.ReadDir(dirPath)
+	entries, err := t.ops.ReadDir(ctx, dirPath)
 	if err != nil {
 		b.WriteString(fmt.Sprintf("%s  error: %s\n", prefix, err))
 		return
@@ -175,19 +179,15 @@ func (t *LsTool) listRecursive(ctx context.Context, dirPath string, params LsPar
 
 	var fileEntries []lsEntry
 	for _, e := range entries {
-		name := e.Name()
+		name := e.Name
 		if !params.All && strings.HasPrefix(name, ".") {
-			continue
-		}
-		info, err := e.Info()
-		if err != nil {
 			continue
 		}
 		fileEntries = append(fileEntries, lsEntry{
 			Name:    name,
-			IsDir:   e.IsDir(),
-			Size:    info.Size(),
-			ModTime: info.ModTime(),
+			IsDir:   e.IsDir,
+			Size:    e.Size,
+			ModTime: e.ModTime,
 		})
 	}
 
@@ -199,10 +199,14 @@ func (t *LsTool) listRecursive(ctx context.Context, dirPath string, params LsPar
 	})
 
 	for _, e := range fileEntries {
-		fullPath := filepath.Join(dirPath, e.Name)
-		displayPath := filepath.Join(prefix, e.Name)
+		displayPath := prefix + "/" + e.Name
+		if prefix == "" {
+			displayPath = e.Name
+		}
 		if e.IsDir {
 			b.WriteString(fmt.Sprintf("  %s/  (%s)\n", displayPath, e.ModTime.Format("2006-01-02 15:04")))
+			// Build full path for recursion
+			fullPath := dirPath + "/" + e.Name
 			t.listRecursive(ctx, fullPath, params, b, displayPath)
 		} else {
 			b.WriteString(fmt.Sprintf("  %s  %s  (%s)\n", displayPath, formatSize(e.Size), e.ModTime.Format("2006-01-02 15:04")))
@@ -228,9 +232,9 @@ func formatSize(size int64) string {
 	}
 }
 
-func formatFileEntry(path string, info os.FileInfo) string {
-	if info.IsDir() {
-		return fmt.Sprintf("%s/  (directory, %s)", path, info.ModTime().Format("2006-01-02 15:04"))
+func formatFileEntry(path string, info operations.FileInfo) string {
+	if info.IsDir {
+		return fmt.Sprintf("%s/  (directory, %s)", path, info.ModTime.Format("2006-01-02 15:04"))
 	}
-	return fmt.Sprintf("%s  %s  (%s)", path, formatSize(info.Size()), info.ModTime().Format("2006-01-02 15:04"))
+	return fmt.Sprintf("%s  %s  (%s)", path, formatSize(info.Size), info.ModTime.Format("2006-01-02 15:04"))
 }

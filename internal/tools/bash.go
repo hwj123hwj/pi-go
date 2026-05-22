@@ -4,16 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os/exec"
 	"regexp"
 	"time"
 
 	"github.com/earendil-works/pi-go/internal/agent"
+	"github.com/earendil-works/pi-go/internal/operations"
 )
 
 type BashTool struct {
 	workspace    string // 工作目录限制，空字符串表示不限制
 	maxOutputLen int    // 最大输出长度，0 表示使用 DefaultMaxOutputLen
+	ops          operations.BashOperations
 }
 
 type BashParams struct {
@@ -34,11 +35,20 @@ func WithBashMaxOutputLen(n int) BashToolOption {
 	return func(t *BashTool) { t.maxOutputLen = n }
 }
 
+// WithBashOperations sets the BashOperations backend.
+func WithBashOperations(ops operations.BashOperations) BashToolOption {
+	return func(t *BashTool) { t.ops = ops }
+}
+
 // NewBashTool creates BashTool with optional configuration.
+// If no BashOperations is provided via WithBashOperations, defaults to LocalBashOperations.
 func NewBashTool(opts ...BashToolOption) *BashTool {
 	t := &BashTool{}
 	for _, opt := range opts {
 		opt(t)
+	}
+	if t.ops == nil {
+		t.ops = operations.LocalBashOperations{}
 	}
 	return t
 }
@@ -73,20 +83,24 @@ func (t *BashTool) Execute(ctx context.Context, raw json.RawMessage, onUpdate fu
 	if err := json.Unmarshal(raw, &params); err != nil {
 		return agent.ToolResult{IsError: true}, err
 	}
-	cmdCtx, cancel := context.WithTimeout(ctx, time.Duration(params.Timeout)*time.Second)
-	defer cancel()
-	cmd := exec.CommandContext(cmdCtx, "sh", "-c", params.Command)
-	if t.workspace != "" {
-		cmd.Dir = t.workspace
-	}
-	out, err := cmd.CombinedOutput()
 
-	output := string(out)
+	req := operations.RunRequest{
+		Command: params.Command,
+		Timeout: time.Duration(params.Timeout) * time.Second,
+		WorkDir: t.workspace,
+	}
+
+	result, err := t.ops.Run(ctx, req)
+	if err != nil {
+		return agent.ToolResult{IsError: true}, err
+	}
+
+	output := string(result.Output)
 
 	// Detect binary output
 	if isBinaryOutput(output) {
 		return agent.ToolResult{
-			Content: fmt.Sprintf("Command produced binary output (%d bytes). Use file redirection to save output.", len(out)),
+			Content: fmt.Sprintf("Command produced binary output (%d bytes). Use file redirection to save output.", len(result.Output)),
 			IsError: false,
 		}, nil
 	}
@@ -97,8 +111,8 @@ func (t *BashTool) Execute(ctx context.Context, raw json.RawMessage, onUpdate fu
 	// Truncate output
 	output = TruncateOutput(output, t.maxOutputLen)
 
-	if err != nil {
-		return agent.ToolResult{Content: output, IsError: true}, err
+	if result.ExitCode != 0 {
+		return agent.ToolResult{Content: output, IsError: true}, fmt.Errorf("command exited with code %d", result.ExitCode)
 	}
 	return agent.ToolResult{Content: output}, nil
 }

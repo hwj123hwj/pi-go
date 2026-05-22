@@ -5,10 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/earendil-works/pi-go/internal/agent"
+	"github.com/earendil-works/pi-go/internal/operations"
 )
 
 // EditTool performs exact string replacements in files.
@@ -16,6 +16,7 @@ import (
 // If file doesn't exist and old_string is empty, creates a new file.
 type EditTool struct {
 	workspace string // 工作目录，用于解析相对路径
+	ops       operations.FileOperations
 }
 
 type EditParams struct {
@@ -33,10 +34,18 @@ func WithEditWorkspace(ws string) EditToolOption {
 	return func(t *EditTool) { t.workspace = ws }
 }
 
+// WithEditOperations sets the FileOperations backend.
+func WithEditOperations(ops operations.FileOperations) EditToolOption {
+	return func(t *EditTool) { t.ops = ops }
+}
+
 func NewEditTool(opts ...EditToolOption) *EditTool {
 	t := &EditTool{}
 	for _, opt := range opts {
 		opt(t)
+	}
+	if t.ops == nil {
+		t.ops = operations.LocalFileOperations{}
 	}
 	return t
 }
@@ -88,13 +97,14 @@ func (t *EditTool) Execute(ctx context.Context, raw json.RawMessage, onUpdate fu
 	}
 
 	// Read existing file
-	data, err := os.ReadFile(cleanPath)
+	data, err := t.ops.ReadFile(ctx, cleanPath)
 	if err != nil {
-		if os.IsNotExist(err) && params.OldString == "" {
-			if err := os.MkdirAll(filepath.Dir(cleanPath), 0o755); err != nil {
+		// File doesn't exist: create new file if old_string is empty
+		if isNotExist(err) && params.OldString == "" {
+			if err := t.ops.MkdirAll(ctx, parentDir(cleanPath), 0o755); err != nil {
 				return agent.ToolResult{IsError: true}, err
 			}
-			if err := os.WriteFile(cleanPath, []byte(params.NewString), 0o644); err != nil {
+			if err := t.ops.WriteFile(ctx, cleanPath, []byte(params.NewString), 0o644); err != nil {
 				return agent.ToolResult{IsError: true}, err
 			}
 			return agent.ToolResult{Content: fmt.Sprintf("created %s", cleanPath)}, nil
@@ -117,7 +127,7 @@ func (t *EditTool) Execute(ctx context.Context, raw json.RawMessage, onUpdate fu
 	if params.ReplaceAll {
 		// Replace all occurrences
 		newContent := strings.ReplaceAll(content, params.OldString, params.NewString)
-		if err := os.WriteFile(cleanPath, []byte(newContent), 0o644); err != nil {
+		if err := t.ops.WriteFile(ctx, cleanPath, []byte(newContent), 0o644); err != nil {
 			return agent.ToolResult{IsError: true}, err
 		}
 
@@ -135,7 +145,7 @@ func (t *EditTool) Execute(ctx context.Context, raw json.RawMessage, onUpdate fu
 	}
 
 	newContent := strings.Replace(content, params.OldString, params.NewString, 1)
-	if err := os.WriteFile(cleanPath, []byte(newContent), 0o644); err != nil {
+	if err := t.ops.WriteFile(ctx, cleanPath, []byte(newContent), 0o644); err != nil {
 		return agent.ToolResult{IsError: true}, err
 	}
 
@@ -176,4 +186,18 @@ func (t *EditTool) Execute(ctx context.Context, raw json.RawMessage, onUpdate fu
 	return agent.ToolResult{
 		Content: diffCtx.String(),
 	}, nil
+}
+
+// isNotExist checks if an error indicates a file does not exist.
+// Works for both local errors (os.IsNotExist) and operations-level errors.
+func isNotExist(err error) bool {
+	if os.IsNotExist(err) {
+		return true
+	}
+	// For SSH operations where the error is a string from remote
+	msg := err.Error()
+	return strings.Contains(msg, "does not exist") ||
+		strings.Contains(msg, "no such file") ||
+		strings.Contains(msg, "not found") ||
+		strings.Contains(msg, "not exist")
 }

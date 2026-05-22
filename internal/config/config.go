@@ -40,6 +40,12 @@ type Config struct {
 	EnableBash         bool
 	BashTimeoutSeconds int
 
+	// Execution backend
+	ExecutionMode string // "local" (default) or "ssh"
+	SSHHost       string // user@host for SSH mode
+	SSHPort       int    // SSH port (default 22)
+	SSHWorkDir    string // Remote working directory for SSH mode
+
 	// Tool output
 	MaxOutputLen int
 
@@ -154,6 +160,22 @@ func (c *Config) LoadFromEnv() {
 		if n, err := strconv.Atoi(v); err == nil && n > 0 {
 			c.MaxOutputLen = n
 		}
+	}
+
+	// Execution backend
+	if v := os.Getenv("PI_GO_EXECUTION_MODE"); v != "" {
+		c.ExecutionMode = v
+	}
+	if v := os.Getenv("PI_GO_SSH_HOST"); v != "" {
+		c.SSHHost = v
+	}
+	if v := os.Getenv("PI_GO_SSH_PORT"); v != "" {
+		if p, err := strconv.Atoi(v); err == nil && p > 0 {
+			c.SSHPort = p
+		}
+	}
+	if v := os.Getenv("PI_GO_SSH_WORKDIR"); v != "" {
+		c.SSHWorkDir = v
 	}
 
 	// Tool filtering

@@ -4,15 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/earendil-works/pi-go/internal/agent"
+	"github.com/earendil-works/pi-go/internal/operations"
 )
 
 type WriteTool struct {
 	workspace string // 工作目录，用于解析相对路径
+	ops       operations.FileOperations
 }
 
 type WriteParams struct {
@@ -28,10 +28,18 @@ func WithWriteWorkspace(ws string) WriteToolOption {
 	return func(t *WriteTool) { t.workspace = ws }
 }
 
+// WithWriteOperations sets the FileOperations backend.
+func WithWriteOperations(ops operations.FileOperations) WriteToolOption {
+	return func(t *WriteTool) { t.ops = ops }
+}
+
 func NewWriteTool(opts ...WriteToolOption) *WriteTool {
 	t := &WriteTool{}
 	for _, opt := range opts {
 		opt(t)
+	}
+	if t.ops == nil {
+		t.ops = operations.LocalFileOperations{}
 	}
 	return t
 }
@@ -74,12 +82,12 @@ func (t *WriteTool) Execute(ctx context.Context, raw json.RawMessage, onUpdate f
 	}
 
 	// Ensure parent directory exists
-	if err := os.MkdirAll(filepath.Dir(cleanPath), 0o755); err != nil {
+	if err := t.ops.MkdirAll(ctx, parentDir(cleanPath), 0o755); err != nil {
 		return agent.ToolResult{IsError: true}, err
 	}
 
 	content := []byte(params.Content)
-	if err := os.WriteFile(cleanPath, content, 0o644); err != nil {
+	if err := t.ops.WriteFile(ctx, cleanPath, content, 0o644); err != nil {
 		return agent.ToolResult{IsError: true}, err
 	}
 

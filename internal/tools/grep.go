@@ -5,13 +5,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/fs"
-	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 
 	"github.com/earendil-works/pi-go/internal/agent"
+	"github.com/earendil-works/pi-go/internal/operations"
 )
 
 // GrepTool 在文件中搜索正则表达式模式。
@@ -19,6 +18,7 @@ import (
 type GrepTool struct {
 	workspace    string // 工作目录，用于解析相对路径
 	maxOutputLen int    // 最大输出长度，0 表示使用 DefaultMaxOutputLen
+	ops          operations.FileOperations
 }
 
 type GrepParams struct {
@@ -49,10 +49,18 @@ func WithGrepMaxOutputLen(n int) GrepToolOption {
 	return func(t *GrepTool) { t.maxOutputLen = n }
 }
 
+// WithGrepOperations sets the FileOperations backend.
+func WithGrepOperations(ops operations.FileOperations) GrepToolOption {
+	return func(t *GrepTool) { t.ops = ops }
+}
+
 func NewGrepTool(opts ...GrepToolOption) *GrepTool {
 	t := &GrepTool{}
 	for _, opt := range opts {
 		opt(t)
+	}
+	if t.ops == nil {
+		t.ops = operations.LocalFileOperations{}
 	}
 	return t
 }
@@ -129,17 +137,17 @@ func (t *GrepTool) Execute(ctx context.Context, raw json.RawMessage, onUpdate fu
 	}
 
 	// 判断是文件还是目录
-	info, err := os.Stat(searchPath)
+	info, err := t.ops.Stat(ctx, searchPath)
 	if err != nil {
 		return agent.ToolResult{IsError: true}, err
 	}
 
 	var matches []grepMatch
 
-	if info.IsDir() {
+	if info.IsDir {
 		matches = t.searchDir(ctx, re, searchPath, params, params.MaxResults)
 	} else {
-		matches = t.searchFile(ctx, re, searchPath, params, params.MaxResults)
+		matches = t.searchFile(ctx, re, searchPath, params.MaxResults)
 	}
 
 	if len(matches) == 0 {
@@ -152,20 +160,20 @@ func (t *GrepTool) Execute(ctx context.Context, raw json.RawMessage, onUpdate fu
 		// 按文件分组，输出上下文行
 		grouped := groupMatchesByFile(matches)
 		for _, fileGroup := range grouped {
-			lines, err := readLines(fileGroup.file)
+			lines, err := t.opsReadLines(ctx, fileGroup.file)
 			if err != nil {
 				for _, m := range fileGroup.matches {
 					b.WriteString(fmt.Sprintf("%s:%d: %s\n", m.File, m.Line, m.Content))
 				}
 				continue
 			}
-			ctx := params.ShowContext
+			showCtx := params.ShowContext
 			for _, m := range fileGroup.matches {
-				start := m.Line - ctx
+				start := m.Line - showCtx
 				if start < 1 {
 					start = 1
 				}
-				end := m.Line + ctx
+				end := m.Line + showCtx
 				if end > len(lines) {
 					end = len(lines)
 				}
@@ -200,7 +208,7 @@ func (t *GrepTool) searchDir(ctx context.Context, re *regexp.Regexp, root string
 		includeRe = regexp.MustCompile(globPattern)
 	}
 
-	filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+	t.ops.Walk(ctx, root, func(path string, entry operations.DirEntry, err error) error {
 		if err != nil {
 			return nil
 		}
@@ -211,8 +219,8 @@ func (t *GrepTool) searchDir(ctx context.Context, re *regexp.Regexp, root string
 		}
 
 		// 跳过隐藏目录和常见的非搜索目录
-		if d.IsDir() {
-			name := d.Name()
+		if entry.IsDir {
+			name := entry.Name
 			if strings.HasPrefix(name, ".") || name == "node_modules" || name == "vendor" || name == ".git" {
 				return filepath.SkipDir
 			}
@@ -220,11 +228,11 @@ func (t *GrepTool) searchDir(ctx context.Context, re *regexp.Regexp, root string
 		}
 
 		// 文件名过滤
-		if includeRe != nil && !includeRe.MatchString(d.Name()) {
+		if includeRe != nil && !includeRe.MatchString(entry.Name) {
 			return nil
 		}
 
-		fileMatches := t.searchFile(ctx, re, path, params, maxResults-len(matches))
+		fileMatches := t.searchFile(ctx, re, path, maxResults-len(matches))
 		matches = append(matches, fileMatches...)
 
 		if len(matches) >= maxResults {
@@ -239,15 +247,14 @@ func (t *GrepTool) searchDir(ctx context.Context, re *regexp.Regexp, root string
 	return matches
 }
 
-func (t *GrepTool) searchFile(ctx context.Context, re *regexp.Regexp, path string, params GrepParams, maxResults int) []grepMatch {
-	file, err := os.Open(path)
+func (t *GrepTool) searchFile(ctx context.Context, re *regexp.Regexp, path string, maxResults int) []grepMatch {
+	data, err := t.ops.ReadFile(ctx, path)
 	if err != nil {
 		return nil
 	}
-	defer file.Close()
 
 	var matches []grepMatch
-	scanner := bufio.NewScanner(file)
+	scanner := bufio.NewScanner(strings.NewReader(string(data)))
 	scanner.Buffer(make([]byte, 256*1024), 256*1024)
 	lineNum := 0
 
@@ -279,6 +286,15 @@ func (t *GrepTool) searchFile(ctx context.Context, re *regexp.Regexp, path strin
 	}
 
 	return matches
+}
+
+// opsReadLines reads a file through operations and splits into lines.
+func (t *GrepTool) opsReadLines(ctx context.Context, path string) ([]string, error) {
+	data, err := t.ops.ReadFile(ctx, path)
+	if err != nil {
+		return nil, err
+	}
+	return strings.Split(string(data), "\n"), nil
 }
 
 // globToRegex 将简单的 glob 模式转换为正则表达式。
@@ -321,12 +337,4 @@ func groupMatchesByFile(matches []grepMatch) []fileMatchGroup {
 		groups[idx].matches = append(groups[idx].matches, m)
 	}
 	return groups
-}
-
-func readLines(path string) ([]string, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-	return strings.Split(string(data), "\n"), nil
 }
