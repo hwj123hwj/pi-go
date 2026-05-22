@@ -1,11 +1,13 @@
 package server
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"time"
 
@@ -53,20 +55,33 @@ func New(application *app.App) *Server {
 
 // Handler returns the HTTP handler with all routes and middleware.
 func (s *Server) Handler() http.Handler {
-	mux := http.NewServeMux()
-	mux.HandleFunc("GET /health", s.health)
-	mux.HandleFunc("POST /chat", s.chat)
-	mux.HandleFunc("POST /chat/stream", s.chatStream)
-	mux.HandleFunc("GET /sessions", s.listSessions)
-	mux.HandleFunc("POST /sessions", s.createSession)
-	mux.HandleFunc("GET /sessions/{id}/messages", s.getSessionMessages)
-	mux.HandleFunc("DELETE /sessions/{id}", s.deleteSession)
-	mux.HandleFunc("GET /tools", s.listTools)
-	var handler http.Handler = mux
-	handler = corsMiddleware(handler)
-	handler = recoveryMiddleware(handler)
-	handler = loggingMiddleware(handler)
-	return handler
+	// REST API routes with middleware
+	restMux := http.NewServeMux()
+	restMux.HandleFunc("GET /health", s.health)
+	restMux.HandleFunc("POST /chat", s.chat)
+	restMux.HandleFunc("POST /chat/stream", s.chatStream)
+	restMux.HandleFunc("GET /sessions", s.listSessions)
+	restMux.HandleFunc("POST /sessions", s.createSession)
+	restMux.HandleFunc("GET /sessions/{id}/messages", s.getSessionMessages)
+	restMux.HandleFunc("GET /sessions/{id}/info", s.getSessionInfo)
+	restMux.HandleFunc("DELETE /sessions/{id}", s.deleteSession)
+	restMux.HandleFunc("POST /sessions/{id}/model", s.switchModel)
+	restMux.HandleFunc("GET /models", s.listModels)
+	restMux.HandleFunc("GET /tools", s.listTools)
+
+	var restHandler http.Handler = restMux
+	restHandler = corsMiddleware(restHandler)
+	restHandler = recoveryMiddleware(restHandler)
+	restHandler = loggingMiddleware(restHandler)
+
+	// WebSocket route — bypasses all middleware to avoid Hijack issues
+	wsHandler := corsMiddleware(http.HandlerFunc(s.handleWebSocket))
+
+	// Top-level mux: route /ws directly, everything else through middleware chain
+	topMux := http.NewServeMux()
+	topMux.Handle("GET /ws", wsHandler)
+	topMux.Handle("/", restHandler)
+	return topMux
 }
 
 // ListenAndServe starts the HTTP server on the given address.
@@ -287,6 +302,115 @@ func (s *Server) listTools(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// ─── GET /models ───────────────────────────────────────────────────────────────
+
+// ModelInfo holds metadata about a single model.
+type ModelInfo struct {
+	ID       string `json:"id"`
+	Provider string `json:"provider"`
+	Name     string `json:"name"`
+}
+
+// ModelsResponse is the response for the models list endpoint.
+type ModelsResponse struct {
+	Models  []ModelInfo      `json:"models"`
+	Current *ModelInfo       `json:"current,omitempty"`
+}
+
+func (s *Server) listModels(w http.ResponseWriter, r *http.Request) {
+	// Build model catalog from known models
+	models := []ModelInfo{
+		{ID: "deepseek-v4-flash", Provider: "deepv", Name: "DeepSeek V4 Flash"},
+		{ID: "glm-5", Provider: "deepv", Name: "GLM-5"},
+		{ID: "claude-sonnet-4-6", Provider: "deepv", Name: "Claude Sonnet 4.6"},
+	}
+
+	// Determine current model from config
+	cfg := s.app.Config()
+	var current *ModelInfo
+	provider := cfg.Provider
+	modelID := ""
+	switch provider {
+	case "openai":
+		modelID = cfg.OpenAIModel
+	case "deepv":
+		modelID = cfg.DeepVModel
+	case "anthropic":
+		modelID = cfg.AnthropicModel
+	}
+	if modelID != "" {
+		current = &ModelInfo{ID: modelID, Provider: provider, Name: modelID}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(ModelsResponse{Models: models, Current: current})
+}
+
+// ─── GET /sessions/{id}/info ──────────────────────────────────────────────────
+
+func (s *Server) getSessionInfo(w http.ResponseWriter, r *http.Request) {
+	sessionID := r.PathValue("id")
+
+	if !s.app.SessionManager().Exists(sessionID) {
+		writeError(w, http.StatusNotFound, "session not found")
+		return
+	}
+
+	sess, err := s.app.LoadSession(r.Context(), sessionID)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "session not found")
+		return
+	}
+
+	provider, modelID := sess.ModelInfo()
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"id":        sess.SessionID(),
+		"provider":  provider,
+		"model":     modelID,
+	})
+}
+
+// ─── POST /sessions/{id}/model ────────────────────────────────────────────────
+
+// SwitchModelRequest is the request body for switching a session's model.
+type SwitchModelRequest struct {
+	Model string `json:"model"`
+}
+
+func (s *Server) switchModel(w http.ResponseWriter, r *http.Request) {
+	sessionID := r.PathValue("id")
+
+	var req SwitchModelRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.Model == "" {
+		writeError(w, http.StatusBadRequest, "model is required")
+		return
+	}
+
+	sess, err := s.app.LoadSession(r.Context(), sessionID)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "session not found")
+		return
+	}
+
+	if err := sess.SwitchModel(r.Context(), req.Model); err != nil {
+		writeError(w, http.StatusInternalServerError, "switch model failed: "+err.Error())
+		return
+	}
+
+	provider, modelID := sess.ModelInfo()
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]string{
+		"provider": provider,
+		"model":    modelID,
+	})
+}
+
 // ─── session resolution ──────────────────────────────────────────────────────
 
 // resolveSession gets an existing session or creates a new one.
@@ -369,4 +493,10 @@ type responseWriter struct {
 func (rw *responseWriter) WriteHeader(code int) {
 	rw.statusCode = code
 	rw.ResponseWriter.WriteHeader(code)
+}
+
+// Hijack implements the http.Hijacker interface so WebSocket upgrades work
+// through the logging middleware wrapper.
+func (rw *responseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	return rw.ResponseWriter.(http.Hijacker).Hijack()
 }

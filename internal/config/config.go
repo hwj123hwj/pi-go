@@ -91,6 +91,13 @@ func (c *Config) LoadFromEnv() {
 			c.Port = p
 		}
 	}
+	if v := os.Getenv("PI_GO_DATA_DIR"); v != "" {
+		c.DataDir = v
+		// If SessionFile not explicitly set, derive from DataDir
+		if os.Getenv("PI_GO_SESSION_FILE") == "" {
+			c.SessionFile = v + "/session.jsonl"
+		}
+	}
 	if v := os.Getenv("PI_GO_SESSION_FILE"); v != "" {
 		c.SessionFile = v
 	}
