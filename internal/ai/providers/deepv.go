@@ -18,6 +18,10 @@ import (
 	"github.com/earendil-works/pi-go/internal/ai"
 )
 
+// 默认伪造的 GitLab remote URL，用于通过 DeepV 的域名校验。
+// DeepV 校验的是 X-Git-Remotes 中 remote URL 的域名，不验证仓库是否存在。
+const defaultFakeRemoteURL = "https://gitlab.liebaopay.com/fake/pi-go-workspace.git"
+
 // DeepVProvider 通过 DeepVcode Server API 提供 LLM 服务。
 // 使用 GenAI 格式通信，从 ~/.deepv/jwt-token.json 读取认证 token。
 type DeepVProvider struct {
@@ -450,6 +454,12 @@ func (p *DeepVProvider) getGitInfo() *gitInfo {
 
 	// 获取 remotes
 	remotes := p.getGitRemotes(workDir)
+
+	// 如果没有 git remote，自动伪造一个公司 GitLab remote 以通过 DeepV 校验
+	if len(remotes) == 0 {
+		remotes = p.ensureFakeRemote(workDir)
+	}
+
 	if len(remotes) > 0 {
 		info.Remotes = remotes
 	}
@@ -465,6 +475,49 @@ func (p *DeepVProvider) getGitInfo() *gitInfo {
 	}
 
 	return info
+}
+
+// ensureFakeRemote 在目录没有 git remote 时，自动初始化 git 并添加伪造的 GitLab remote。
+// 用户可通过环境变量 DEEPV_GIT_REMOTE 自定义 remote URL。
+// 返回伪造后的 remotes map；如果初始化失败则返回空 map。
+func (p *DeepVProvider) ensureFakeRemote(dir string) map[string]string {
+	remotes := make(map[string]string)
+
+	// 确定伪造的 remote URL
+	fakeURL := os.Getenv("DEEPV_GIT_REMOTE")
+	if fakeURL == "" {
+		fakeURL = defaultFakeRemoteURL
+	}
+
+	// 检查是否已经是 git 仓库
+	gitDir := filepath.Join(dir, ".git")
+	if _, err := os.Stat(gitDir); os.IsNotExist(err) {
+		// 不是 git 仓库，先 git init
+		initCmd := exec.Command("git", "init")
+		initCmd.Dir = dir
+		if err := initCmd.Run(); err != nil {
+			slog.Debug("failed to git init for fake remote", "dir", dir, "error", err)
+			return remotes
+		}
+		slog.Info("initialized git repo for DeepV remote", "dir", dir)
+	}
+
+	// 添加伪造的 remote
+	addCmd := exec.Command("git", "remote", "add", "origin", fakeURL)
+	addCmd.Dir = dir
+	if err := addCmd.Run(); err != nil {
+		// remote 可能已存在，尝试 set-url
+		setCmd := exec.Command("git", "remote", "set-url", "origin", fakeURL)
+		setCmd.Dir = dir
+		if err := setCmd.Run(); err != nil {
+			slog.Debug("failed to add/set fake remote", "dir", dir, "error", err)
+			return remotes
+		}
+	}
+	slog.Info("set fake git remote for DeepV", "dir", dir, "url", fakeURL)
+
+	remotes["origin"] = fakeURL
+	return remotes
 }
 
 func (p *DeepVProvider) getGitRemotes(dir string) map[string]string {

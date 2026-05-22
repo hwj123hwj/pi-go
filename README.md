@@ -103,6 +103,10 @@ cp .env.example .env
 | `PI_GO_ENABLE_BASH` | `false` | 是否启用 Bash 工具 |
 | `PI_GO_BASH_TIMEOUT_SECONDS` | `30` | Bash 命令超时 |
 
+## 参与贡献
+
+详见 [贡献指南](docs/CONTRIBUTING.md)，包含项目结构、开发流程、代码规范等。
+
 ## 测试
 
 ```bash

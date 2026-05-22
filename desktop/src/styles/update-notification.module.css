@@ -1,0 +1,80 @@
+.banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px var(--space-md);
+  background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--accent-primary);
+  box-shadow: var(--shadow-md);
+  animation: slideDown 0.3s ease;
+}
+
+.content {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.icon {
+  font-size: 18px;
+}
+
+.version {
+  font-weight: 600;
+  color: var(--accent-primary);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.downloadBtn {
+  padding: 5px 16px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--accent-primary);
+  color: var(--text-inverse);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.downloadBtn:hover {
+  background: var(--accent-primary-hover);
+}
+
+.laterBtn {
+  padding: 5px 12px;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.laterBtn:hover {
+  background: var(--overlay-medium);
+}
+
+@keyframes slideDown {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}

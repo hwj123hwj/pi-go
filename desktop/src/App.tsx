@@ -4,6 +4,7 @@ import { useConnectionStore } from './stores/connectionStore';
 import { useSessionStore } from './stores/sessionStore';
 import { useModelStore } from './stores/modelStore';
 import { useChatStore } from './stores/chatStore';
+import { useUpdateStore } from './stores/updateStore';
 import { setBaseUrl } from './services/api';
 import { AppLayout } from './components/AppLayout';
 import { ErrorBanner } from './components/common/ErrorBanner';
@@ -54,6 +55,13 @@ export default function App() {
 
     init();
   }, []);
+
+  // Check for updates after app is ready (non-blocking)
+  useEffect(() => {
+    if (initState === 'ready') {
+      useUpdateStore.getState().checkForUpdate();
+    }
+  }, [initState]);
 
   if (initState === 'loading') {
     return (

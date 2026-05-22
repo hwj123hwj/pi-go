@@ -1,6 +1,6 @@
 {
   "name": "pi-go-desktop",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Pi-Go Desktop Client - AI Coding Agent GUI",
   "main": "dist/electron/main.js",
   "scripts": {
@@ -17,16 +17,18 @@
     "extends": "electron-builder.yml"
   },
   "dependencies": {
+    "highlight.js": "^11.11.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "zustand": "^5.0.0",
     "react-markdown": "^9.0.0",
     "rehype-highlight": "^7.0.0",
-    "highlight.js": "^11.11.0"
+    "semver": "^7.8.1",
+    "zustand": "^5.0.0"
   },
   "devDependencies": {
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "@types/semver": "^7.7.1",
     "@vitejs/plugin-react": "^4.3.0",
     "concurrently": "^9.1.0",
     "electron": "^33.0.0",
