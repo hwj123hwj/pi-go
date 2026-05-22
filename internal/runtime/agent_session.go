@@ -144,9 +144,16 @@ func (s *AgentSession) ModelInfo() (string, string) {
 	return providerName, modelID
 }
 
-// SwitchModel changes the model at runtime and rebuilds the agent.
-// The model change takes effect for subsequent prompts.
-func (s *AgentSession) SwitchModel(ctx context.Context, modelID string) error {
+// SwitchModel changes the model (and optionally the provider) at runtime
+// and rebuilds the agent. The change takes effect for subsequent prompts.
+// If provider is non-empty, both provider and model are switched;
+// otherwise only the model field for the current provider is updated.
+func (s *AgentSession) SwitchModel(ctx context.Context, modelID string, provider string) error {
+	// If provider is specified, switch to it
+	if provider != "" && provider != s.cfg.Provider {
+		s.cfg.Provider = provider
+	}
+
 	providerName := s.cfg.Provider
 	switch providerName {
 	case "openai":

@@ -17,8 +17,13 @@ func main() {
 	cfg := config.Default()
 
 	// Load .env files (ignore if missing)
-	_ = config.LoadDotEnv(".env")
-	_ = config.LoadDotEnv(".env.local")
+	// PI_GO_ENV_FILE allows custom .env path (e.g. for packaged desktop app)
+	envFile := os.Getenv("PI_GO_ENV_FILE")
+	if envFile == "" {
+		envFile = ".env"
+	}
+	_ = config.LoadDotEnv(envFile)
+	_ = config.LoadDotEnv(envFile + ".local")
 	cfg.LoadFromEnv()
 
 	// Parse flags

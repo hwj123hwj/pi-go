@@ -19,7 +19,7 @@ type Context struct {
 type SessionContext interface {
 	SessionID() string
 	ModelInfo() (provider string, modelID string)
-	SwitchModel(ctx context.Context, modelID string) error
+	SwitchModel(ctx context.Context, modelID string, provider string) error
 }
 
 // AppContext is the interface for app operations available to slash commands.

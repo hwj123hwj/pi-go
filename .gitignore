@@ -13,3 +13,7 @@ Thumbs.db
 
 # Build
 /tmp/
+/pi-agent
+
+# Runtime data
+data/
