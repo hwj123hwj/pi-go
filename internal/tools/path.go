@@ -7,6 +7,11 @@ import (
 	"strings"
 )
 
+// parentDir returns the directory containing the given file path.
+func parentDir(path string) string {
+	return filepath.Dir(path)
+}
+
 // ResolvePath resolves a possibly-relative path against a workspace root.
 // If workspace is non-empty, relative paths are joined with workspace.
 // Absolute paths are cleaned but returned as-is.

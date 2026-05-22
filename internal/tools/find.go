@@ -4,12 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/fs"
-	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/earendil-works/pi-go/internal/agent"
+	"github.com/earendil-works/pi-go/internal/operations"
 )
 
 // defaultSkipDirs are directories that are always skipped during search.
@@ -25,6 +24,7 @@ var defaultSkipDirs = map[string]bool{
 // FindTool searches for files and directories matching name patterns.
 type FindTool struct {
 	workspace string // 工作目录，用于解析相对路径
+	ops       operations.FileOperations
 }
 
 type FindParams struct {
@@ -43,10 +43,18 @@ func WithFindWorkspace(ws string) FindToolOption {
 	return func(t *FindTool) { t.workspace = ws }
 }
 
+// WithFindOperations sets the FileOperations backend.
+func WithFindOperations(ops operations.FileOperations) FindToolOption {
+	return func(t *FindTool) { t.ops = ops }
+}
+
 func NewFindTool(opts ...FindToolOption) *FindTool {
 	t := &FindTool{}
 	for _, opt := range opts {
 		opt(t)
+	}
+	if t.ops == nil {
+		t.ops = operations.LocalFileOperations{}
 	}
 	return t
 }
@@ -104,19 +112,19 @@ func (t *FindTool) Execute(ctx context.Context, raw json.RawMessage, onUpdate fu
 		}, fmt.Errorf("path escapes workspace")
 	}
 
-	info, err := os.Stat(searchPath)
+	info, err := t.ops.Stat(ctx, searchPath)
 	if err != nil {
 		return agent.ToolResult{IsError: true}, err
 	}
-	if !info.IsDir() {
+	if !info.IsDir {
 		return agent.ToolResult{IsError: true}, fmt.Errorf("%s is not a directory", searchPath)
 	}
 
 	var results []string
 	rootDepth := strings.Count(searchPath, string(filepath.Separator))
 
-	filepath.WalkDir(searchPath, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
+	err = t.ops.Walk(ctx, searchPath, func(path string, entry operations.DirEntry, walkErr error) error {
+		if walkErr != nil {
 			return nil
 		}
 		select {
@@ -126,12 +134,12 @@ func (t *FindTool) Execute(ctx context.Context, raw json.RawMessage, onUpdate fu
 		}
 
 		// Skip default directories
-		if d.IsDir() && defaultSkipDirs[d.Name()] {
+		if entry.IsDir && defaultSkipDirs[entry.Name] {
 			return filepath.SkipDir
 		}
 
 		// Skip hidden directories
-		if d.IsDir() && strings.HasPrefix(d.Name(), ".") {
+		if entry.IsDir && strings.HasPrefix(entry.Name, ".") {
 			return filepath.SkipDir
 		}
 
@@ -139,7 +147,7 @@ func (t *FindTool) Execute(ctx context.Context, raw json.RawMessage, onUpdate fu
 		if params.MaxDepth > 0 {
 			currentDepth := strings.Count(path, string(filepath.Separator)) - rootDepth
 			if currentDepth > params.MaxDepth {
-				if d.IsDir() {
+				if entry.IsDir {
 					return filepath.SkipDir
 				}
 				return nil
@@ -147,16 +155,16 @@ func (t *FindTool) Execute(ctx context.Context, raw json.RawMessage, onUpdate fu
 		}
 
 		// Type filter
-		if params.Type == "file" && d.IsDir() {
+		if params.Type == "file" && entry.IsDir {
 			return nil
 		}
-		if params.Type == "dir" && !d.IsDir() {
+		if params.Type == "dir" && !entry.IsDir {
 			return nil
 		}
 
 		// Pattern matching
 		if params.Pattern != "" {
-			matched, _ := filepath.Match(params.Pattern, d.Name())
+			matched, _ := filepath.Match(params.Pattern, entry.Name)
 			if !matched {
 				return nil
 			}
@@ -168,6 +176,11 @@ func (t *FindTool) Execute(ctx context.Context, raw json.RawMessage, onUpdate fu
 		}
 		return nil
 	})
+
+	if err != nil && len(results) < params.MaxResults {
+		// Walk returned a real error (not max results)
+		return agent.ToolResult{IsError: true}, err
+	}
 
 	if len(results) == 0 {
 		return agent.ToolResult{Content: "no files found"}, nil

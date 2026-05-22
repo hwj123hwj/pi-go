@@ -4,16 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
 
 	"github.com/earendil-works/pi-go/internal/agent"
+	"github.com/earendil-works/pi-go/internal/operations"
 )
 
 type ReadTool struct {
 	workspace    string // 工作目录，用于解析相对路径
 	maxOutputLen int    // 最大输出长度，0 表示使用 DefaultMaxOutputLen
+	ops          operations.FileOperations
 }
 
 type ReadParams struct {
@@ -35,10 +36,18 @@ func WithReadMaxOutputLen(n int) ReadToolOption {
 	return func(t *ReadTool) { t.maxOutputLen = n }
 }
 
+// WithReadOperations sets the FileOperations backend.
+func WithReadOperations(ops operations.FileOperations) ReadToolOption {
+	return func(t *ReadTool) { t.ops = ops }
+}
+
 func NewReadTool(opts ...ReadToolOption) *ReadTool {
 	t := &ReadTool{}
 	for _, opt := range opts {
 		opt(t)
+	}
+	if t.ops == nil {
+		t.ops = operations.LocalFileOperations{}
 	}
 	return t
 }
@@ -85,7 +94,7 @@ func (t *ReadTool) Execute(ctx context.Context, raw json.RawMessage, onUpdate fu
 		}, fmt.Errorf("path escapes workspace")
 	}
 
-	data, err := os.ReadFile(cleanPath)
+	data, err := t.ops.ReadFile(ctx, cleanPath)
 	if err != nil {
 		return agent.ToolResult{IsError: true}, err
 	}
