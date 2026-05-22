@@ -223,3 +223,26 @@ _ = config.LoadDotEnv(envFile + ".local")
 3. **模型列表硬编码**：`listModels()` 里的模型列表是写死的。当前只有 deepv provider 三个模型，后续应改为从 provider 动态获取。
 4. **CheckOrigin 全放行**：`upgrader.CheckOrigin` 返回 `true`，因为是桌面应用（本机通信），但如果未来支持远程访问需要收紧。
 5. **5 分钟超时**：`context.WithTimeout(context.Background(), 5*time.Minute)` 对复杂代码任务可能不够，需要根据实际使用调整。
+
+---
+
+## 审查修复记录
+
+### Fix 1: SwitchModel 携带 provider 参数（High）
+
+**问题**：`SwitchModel()` 只接受 `modelID`，根据 session 当前 provider 决定写 `OpenAIModel`/`DeepVModel`/`AnthropicModel`。如果 provider 是 `openai`，前端选了 `glm-5`（属于 deepv），会写进 `cfg.OpenAIModel = "glm-5"`，provider 不变，请求走错端点。
+
+**修复**：
+- `SwitchModel(ctx, modelID string, provider string)` — 新增 `provider` 参数，非空时同时切换 provider 和 model
+- `SwitchModelRequest` 新增 `provider` 字段（可选）
+- `wsClientMessage` 新增 `provider` 字段
+- 前端 `ModelSelector` 从选中 model 对象取 `provider` 一起传
+- CLI `/model` 命令传空字符串（保持只改 model 不改 provider 的行为）
+
+### Fix 2: 切换 session 时同步模型状态（Medium）
+
+**问题**：`modelStore` 的 `currentModel` 是全局的，`sessionStore.switchSession()` 切换 session 时没有拉取目标 session 的实际模型信息，导致下拉框显示的模型和实际不一致。
+
+**修复**：
+- `sessionStore.switchSession()` 改为 async，切换后调 `GET /sessions/{id}/info` 拉取 provider/model
+- 更新 `modelStore.setCurrentModel()` 为实际值
