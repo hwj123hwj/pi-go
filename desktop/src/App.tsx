@@ -62,8 +62,8 @@ export default function App() {
         alignItems: 'center',
         justifyContent: 'center',
         height: '100vh',
-        background: '#1a1a2e',
-        color: '#a0a0b0',
+        background: 'var(--bg-primary)',
+        color: 'var(--text-secondary)',
         fontFamily: 'sans-serif',
       }}>
         <div style={{ textAlign: 'center' }}>
