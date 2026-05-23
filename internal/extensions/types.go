@@ -47,3 +47,12 @@ type Hook struct {
 	// Handler is called when the event fires.
 	Handler func(ctx context.Context, data any) error
 }
+
+// ExtensionWithLifecycle is an optional interface that extensions can implement
+// to contribute before/after tool-call hooks. If implemented, the registry
+// automatically collects these hooks during Register().
+type ExtensionWithLifecycle interface {
+	Extension
+	BeforeToolCallHooks() []agent.BeforeToolCallHook
+	AfterToolCallHooks() []agent.AfterToolCallHook
+}

@@ -297,25 +297,84 @@ func executeToolCallsSequential(ctx context.Context, a *Agent, calls []ai.ToolCa
 }
 
 func executeOneTool(ctx context.Context, a *Agent, call ai.ToolCall) ai.Message {
+	// 1. Find tool
 	tool, ok := a.tools[call.Name]
 	if !ok {
 		return ai.ToolResultMessage{ToolCallID: call.ID, Content: fmt.Sprintf("tool %q not found", call.Name), IsError: true}
 	}
 
+	// 2. Emit start
 	a.emit(ctx, EventToolExecutionStart{ToolCallID: call.ID, ToolName: call.Name})
 
+	// 3. Validate args
 	validated, err := a.decodeToolArgs(call.Args, tool)
 	if err != nil {
 		a.emit(ctx, EventToolExecutionEnd{ToolCallID: call.ID, ToolName: call.Name, Result: err.Error(), IsError: true})
 		return ai.ToolResultMessage{ToolCallID: call.ID, Content: err.Error(), IsError: true}
 	}
 
-	rawResult, err := tool.Execute(ctx, validated, nil)
+	// 4. Optional PrepareArguments
+	args := validated
+	if preparer, ok := tool.(ToolWithPrepareArguments); ok {
+		prepared, err := preparer.PrepareArguments(ctx, validated)
+		if err != nil {
+			a.emit(ctx, EventToolExecutionEnd{ToolCallID: call.ID, ToolName: call.Name, Result: err.Error(), IsError: true})
+			return ai.ToolResultMessage{ToolCallID: call.ID, Content: err.Error(), IsError: true}
+		}
+		args = prepared
+	}
+
+	// Build call context for hooks
+	callCtx := ToolCallContext{
+		ToolCallID: call.ID,
+		ToolName:   call.Name,
+		RawArgs:    json.RawMessage(call.Args),
+		Args:       args,
+	}
+
+	// 5. Run before hooks
+	for _, hook := range a.lifecycleHooks.Before {
+		callCtx, err = hook(ctx, callCtx)
+		if err != nil {
+			// Before hook blocked execution — emit end with error
+			a.emit(ctx, EventToolExecutionEnd{ToolCallID: call.ID, ToolName: call.Name, Result: err.Error(), IsError: true})
+			return ai.ToolResultMessage{ToolCallID: call.ID, Content: err.Error(), IsError: true}
+		}
+	}
+	args = callCtx.Args
+
+	// 6. Build onUpdate callback
+	onUpdate := func(pr PartialResult) {
+		a.emit(ctx, EventToolExecutionUpdate{
+			ToolCallID:    call.ID,
+			ToolName:      call.Name,
+			Args:          string(args),
+			PartialResult: pr,
+		})
+	}
+
+	// 7. Execute tool
+	rawResult, err := tool.Execute(ctx, args, onUpdate)
 	if err != nil {
 		a.emit(ctx, EventToolExecutionEnd{ToolCallID: call.ID, ToolName: call.Name, Result: err.Error(), IsError: true})
 		return ai.ToolResultMessage{ToolCallID: call.ID, Content: err.Error(), IsError: true}
 	}
 
+	// 8. Run after hooks
+	preHookResult := rawResult
+	for _, hook := range a.lifecycleHooks.After {
+		rawResult, err = hook(ctx, callCtx, rawResult)
+		if err != nil {
+			// After hook failed — treat as execution failure.
+			// Wrap with AfterHookError to preserve pre-hook result for debugging.
+			hookErr := NewAfterHookError(err, preHookResult)
+			errMsg := fmt.Sprintf("%s (original result: %s)", hookErr.Error(), preHookResult.Content)
+			a.emit(ctx, EventToolExecutionEnd{ToolCallID: call.ID, ToolName: call.Name, Result: errMsg, IsError: true})
+			return ai.ToolResultMessage{ToolCallID: call.ID, Content: errMsg, IsError: true}
+		}
+	}
+
+	// 9. Emit end
 	a.emit(ctx, EventToolExecutionEnd{ToolCallID: call.ID, ToolName: call.Name, Result: rawResult.Content, IsError: rawResult.IsError})
 	return a.appendToolResult(call, rawResult)
 }

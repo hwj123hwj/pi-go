@@ -15,6 +15,10 @@ type Registry struct {
 	mu         sync.RWMutex
 	extensions []Extension
 	hooks      map[string][]func(context.Context, any) error
+
+	// Lifecycle hooks for tool execution.
+	beforeHooks []agent.BeforeToolCallHook
+	afterHooks  []agent.AfterToolCallHook
 }
 
 // NewRegistry creates a new empty extension registry.
@@ -25,7 +29,9 @@ func NewRegistry() *Registry {
 	}
 }
 
-// Register adds an extension to the registry and initializes it.
+// Register adds an extension to the registry.
+// If the extension implements ExtensionWithLifecycle, its before/after hooks
+// are automatically collected.
 func (r *Registry) Register(ext Extension) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -34,6 +40,13 @@ func (r *Registry) Register(ext Extension) error {
 	for _, hook := range ext.Hooks() {
 		r.hooks[hook.Event] = append(r.hooks[hook.Event], hook.Handler)
 	}
+
+	// Auto-collect lifecycle hooks if extension implements ExtensionWithLifecycle
+	if le, ok := ext.(ExtensionWithLifecycle); ok {
+		r.beforeHooks = append(r.beforeHooks, le.BeforeToolCallHooks()...)
+		r.afterHooks = append(r.afterHooks, le.AfterToolCallHooks()...)
+	}
+
 	return nil
 }
 
@@ -89,4 +102,37 @@ func (r *Registry) Names() []string {
 		names[i] = ext.Name()
 	}
 	return names
+}
+
+// RegisterBeforeToolCallHook adds a before-tool-call lifecycle hook.
+// Hooks are called in registration order.
+func (r *Registry) RegisterBeforeToolCallHook(hook agent.BeforeToolCallHook) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.beforeHooks = append(r.beforeHooks, hook)
+}
+
+// RegisterAfterToolCallHook adds an after-tool-call lifecycle hook.
+// Hooks are called in registration order.
+func (r *Registry) RegisterAfterToolCallHook(hook agent.AfterToolCallHook) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.afterHooks = append(r.afterHooks, hook)
+}
+
+// LifecycleHooks returns the aggregated lifecycle hooks from all registered
+// extension hooks. This is consumed by the runtime to inject into the agent.
+func (r *Registry) LifecycleHooks() agent.LifecycleHooks {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	before := make([]agent.BeforeToolCallHook, len(r.beforeHooks))
+	copy(before, r.beforeHooks)
+	after := make([]agent.AfterToolCallHook, len(r.afterHooks))
+	copy(after, r.afterHooks)
+
+	return agent.LifecycleHooks{
+		Before: before,
+		After:  after,
+	}
 }

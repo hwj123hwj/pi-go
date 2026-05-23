@@ -32,6 +32,7 @@ type Options struct {
 	Session            *session.Session        // 可选：会话持久化
 	CompactionSettings compaction.Settings      // 上下文压缩设置
 	SummarizeFunc      compaction.SummarizeFunc // 可选：摘要生成函数
+	LifecycleHooks     LifecycleHooks           // 可选：工具执行生命周期钩子
 }
 
 type Agent struct {
@@ -48,6 +49,7 @@ type Agent struct {
 	session            *session.Session
 	compactionSettings compaction.Settings
 	summarizeFunc      compaction.SummarizeFunc
+	lifecycleHooks     LifecycleHooks
 }
 
 func New(opts Options) *Agent {
@@ -68,6 +70,7 @@ func New(opts Options) *Agent {
 		session:            opts.Session,
 		compactionSettings: opts.CompactionSettings,
 		summarizeFunc:      opts.SummarizeFunc,
+		lifecycleHooks:     opts.LifecycleHooks,
 	}
 }
 
@@ -138,7 +141,9 @@ func (a *Agent) PromptStream(ctx context.Context, msg ai.Message) (<-chan AgentS
 			ev = AgentStreamEvent{Type: StreamEventTurnEnd, Message: e.Message}
 		case EventToolExecutionStart:
 			ev = AgentStreamEvent{Type: StreamEventToolStart, ToolName: e.ToolName, ToolCallID: e.ToolCallID}
-		case EventToolExecutionEnd:
+		case EventToolExecutionUpdate:
+				ev = AgentStreamEvent{Type: StreamEventToolUpdate, ToolName: e.ToolName, ToolCallID: e.ToolCallID, PartialResult: e.PartialResult}
+			case EventToolExecutionEnd:
 			ev = AgentStreamEvent{Type: StreamEventToolEnd, ToolName: e.ToolName, ToolCallID: e.ToolCallID, ToolResult: e.Result, IsError: e.IsError}
 		case EventCompacted:
 			ev = AgentStreamEvent{Type: StreamEventCompacted, Summary: e.Summary}
@@ -299,6 +304,7 @@ const (
 	StreamEventTextDelta  StreamEventType = "text_delta"
 	StreamEventTurnEnd    StreamEventType = "turn_end"
 	StreamEventToolStart  StreamEventType = "tool_start"
+	StreamEventToolUpdate StreamEventType = "tool_update"
 	StreamEventToolEnd    StreamEventType = "tool_end"
 	StreamEventDone       StreamEventType = "done"
 	StreamEventError      StreamEventType = "error"
@@ -312,6 +318,7 @@ type AgentStreamEvent struct {
 	ToolName     string              `json:"tool_name,omitempty"`
 	ToolCallID   string              `json:"tool_call_id,omitempty"`
 	ToolResult   any                 `json:"tool_result,omitempty"`
+	PartialResult any                `json:"partial_result,omitempty"`
 	IsError      bool                `json:"is_error,omitempty"`
 	FinalMessage ai.AssistantMessage `json:"final_message,omitempty"`
 	Error        string              `json:"error,omitempty"`
