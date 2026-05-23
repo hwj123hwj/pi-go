@@ -1,34 +1,36 @@
-package slashcmd
+package commands
 
 import (
 	"fmt"
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/earendil-works/pi-go/internal/slashcmd"
 )
 
-// RegisterBuiltins registers the built-in slash commands into the given registry.
-func RegisterBuiltins(registry *Registry) {
-	registry.Register(Command{
+// RegisterBuiltins registers coding-agent slash commands into the shared framework registry.
+func RegisterBuiltins(registry *slashcmd.Registry) {
+	registry.Register(slashcmd.Command{
 		Name:        "help",
 		Description: "List all commands",
-		Handler: func(ctx Context, args string) (string, error) {
+		Handler: func(ctx slashcmd.Context, args string) (string, error) {
 			return formatHelp(registry), nil
 		},
 	})
 
-	registry.Register(Command{
+	registry.Register(slashcmd.Command{
 		Name:        "compact",
 		Description: "Manually trigger context compaction",
-		Handler: func(ctx Context, args string) (string, error) {
+		Handler: func(ctx slashcmd.Context, args string) (string, error) {
 			return "Context compaction runs automatically when the conversation grows too long.\nManual compaction is not yet implemented — it will be available in a future update.", nil
 		},
 	})
 
-	registry.Register(Command{
+	registry.Register(slashcmd.Command{
 		Name:        "sessions",
 		Description: "List all sessions",
-		Handler: func(ctx Context, args string) (string, error) {
+		Handler: func(ctx slashcmd.Context, args string) (string, error) {
 			if ctx.App == nil {
 				return "app not available", nil
 			}
@@ -50,7 +52,7 @@ func RegisterBuiltins(registry *Registry) {
 			for _, s := range sessions {
 				marker := "  "
 				if s.ID == currentID {
-					marker = "→ " // indicate current session
+					marker = "→ "
 				}
 				lastActive := time.Unix(s.LastActive, 0).Format("2006-01-02 15:04")
 				b.WriteString(fmt.Sprintf("%s%-20s  messages=%-4d  last_active=%s\n", marker, s.ID, s.MessageCount, lastActive))
@@ -59,10 +61,10 @@ func RegisterBuiltins(registry *Registry) {
 		},
 	})
 
-	registry.Register(Command{
+	registry.Register(slashcmd.Command{
 		Name:        "session",
 		Description: "Show current session info",
-		Handler: func(ctx Context, args string) (string, error) {
+		Handler: func(ctx slashcmd.Context, args string) (string, error) {
 			if ctx.Session == nil {
 				return "no active session", nil
 			}
@@ -75,18 +77,18 @@ func RegisterBuiltins(registry *Registry) {
 		},
 	})
 
-	registry.Register(Command{
+	registry.Register(slashcmd.Command{
 		Name:        "branch",
 		Description: "Switch to a specific entry (branch navigation)",
-		Handler: func(ctx Context, args string) (string, error) {
+		Handler: func(ctx slashcmd.Context, args string) (string, error) {
 			return "Branch navigation is not yet implemented. It will be available in a future update.", nil
 		},
 	})
 
-	registry.Register(Command{
+	registry.Register(slashcmd.Command{
 		Name:        "new",
 		Description: "Create a new session",
-		Handler: func(ctx Context, args string) (string, error) {
+		Handler: func(ctx slashcmd.Context, args string) (string, error) {
 			if ctx.App == nil {
 				return "app not available — cannot create new session", nil
 			}
@@ -94,17 +96,16 @@ func RegisterBuiltins(registry *Registry) {
 			if err != nil {
 				return "", fmt.Errorf("create session: %w", err)
 			}
-			// Replace the session in context so the caller can update its reference
 			ctx.Session = newSession
 			provider, modelID := newSession.ModelInfo()
 			return fmt.Sprintf("Created new session: %s\nModel: %s/%s\nReady for input.", newSession.SessionID(), provider, modelID), nil
 		},
 	})
 
-	registry.Register(Command{
+	registry.Register(slashcmd.Command{
 		Name:        "tools",
 		Description: "Show available tools",
-		Handler: func(ctx Context, args string) (string, error) {
+		Handler: func(ctx slashcmd.Context, args string) (string, error) {
 			if ctx.Session == nil {
 				return "no active session", nil
 			}
@@ -116,10 +117,10 @@ func RegisterBuiltins(registry *Registry) {
 		},
 	})
 
-	registry.Register(Command{
+	registry.Register(slashcmd.Command{
 		Name:        "model",
 		Description: "Show or switch model (/model [provider:]model_name)",
-		Handler: func(ctx Context, args string) (string, error) {
+		Handler: func(ctx slashcmd.Context, args string) (string, error) {
 			if ctx.Session == nil {
 				return "no active session", nil
 			}
@@ -130,14 +131,12 @@ func RegisterBuiltins(registry *Registry) {
 				return fmt.Sprintf("Current model: %s/%s", provider, modelID), nil
 			}
 
-			// Parse provider:model format
 			var newModel, newProvider string
 			if parts := strings.SplitN(newInput, ":", 2); len(parts) == 2 {
 				newProvider = parts[0]
 				newModel = parts[1]
 			} else {
 				newModel = newInput
-				newProvider = "" // keep current provider
 			}
 
 			if err := ctx.Session.SwitchModel(ctx.Ctx, newModel, newProvider); err != nil {
@@ -149,11 +148,9 @@ func RegisterBuiltins(registry *Registry) {
 	})
 }
 
-// formatHelp returns a nicely formatted help string grouped by function.
-func formatHelp(registry *Registry) string {
+func formatHelp(registry *slashcmd.Registry) string {
 	names := registry.Names()
 
-	// Group commands: session management vs info vs action
 	var sessionCmds, infoCmds, actionCmds []string
 	for _, name := range names {
 		switch name {
@@ -166,7 +163,6 @@ func formatHelp(registry *Registry) string {
 		}
 	}
 
-	// Sort within each group
 	sort.Strings(sessionCmds)
 	sort.Strings(infoCmds)
 	sort.Strings(actionCmds)

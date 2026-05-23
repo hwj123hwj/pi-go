@@ -5,12 +5,13 @@ import (
 	"log/slog"
 	"os"
 
+	"github.com/earendil-works/pi-go/internal/agents/coding"
 	"github.com/earendil-works/pi-go/internal/ai/providers"
 	"github.com/earendil-works/pi-go/internal/config"
 	"github.com/earendil-works/pi-go/internal/extensions"
-	"github.com/earendil-works/pi-go/internal/slashcmd"
 	"github.com/earendil-works/pi-go/internal/runtime"
 	"github.com/earendil-works/pi-go/internal/sessionmgr"
+	"github.com/earendil-works/pi-go/internal/slashcmd"
 )
 
 // App is the thin assembly layer for the coding-agent.
@@ -119,6 +120,7 @@ func (a *App) deps() runtime.Dependencies {
 		Registry:    a.registry,
 		SessionMgr:  a.sessionMgr,
 		ExtRegistry: a.extRegistry,
+		Application: coding.CodingApplication{},
 	}
 }
 
@@ -127,10 +129,7 @@ func (a *App) deps() runtime.Dependencies {
 func (a *App) ToolNames() []string {
 	cfg := a.cfg
 
-	baseNames := []string{"read", "write", "edit", "grep", "find", "ls"}
-	if cfg.EnableBash {
-		baseNames = append([]string{"bash"}, baseNames...)
-	}
+	baseNames := coding.BaseToolNames(cfg.EnableBash)
 
 	// Extension tools
 	if a.extRegistry != nil {
@@ -192,7 +191,7 @@ func registerProviders(registry *providers.Registry, cfg config.Config) {
 			if workDir == "" {
 				workDir, _ = os.Getwd()
 			}
-			registry.Register(providers.NewDeepVProvider(cfg.DeepVServerURL, workDir))
+			registry.Register(providers.NewDeepVProvider(cfg.DeepVServerURL, coding.NewDeepVHeaderProvider(workDir)))
 			slog.Info("registered deepv provider", "model", cfg.DeepVModel, "server", cfg.DeepVServerURL)
 		} else {
 			slog.Warn("deepv provider selected but DEEPV_ENABLED is not true, falling back to mock")

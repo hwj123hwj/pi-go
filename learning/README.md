@@ -7,7 +7,7 @@
 | 文档 | 内容 |
 |---|---|
 | [01-agent-framework-extensibility.md](./01-agent-framework-extensibility.md) | 底座架构分析：如何基于通用 Agent 框架扩展不同类型的 Agent |
-| [cc-comparison.md](./cc-comparison.md) | Claude Code 源码分析：架构对比、值得借鉴的设计、应避免的冗余 |
+| [cc-system-prompt.md](./cc-system-prompt.md) | CC 系统提示设计分析：三种构建方式、动态注入机制、与 Pi-Go 的对比 |
 
 ## 设计文档
 

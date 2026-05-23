@@ -4,6 +4,9 @@
 > 本文档供执行 agent 使用，包含目录结构、核心抽象、接口定义和实现要求。  
 > 重要参考实现：`/Users/weijian/Desktop/develop/test/pi/packages/coding-agent`
 
+> 说明：本规格聚焦 `pi-go` 的共用内核与应用层抽象，不直接规划产品 UI。  
+> 当前产品主线以 `CLI` 为开发者主入口，`Desktop` 为可视化工作台，`Server + Feishu` 为服务化入口；不再单独规划 `TUI` 产品线。
+
 ## 0. 设计原则
 
 这份规格不是简单给 `pi-go` 补一些命令和工具，而是要让它在架构上逐步对齐参考实现 `packages/coding-agent` 的核心思路。
@@ -27,6 +30,10 @@
    - 参考实现的价值不在动态库，而在 runtime/event bus/resource loader 这一套组合能力
    - MVP 阶段优先保证扩展能注册工具、命令和钩子
 
+5. **终端场景由 CLI 承担，不额外引入独立 TUI 抽象**
+   - `mode/interactive` 的目标是成为强 CLI，而不是演进出一套单独终端 UI 产品
+   - 如果后续需要更丰富的终端展示，也应作为 CLI 呈现层增强，而不是另起产品线
+
 ## 1. 当前已有（不改或微调）
 
 | 包 | 路径 | 说明 |
@@ -35,12 +42,12 @@
 | agent 运行时 | `internal/agent/` | 循环、Tool 接口、状态机、事件、busy 检测，已完成 |
 | session 存储 | `internal/session/` | JSONL 树状存储、leaf、MoveTo，已完成 |
 | compaction | `internal/compaction/` | 上下文压缩，已完成 |
-| server | `internal/server/` | HTTP REST + SSE，已有基础版，需重构 |
+| server | `internal/server/` | HTTP REST + WebSocket，多 session 路由是主要求 |
 | config | `internal/config/` | 配置加载，需扩展 |
 | skill | `internal/skill/` | SKILL.md 加载，已完成 |
 | prompt | `internal/prompt/` | 系统提示构建，需增强 coding 场景 |
 | tools（基础版） | `internal/tools/` | 7 个工具已存在，需增强 |
-| CLI 入口 | `cmd/pi-agent/main.go` | serve/chat/run 三种模式，需大幅变薄 |
+| CLI 入口 | `cmd/pi-agent/main.go` | serve/chat/run 三种模式，CLI 是终端主入口 |
 
 ## 2. 目标目录结构
 
@@ -95,7 +102,7 @@ pi-go/
 │   │   ├── context.go                 # 命令上下文，绑定 runtime/app 能力
 │   │   └── builtins.go
 │   │
-│   ├── mode/                          # [新建] 交互模式
+│   ├── mode/                          # [新建] 运行模式（CLI / print / serve）
 │   │   ├── interactive.go
 │   │   ├── print.go
 │   │   └── serve.go
@@ -123,6 +130,12 @@ pi-go/
 - model / thinking level 之类的运行时设置
 - 斜杠命令所需的操作上下文
 - mode 间复用
+
+这层能力要同时服务于：
+
+- `CLI` 交互模式
+- `Desktop` 通过 server/websocket 的访问
+- `Server + Feishu` 的服务化调用
 
 ```go
 package runtime
@@ -438,7 +451,7 @@ func (r *Registry) EmitHook(ctx context.Context, event string, data any) error
 
 ### 8.1 `interactive.go`
 
-**职责**：对话 UI 层，不承载会话业务。
+**职责**：强 CLI 交互层，不承载会话业务。
 
 ```go
 type InteractiveMode struct {
@@ -481,6 +494,7 @@ func (m *ServeMode) Run(ctx context.Context, listenAddr string) error
 - HTTP 请求必须能指定或创建 `session_id`
 - `chat` / `chat/stream` 不再直接绑定一个全局 agent
 - `internal/server/` 如果保留，也应改成依赖 `App + SessionRegistry`
+- 它应同时作为 `Desktop` 与 `Server + Feishu` 的共用接入底座
 
 ## 9. CLI 入口
 
@@ -611,6 +625,7 @@ go test ./...
 - **不改** `internal/agent/`、`internal/ai/`、`internal/session/`、`internal/compaction/` 的现有核心接口，除非确实被运行时抽象阻塞
 - **优先围绕 `AgentSession` 式运行时设计，不要把逻辑散进 mode/app/server**
 - **不把 `.so` 动态加载当 MVP 阶段目标**
+- `interactive` 的增强方向是强 CLI，而不是分化出独立 TUI 产品线
 - 所有工具必须满足 `agent.Tool` 接口
 - 错误使用 `%w` 包装
 - 尽量不引入新的外部依赖

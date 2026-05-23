@@ -7,8 +7,9 @@ import (
 	"testing"
 
 	"github.com/earendil-works/pi-go/internal/agent"
+	platformprompt "github.com/earendil-works/pi-go/internal/prompt"
 	"github.com/earendil-works/pi-go/internal/skill"
-	"github.com/earendil-works/pi-go/internal/tools"
+	basetools "github.com/earendil-works/pi-go/internal/tools"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -31,7 +32,7 @@ func TestBuildSystemPrompt_WithCWD(t *testing.T) {
 }
 
 func TestBuildSystemPrompt_WithTools(t *testing.T) {
-	toolList := []agent.Tool{tools.NewBashTool(), tools.NewReadTool()}
+	toolList := []agent.Tool{basetools.NewBashTool(), basetools.NewReadTool()}
 	prompt := BuildSystemPrompt(Options{Tools: toolList})
 	assert.Contains(t, prompt, "## Available Tools")
 	assert.Contains(t, prompt, "### bash")
@@ -53,14 +54,14 @@ func TestBuildSystemPrompt_ContainsDate(t *testing.T) {
 }
 
 func TestBuildSystemPrompt_WithGuidelines(t *testing.T) {
-	toolList := []agent.Tool{tools.NewBashTool(), tools.NewReadTool()}
+	toolList := []agent.Tool{basetools.NewBashTool(), basetools.NewReadTool()}
 	prompt := BuildSystemPrompt(Options{Tools: toolList})
 	assert.Contains(t, prompt, "## Guidelines")
 	assert.Contains(t, prompt, "Be concise")
 }
 
 func TestBuildSystemPrompt_WithContextFiles(t *testing.T) {
-	contextFiles := []ContextFile{
+	contextFiles := []platformprompt.ContextFile{
 		{Path: "/project/CLAUDE.md", Content: "Always use tabs for indentation."},
 	}
 	prompt := BuildSystemPrompt(Options{ContextFiles: contextFiles})
@@ -70,14 +71,12 @@ func TestBuildSystemPrompt_WithContextFiles(t *testing.T) {
 }
 
 func TestBuildSystemPrompt_WithSkills(t *testing.T) {
-	skills := []skill.Skill{
-		{
-			Name:        "graphify",
-			Description: "Convert to knowledge graph",
-			FilePath:    "/skills/graphify/SKILL.md",
-			BaseDir:     "/skills/graphify",
-		},
-	}
+	skills := []skill.Skill{{
+		Name:        "graphify",
+		Description: "Convert to knowledge graph",
+		FilePath:    "/skills/graphify/SKILL.md",
+		BaseDir:     "/skills/graphify",
+	}}
 	prompt := BuildSystemPrompt(Options{Skills: skills})
 	assert.Contains(t, prompt, "<available_skills>")
 	assert.Contains(t, prompt, "<name>graphify</name>")
@@ -89,100 +88,22 @@ func TestBuildSystemPrompt_WithAppendSystemPrompt(t *testing.T) {
 }
 
 func TestBuildSystemPrompt_ToolGuidelines(t *testing.T) {
-	toolList := []agent.Tool{tools.NewEditTool()}
+	toolList := []agent.Tool{basetools.NewEditTool()}
 	prompt := BuildSystemPrompt(Options{Tools: toolList})
 	assert.Contains(t, prompt, "Use edit for targeted modifications")
 }
 
 func TestBuildSystemPrompt_SmartGuidelines_BashWithGrep(t *testing.T) {
-	toolList := []agent.Tool{tools.NewBashTool(), tools.NewGrepTool()}
+	toolList := []agent.Tool{basetools.NewBashTool(), basetools.NewGrepTool()}
 	prompt := BuildSystemPrompt(Options{Tools: toolList})
 	assert.Contains(t, prompt, "Prefer grep/find/ls tools over bash for file exploration")
 }
 
 func TestBuildSystemPrompt_SmartGuidelines_BashOnly(t *testing.T) {
-	toolList := []agent.Tool{tools.NewBashTool()}
+	toolList := []agent.Tool{basetools.NewBashTool()}
 	prompt := BuildSystemPrompt(Options{Tools: toolList})
 	assert.Contains(t, prompt, "Use bash for file operations")
 }
-
-// ─── Context File 加载 ────────────────────────────────────────────────────────
-
-func TestLoadContextFiles_Found(t *testing.T) {
-	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "CLAUDE.md"), []byte("# Instructions\nUse Go."), 0o644))
-
-	files := LoadContextFiles(dir)
-	require.Len(t, files, 1)
-	assert.Equal(t, "# Instructions\nUse Go.", files[0].Content)
-	assert.Contains(t, files[0].Path, "CLAUDE.md")
-}
-
-func TestLoadContextFiles_NotFound(t *testing.T) {
-	dir := t.TempDir()
-	files := LoadContextFiles(dir)
-	assert.Empty(t, files)
-}
-
-func TestLoadContextFiles_Empty(t *testing.T) {
-	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "CLAUDE.md"), []byte(""), 0o644))
-
-	files := LoadContextFiles(dir)
-	assert.Empty(t, files)
-}
-
-func TestLoadContextFiles_Priority(t *testing.T) {
-	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "CLAUDE.md"), []byte("Claude"), 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "AGENTS.md"), []byte("Agents"), 0o644))
-
-	files := LoadContextFiles(dir)
-	require.Len(t, files, 1)
-	assert.Equal(t, "Claude", files[0].Content)
-}
-
-func TestLoadProjectContextFiles_AncestorTraversal(t *testing.T) {
-	root := t.TempDir()
-	child := filepath.Join(root, "a", "b", "c")
-	require.NoError(t, os.MkdirAll(child, 0o755))
-
-	// 根目录有 CLAUDE.md
-	require.NoError(t, os.WriteFile(filepath.Join(root, "CLAUDE.md"), []byte("Root instructions"), 0o644))
-	// 中间目录有 AGENTS.md
-	require.NoError(t, os.WriteFile(filepath.Join(root, "a", "AGENTS.md"), []byte("Mid instructions"), 0o644))
-
-	files := LoadProjectContextFiles(child, "")
-	require.Len(t, files, 2)
-	// 从根到叶排列
-	assert.Contains(t, files[0].Content, "Root")
-	assert.Contains(t, files[1].Content, "Mid")
-}
-
-func TestLoadProjectContextFiles_WithAgentDir(t *testing.T) {
-	agentDir := t.TempDir()
-	cwd := t.TempDir()
-
-	require.NoError(t, os.WriteFile(filepath.Join(agentDir, "CLAUDE.md"), []byte("Global instructions"), 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(cwd, "CLAUDE.md"), []byte("Local instructions"), 0o644))
-
-	files := LoadProjectContextFiles(cwd, agentDir)
-	require.Len(t, files, 2)
-	// 全局的在前
-	assert.Contains(t, files[0].Content, "Global")
-	assert.Contains(t, files[1].Content, "Local")
-}
-
-func TestLoadProjectContextFiles_Dedup(t *testing.T) {
-	cwd := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(cwd, "CLAUDE.md"), []byte("Same dir"), 0o644))
-
-	// 同一个目录不应该重复
-	files := LoadProjectContextFiles(cwd, cwd)
-	assert.Len(t, files, 1)
-}
-
-// ─── Git Branch ───────────────────────────────────────────────────────────────
 
 func TestBuildSystemPrompt_GitBranch(t *testing.T) {
 	dir := t.TempDir()

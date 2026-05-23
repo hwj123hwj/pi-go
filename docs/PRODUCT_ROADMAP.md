@@ -1,7 +1,7 @@
 # Pi-Go 产品与技术规划
 
 > 目标：把 `pi-go` 从当前的可运行原型，逐步推进到三个可落地的最终形态：
-> 1. 类似 Claude Code 的 `CLI/TUI`
+> 1. 类似 Claude Code 的强 `CLI`
 > 2. 类似 OpenHanako 的桌面端应用（不自研编辑器）
 > 3. 运行在服务器端、通过飞书使用的 Agent 服务
 
@@ -13,7 +13,7 @@
 
 - 一个共用 Agent Runtime 内核
 - 三个交付入口：
-  - `CLI/TUI`
+  - `CLI`
   - `Desktop`
   - `Server + Feishu`
 
@@ -29,7 +29,7 @@
 
 ### 1.2 三种形态的角色分工
 
-#### A. CLI/TUI
+#### A. CLI
 
 定位：面向开发者的主生产力入口。
 
@@ -41,7 +41,7 @@
 - tmux / screen
 - 服务器侧直接操作代码仓库
 
-这是最接近 Claude Code 路线、也最值得优先打磨的产品形态。
+这是最接近 Claude Code 路线、也最值得优先打磨的产品形态。终端场景直接由 CLI 承担，不再单独规划 TUI。
 
 #### B. Desktop
 
@@ -101,7 +101,7 @@
 后续需求按以下优先级排序：
 
 1. 先做共用内核
-2. 再做 CLI/TUI 主入口
+2. 再做 CLI 主入口
 3. 再稳住 Server + Feishu
 4. Desktop 放在产品化和展示层持续打磨
 
@@ -224,7 +224,7 @@
 
 ## Phase 2：把 CLI 做成主入口
 
-目标：先把命令行体验做到足够强，再谈 TUI。
+目标：先把命令行体验做到足够强，让终端场景完全由 CLI 承担。
 
 优先级：`P0`
 
@@ -250,42 +250,7 @@
 
 - 不依赖 GUI，开发者已能顺手完成大部分使用场景
 
-## Phase 3：做轻量 TUI
-
-目标：提供类似 Claude Code 的终端工作台，但不做编辑器。
-
-优先级：`P1`
-
-建议功能范围：
-
-- 左侧 session 列表
-- 中间消息流
-- tool call / tool result 折叠块
-- 底部输入框
-- 状态栏：
-  - provider
-  - model
-  - cwd/workspace
-  - session id
-  - running 状态
-- 快捷键：
-  - 新建会话
-  - 切换会话
-  - 切模型
-  - 取消生成
-  - 查看工具详情
-
-建议原则：
-
-- 不把 TUI 做成编辑器
-- 不做复杂文件树和多 tab 编辑
-- 重点做好流式反馈、工具可视化、会话操作效率
-
-完成标志：
-
-- 在终端里形成稳定、舒服、可持续使用的主产品体验
-
-## Phase 4：稳定 Server 能力
+## Phase 3：稳定 Server 能力
 
 目标：让服务端形态成为真正可靠的产品底座。
 
@@ -313,7 +278,7 @@
 
 - 服务端不仅能给 Desktop 用，也能给 Feishu bridge 或其他客户端稳定复用
 
-## Phase 5：正式接入飞书
+## Phase 4：正式接入飞书
 
 目标：把 Agent 变成团队可用服务。
 
@@ -344,7 +309,7 @@
 
 - 飞书里可以稳定完成对话、工具调用、状态反馈、会话延续
 
-## Phase 6：持续打磨 Desktop
+## Phase 5：持续打磨 Desktop
 
 目标：把桌面端做成稳定、耐看、可展示的 Agent 工作台。
 
@@ -386,7 +351,6 @@
 
 ### P1：内核稳后立即做
 
-- 轻量 TUI
 - 稳定服务端协议
 - 飞书 bridge
 - SSH 远程执行基础版
@@ -415,11 +379,10 @@
 4. 做 `Operations + LocalOperations`
 5. 增强 tools
 6. 强化 CLI
-7. 做轻量 TUI
-8. 做 `SSHOperations`
-9. 稳定 server
-10. 接飞书 bridge
-11. 持续打磨 Desktop
+7. 做 `SSHOperations`
+8. 稳定 server
+9. 接飞书 bridge
+10. 持续打磨 Desktop
 
 ## 7. 里程碑定义
 
@@ -436,7 +399,6 @@
 包含：
 
 - CLI 成熟
-- 轻量 TUI 可用
 - 基础 SSH 远程执行可用
 
 ### M3：团队服务版
@@ -451,10 +413,10 @@
 
 包含：
 
-- TUI 主生产力入口
+- CLI 主生产力入口
 - Desktop 展示与轻量入口
 - Server + Feishu 团队服务入口
 
 ## 8. 一句话结论
 
-`pi-go` 后续最重要的不是继续分散做入口，而是先把共用内核做厚，再以 `CLI/TUI` 为主线，`Server + Feishu` 为服务化方向，`Desktop` 为产品化展示和轻量工作台方向逐步推进。
+`pi-go` 后续最重要的不是继续分散做入口，而是先把共用内核做厚，再以 `CLI` 为主线，`Server + Feishu` 为服务化方向，`Desktop` 为产品化展示和轻量工作台方向逐步推进。

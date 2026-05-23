@@ -1,0 +1,102 @@
+package tools
+
+import (
+	"github.com/earendil-works/pi-go/internal/agent"
+	"github.com/earendil-works/pi-go/internal/operations"
+	basetools "github.com/earendil-works/pi-go/internal/tools"
+)
+
+// ListOptions controls how the coding-agent toolset is assembled.
+type ListOptions struct {
+	Workspace      string
+	MaxOutputLen   int
+	EnableBash     bool
+	BashOps        operations.BashOperations
+	FileOps        operations.FileOperations
+	ExtensionTools []agent.Tool
+	AllowedTools   []string
+	BlockedTools   []string
+}
+
+// BaseToolNames returns the canonical coding-agent tool names before extension tools.
+func BaseToolNames(enableBash bool) []string {
+	names := []string{"read", "write", "edit", "grep", "find", "ls"}
+	if enableBash {
+		names = append([]string{"bash"}, names...)
+	}
+	return names
+}
+
+// BuildList assembles the concrete coding-agent toolset.
+func BuildList(opts ListOptions) []agent.Tool {
+	toolList := []agent.Tool{}
+
+	if opts.EnableBash {
+		toolList = append(toolList, basetools.NewBashTool(
+			basetools.WithBashWorkspace(opts.Workspace),
+			basetools.WithBashMaxOutputLen(opts.MaxOutputLen),
+			basetools.WithBashOperations(opts.BashOps),
+		))
+	}
+
+	toolList = append(toolList,
+		basetools.NewReadTool(
+			basetools.WithReadWorkspace(opts.Workspace),
+			basetools.WithReadMaxOutputLen(opts.MaxOutputLen),
+			basetools.WithReadOperations(opts.FileOps),
+		),
+		basetools.NewWriteTool(
+			basetools.WithWriteWorkspace(opts.Workspace),
+			basetools.WithWriteOperations(opts.FileOps),
+		),
+		basetools.NewEditTool(
+			basetools.WithEditWorkspace(opts.Workspace),
+			basetools.WithEditOperations(opts.FileOps),
+		),
+		basetools.NewGrepTool(
+			basetools.WithGrepWorkspace(opts.Workspace),
+			basetools.WithGrepMaxOutputLen(opts.MaxOutputLen),
+			basetools.WithGrepOperations(opts.FileOps),
+		),
+		basetools.NewFindTool(
+			basetools.WithFindWorkspace(opts.Workspace),
+			basetools.WithFindOperations(opts.FileOps),
+		),
+		basetools.NewLsTool(
+			basetools.WithLsWorkspace(opts.Workspace),
+			basetools.WithLsMaxOutputLen(opts.MaxOutputLen),
+			basetools.WithLsOperations(opts.FileOps),
+		),
+	)
+
+	toolList = append(toolList, opts.ExtensionTools...)
+	return filterTools(toolList, opts.AllowedTools, opts.BlockedTools)
+}
+
+func filterTools(tools []agent.Tool, allowed []string, blocked []string) []agent.Tool {
+	if len(allowed) == 0 && len(blocked) == 0 {
+		return tools
+	}
+
+	allowedSet := make(map[string]bool, len(allowed))
+	for _, name := range allowed {
+		allowedSet[name] = true
+	}
+	blockedSet := make(map[string]bool, len(blocked))
+	for _, name := range blocked {
+		blockedSet[name] = true
+	}
+
+	var filtered []agent.Tool
+	for _, tool := range tools {
+		name := tool.Name()
+		if len(allowed) > 0 && !allowedSet[name] {
+			continue
+		}
+		if blockedSet[name] {
+			continue
+		}
+		filtered = append(filtered, tool)
+	}
+	return filtered
+}
