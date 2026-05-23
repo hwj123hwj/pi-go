@@ -145,6 +145,14 @@ func (s *AgentSession) ModelInfo() (string, string) {
 	return providerName, modelID
 }
 
+// ToolNames returns the names of tools available in the current session.
+func (s *AgentSession) ToolNames() []string {
+	if s.agent == nil {
+		return nil
+	}
+	return s.agent.ToolNames()
+}
+
 // SwitchModel changes the model (and optionally the provider) at runtime
 // and rebuilds the agent. The change takes effect for subsequent prompts.
 // If provider is non-empty, both provider and model are switched;

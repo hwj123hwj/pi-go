@@ -103,6 +103,17 @@ func (a *Agent) State() State {
 	return a.state
 }
 
+// ToolNames returns the names of all registered tools.
+func (a *Agent) ToolNames() []string {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	names := make([]string, 0, len(a.tools))
+	for name := range a.tools {
+		names = append(names, name)
+	}
+	return names
+}
+
 // Prompt 发起一次 Agent 对话，等待完成后返回最终 assistant message。
 func (a *Agent) Prompt(ctx context.Context, msg ai.Message) (ai.AssistantMessage, error) {
 	a.mu.Lock()
@@ -146,7 +157,7 @@ func (a *Agent) PromptStream(ctx context.Context, msg ai.Message) (<-chan AgentS
 			case EventToolExecutionEnd:
 			ev = AgentStreamEvent{Type: StreamEventToolEnd, ToolName: e.ToolName, ToolCallID: e.ToolCallID, ToolResult: e.Result, IsError: e.IsError}
 		case EventCompacted:
-			ev = AgentStreamEvent{Type: StreamEventCompacted, Summary: e.Summary}
+			ev = AgentStreamEvent{Type: StreamEventCompacted, Summary: e.Summary, TrimmedFrom: e.TrimmedFrom, TrimmedTo: e.TrimmedTo}
 		case EventCompactionFailed:
 			ev = AgentStreamEvent{Type: StreamEventError, Error: "compaction failed: " + e.Error}
 		default:
@@ -323,4 +334,6 @@ type AgentStreamEvent struct {
 	FinalMessage ai.AssistantMessage `json:"final_message,omitempty"`
 	Error        string              `json:"error,omitempty"`
 	Summary      string              `json:"summary,omitempty"`
+	TrimmedFrom  int                 `json:"trimmed_from,omitempty"`
+	TrimmedTo    int                 `json:"trimmed_to,omitempty"`
 }

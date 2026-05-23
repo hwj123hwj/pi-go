@@ -66,15 +66,15 @@ func TestIsSlashCommand(t *testing.T) {
 }
 
 func TestParseSlashCommand(t *testing.T) {
-	name, args := parseSlashCommand("/compact reason text")
+	name, args := ParseSlashCommand("/compact reason text")
 	assert.Equal(t, "compact", name)
 	assert.Equal(t, "reason text", args)
 
-	name, args = parseSlashCommand("/help")
+	name, args = ParseSlashCommand("/help")
 	assert.Equal(t, "help", name)
 	assert.Equal(t, "", args)
 
-	name, args = parseSlashCommand("  /test  arg1 arg2  ")
+	name, args = ParseSlashCommand("  /test  arg1 arg2  ")
 	assert.Equal(t, "test", name)
 	assert.Equal(t, "arg1 arg2", args)
 }
@@ -126,6 +126,5 @@ func TestBuiltin_Tools(t *testing.T) {
 
 	output, err := reg.Execute(Context{}, "/tools")
 	require.NoError(t, err)
-	assert.Contains(t, output, "bash")
-	assert.Contains(t, output, "read")
+	assert.Contains(t, output, "no active session") // no session → graceful message
 }

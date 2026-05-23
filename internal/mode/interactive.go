@@ -5,12 +5,13 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
-	"github.com/earendil-works/pi-go/internal/agent"
 	"github.com/earendil-works/pi-go/internal/app"
 	"github.com/earendil-works/pi-go/internal/runtime"
 	"github.com/earendil-works/pi-go/internal/slashcmd"
+	"github.com/earendil-works/pi-go/internal/ui"
 )
 
 // InteractiveMode handles the interactive chat UI loop.
@@ -19,6 +20,7 @@ type InteractiveMode struct {
 	session   *runtime.AgentSession
 	slashCmds *slashcmd.Registry
 	app       *app.App
+	presenter *ui.Presenter
 }
 
 // NewInteractiveMode creates a new interactive mode.
@@ -27,16 +29,22 @@ func NewInteractiveMode(session *runtime.AgentSession, cmds *slashcmd.Registry, 
 		session:   session,
 		slashCmds: cmds,
 		app:       application,
+		presenter: ui.NewPresenter(os.Stdout),
 	}
 }
 
 // Run starts the interactive chat loop.
 func (m *InteractiveMode) Run(ctx context.Context) error {
 	scanner := bufio.NewScanner(os.Stdin)
+	provider, modelID := m.session.ModelInfo()
+	cwd, _ := os.Getwd()
+
 	fmt.Println("pi-go chat mode. Type your message and press Enter. Ctrl-D to exit.")
-	fmt.Printf("Session: %s\n\n", m.session.SessionID())
+	fmt.Printf("Session: %s | Model: %s/%s\n", m.session.SessionID(), provider, modelID)
+	fmt.Printf("CWD: %s\n\n", cwd)
 
 	for {
+		// Show prompt with model indicator
 		fmt.Print("You> ")
 		if !scanner.Scan() {
 			return nil
@@ -51,6 +59,15 @@ func (m *InteractiveMode) Run(ctx context.Context) error {
 
 		// Handle slash commands
 		if slashcmd.IsSlashCommand(input) {
+			// Special handling for /new which needs to replace the session
+			cmdName, _ := slashcmd.ParseSlashCommand(input)
+			if cmdName == "new" {
+				if err := m.handleNewSession(ctx); err != nil {
+					fmt.Printf("error: %s\n", err)
+				}
+				continue
+			}
+
 			cmdCtx := slashcmd.Context{
 				Ctx:     ctx,
 				Session: m.session,
@@ -66,34 +83,50 @@ func (m *InteractiveMode) Run(ctx context.Context) error {
 		}
 
 		// Normal prompt via streaming
-		promptCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
-
-		stream, err := m.session.PromptStream(promptCtx, input)
-		if err != nil {
-			fmt.Println("error:", err)
-			cancel()
-			continue
-		}
-
-		fmt.Print("Pi> ")
-		for event := range stream {
-			switch event.Type {
-			case agent.StreamEventTextDelta:
-				fmt.Print(event.TextDelta)
-			case agent.StreamEventToolStart:
-				fmt.Printf("\n[tool:%s] ", event.ToolName)
-			case agent.StreamEventToolEnd:
-				fmt.Print("✓ ")
-			case agent.StreamEventCompacted:
-				fmt.Printf("\n[compacted: %d chars trimmed] ", len(event.Summary))
-			case agent.StreamEventDone:
-				fmt.Println()
-			case agent.StreamEventError:
-				fmt.Printf("\nerror: %s\n", event.Error)
-			}
-		}
-
-		cancel()
-		fmt.Println()
+		m.runPrompt(ctx, input)
 	}
+}
+
+// runPrompt executes a streaming prompt and renders events.
+func (m *InteractiveMode) runPrompt(ctx context.Context, input string) {
+	promptCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+	defer cancel()
+
+	stream, err := m.session.PromptStream(promptCtx, input)
+	if err != nil {
+		fmt.Printf("error: %s\n", err)
+		return
+	}
+
+	fmt.Print("Pi> ")
+	for event := range stream {
+		m.presenter.Present(event)
+	}
+	fmt.Println()
+}
+
+// handleNewSession creates a new session and switches to it.
+func (m *InteractiveMode) handleNewSession(ctx context.Context) error {
+	if m.app == nil {
+		fmt.Println("error: app not available — cannot create new session")
+		return nil
+	}
+
+	newSession, err := m.app.NewSession(ctx)
+	if err != nil {
+		return fmt.Errorf("create session: %w", err)
+	}
+
+	// Close old session
+	oldID := m.session.SessionID()
+	m.session.Close()
+
+	// Switch to new session
+	m.session = newSession
+
+	provider, modelID := m.session.ModelInfo()
+	cwd, _ := os.Getwd()
+	fmt.Printf("Created new session: %s (previous: %s)\n", m.session.SessionID(), oldID)
+	fmt.Printf("Session: %s | Model: %s/%s | CWD: %s\n\n", m.session.SessionID(), provider, modelID, filepath.Base(cwd))
+	return nil
 }
