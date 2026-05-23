@@ -227,3 +227,12 @@ func (a *App) ListSessionsInfo() ([]slashcmd.SessionInfo, error) {
 	}
 	return result, nil
 }
+
+// CreateSession creates a new session and returns it as a SessionContext.
+// This implements the slashcmd.AppContext interface.
+func (a *App) CreateSession(ctx context.Context) (slashcmd.SessionContext, error) {
+	return a.NewSession(ctx)
+}
+
+// Ensure App implements slashcmd.AppContext at compile time.
+var _ slashcmd.AppContext = (*App)(nil)
