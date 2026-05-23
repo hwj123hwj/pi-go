@@ -244,6 +244,18 @@ func (p *DeepVProvider) handleSSE(ctx context.Context, stream *ai.EventStream, b
 		}
 	}
 
+	// Deduplicate tool call IDs: DeepV server may return duplicate IDs for the same function call.
+	seen := make(map[string]bool, len(toolCalls))
+	deduped := make([]ai.ToolCall, 0, len(toolCalls))
+	for _, tc := range toolCalls {
+		if seen[tc.ID] {
+			continue
+		}
+		seen[tc.ID] = true
+		deduped = append(deduped, tc)
+	}
+	toolCalls = deduped
+
 	// 关闭文本 block
 	if textBlockStarted {
 		partial.Text = textAccum.String()
