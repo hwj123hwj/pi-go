@@ -276,6 +276,12 @@ func (s *AgentSession) buildAgent(ctx context.Context, registry *providers.Regis
 		Skills:       skills,
 	})
 
+	// Aggregate lifecycle hooks from extension registry
+	var lifecycleHooks agent.LifecycleHooks
+	if s.extRegistry != nil {
+		lifecycleHooks = s.extRegistry.LifecycleHooks()
+	}
+
 	return agent.New(agent.Options{
 		Model:              model,
 		Registry:           registry,
@@ -285,6 +291,7 @@ func (s *AgentSession) buildAgent(ctx context.Context, registry *providers.Regis
 		Session:            s.session,
 		CompactionSettings: compactionSettings,
 		SummarizeFunc:      summarizeFunc,
+		LifecycleHooks:     lifecycleHooks,
 	}), nil
 }
 
