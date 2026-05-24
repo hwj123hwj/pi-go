@@ -20,12 +20,18 @@ docs/
 │
 ├── research/                          # 外部项目调研报告（调研 agent 产出）
 │   ├── oh-my-pi-full-analysis.md
-│   └── competitive-research.md
+│   ├── cc-haha-architecture-analysis.md
+│   ├── cc-haha-core-engine-analysis.md
+│   ├── codex-architecture.md
+│   ├── codex-rust-cli-analysis.md
+│   ├── deepv-code-full-analysis.md
+│   └── competitive-research.md        # (archived)
 │
 ├── dev/                               # 开发文档（4-agent 流水线产出）
 │   ├── layering-refactor/             # 分层重构
-│   ├── runtime-decoupling/            # Runtime 解耦
-│   └── coding-agent/                  # Coding Agent 规格
+│   ├── coding-agent/                  # Coding Agent 规格
+│   ├── coding-agent-cli-control-plane/# Coding Agent CLI 控制面
+│   └── second-agent-validation/       # 第二个 Agent 验证（预案）
 │
 └── archive/                           # 已完成的开发主题
     ├── cli-tui/
@@ -57,10 +63,21 @@ docs/
 |------|------|
 | [feishu-integration-ref.md](references/feishu-integration-ref.md) | 飞书 Bot 接入参考 |
 | [skills-vs-application.md](references/skills-vs-application.md) | Skills 与 Application 扩展路径决策参考 |
+| [pi-go-analysis.md](references/pi-go-analysis.md) | pi-go 项目深度分析报告（架构评估、Bug 清单、功能差距） |
 
 ## 调研报告
 
-`research/` 下是调研 agent 对外部项目的分析报告。详见 [research/](research/)。
+`research/` 下是调研 agent 对外部项目的分析报告。
+
+| 文档 | 内容 |
+|------|------|
+| [oh-my-pi-full-analysis.md](research/oh-my-pi-full-analysis.md) | oh-my-pi (omp) 全面分析：32 工具、Native Rust、TTSR、Subagent 等 |
+| [cc-haha-architecture-analysis.md](research/cc-haha-architecture-analysis.md) | cc-haha 桌面端架构与功能全景分析 |
+| [cc-haha-core-engine-analysis.md](research/cc-haha-core-engine-analysis.md) | cc-haha Agent 循环、Tool 系统、核心引擎源码深度分析 |
+| [codex-architecture.md](research/codex-architecture.md) | OpenAI Codex CLI (Rust) 架构设计与功能分析 |
+| [codex-rust-cli-analysis.md](research/codex-rust-cli-analysis.md) | Codex Rust CLI 详细调研 |
+| [deepv-code-full-analysis.md](research/deepv-code-full-analysis.md) | DeepV Code 全面分析 |
+| ~~competitive-research.md~~ | *(已归档)* 阶段性竞品对比分析 |
 
 ## 开发文档
 
@@ -89,13 +106,23 @@ updated: YYYY-MM-DD
 | 主题 | 状态 | 文档 |
 |------|------|------|
 | 分层重构 | approved | [proposal.md](dev/layering-refactor/proposal.md) |
-| Runtime 解耦 | done | [execution-plan.md](dev/runtime-decoupling/execution-plan.md) |
-| 第二个 Agent 验证 | approved | [execution-plan.md](dev/second-agent-validation/execution-plan.md) |
 | Coding Agent | approved | [spec.md](dev/coding-agent/spec.md) |
+| Coding Agent CLI 控制面 | done | [execution-plan.md](dev/coding-agent-cli-control-plane/execution-plan.md) |
+| 第二个 Agent 验证 | approved | [execution-plan.md](dev/second-agent-validation/execution-plan.md) |
 
 ## 归档
 
 `archive/` 下是已完成的开发主题。整个主题目录从 `dev/` 移入，保留完整上下文。
+
+| 归档主题 | 内容 |
+|---------|------|
+| [cli-tui/](archive/cli-tui/execution-plan.md) | CLI/TUI 执行计划（已完成，产品方向已明确为 CLI） |
+| [runtime-decoupling/](archive/runtime-decoupling/execution-plan.md) | Runtime 解耦执行计划（已完成） |
+| [ssh-operations/](archive/ssh-operations/execution-plan.md) | SSH 远程执行计划（已完成） |
+| [tool-lifecycle/](archive/tool-lifecycle/execution-plan.md) | Tool Lifecycle 执行计划（已完成） |
+| [desktop-golang/](archive/desktop-golang/changes.md) | Desktop Go 实现变更说明 |
+| [project-overview.md](archive/project-overview.md) | 项目概览（历史快照） |
+| [code-review-issues.md](archive/code-review-issues.md) | 代码评审问题清单 |
 
 ---
 

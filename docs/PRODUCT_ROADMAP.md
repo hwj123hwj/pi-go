@@ -78,15 +78,18 @@
 - Desktop 已有第一版可用壳子
 - HTTP/WebSocket 服务能力已具备
 - 飞书方向已有参考文档，但尚未形成正式产品模块
+- Layering refactor 已完成：Core → Platform → Application → Entrypoints 四层架构落地
+- Runtime decoupling 已完成：`runtime.Application` 接口使 Platform 与 Application 解耦
+- **Tool lifecycle hooks** 已落地：`BeforeToolCallHook` / `AfterToolCallHook` + `ToolWithPrepareArguments` 可选接口
+- **Operations 抽象** 已落地：`LocalOperations` + `SSHOperations` 双后端，工具通过 `BashOperations` / `FileOperations` 接口与执行后端解耦
+- **CLI 控制面** 已落地：结构化 slash command（CommandResult）、session 创建/切换（/new /switch）、model 切换（/model）、profile 机制（coding/review，/profile /profiles）、统一命令分发（消灭 /new 特判）
 
-当前最大的现实问题不是“入口不够多”，而是“内核还不够厚”。
+当前最大的现实问题不是”入口不够多”，而是”内核还不够厚”。
 
 核心薄弱点主要集中在：
 
-- tool lifecycle 还比较薄，缺少 prepare / before / after hooks
 - tool streaming / partial result 还未打通
 - tools 只有基础 7 件套，增强能力不够
-- 缺少 `Operations` 抽象，无法自然支持本地/远程执行切换
 - 模型元数据注册表较薄
 - 测试更多集中在基础层，入口级和端到端覆盖还不够
 
@@ -124,9 +127,9 @@
 
 ## 4. 核心路线图
 
-## Phase 0：稳定当前主干
+## Phase 0：稳定当前主干 ✅ **已完成**
 
-目标：把现有代码从“可运行”提升到“可持续演进”。
+目标：把现有代码从”可运行”提升到”可持续演进”。
 
 优先级：`P0`
 
@@ -146,9 +149,9 @@
 
 完成标志：
 
-- `go test ./...` 持续稳定
-- Desktop 主链路可用
-- 服务端可自动部署
+- ~~`go test ./...` 持续稳定~~ ✅ **已达到** — 全部 PASS，无 fail
+- ~~Desktop 主链路可用~~ ✅ **已达到** — `internal/desktop/` 存在，完整 Electron + Vite 项目结构
+- ~~服务端可自动部署~~ ✅ **已达到** — `.github/workflows/deploy.yml` 完整链路
 
 ## Phase 1：加厚共用运行时内核
 
@@ -156,42 +159,27 @@
 
 优先级：`P0`
 
-### 4.1 Tool lifecycle
+### 4.1 Tool lifecycle ✅ **已完成**
 
-建议补齐：
+已在 `internal/agent/tool_lifecycle.go` 落地：
+- `BeforeToolCallHook` — 在工具执行前调用，可修改参数或阻止执行
+- `AfterToolCallHook` — 在工具执行后调用，可修改结果或标记失败
+- `ToolWithPrepareArguments` 可选接口 — 参数规范化和扩充
+- `LifecycleHooks` 聚合类型 — 管理 before/after hook 切片
+- `AfterHookError` — 保留原始结果的错误包装
 
-- `prepareToolCall`
-- `beforeToolCall`
-- `afterToolCall`
-- `prepareArguments`
+后续可补：
 - tool partial result 回调链路
 
-价值：
+### 4.2 Operations 抽象 ✅ **已完成**
 
-- 扩展系统真正可用
-- 更好做审计、安全、参数修正
-- 为 Feishu 和未来插件能力打基础
+已在 `internal/operations/` 落地：
+- `BashOperations` 接口 — 命令执行
+- `FileOperations` 接口 — 文件读写
+- `LocalOperations` — 本地实现
+- `SSHOperations` — 远程实现
 
-### 4.2 Operations 抽象
-
-建议引入最小版本：
-
-- `BashOperations`
-- `FileOperations`
-- 后续再细分 grep/find/ls 所需能力
-
-先实现：
-
-- `LocalOperations`
-
-后续扩展：
-
-- `SSHOperations`
-
-价值：
-
-- 从“工具直接绑本地实现”升级成“工具对执行后端解耦”
-- 为远程开发、服务器运行、未来 RPC 保留演化路径
+已完成”工具对执行后端解耦”的目标。
 
 ### 4.3 模型注册表
 
@@ -230,20 +218,16 @@
 
 关键事项：
 
-- 强化交互模式输出体验
-- 完善 slash commands：
-  - `/new`
-  - `/sessions`
-  - `/model`
-  - `/tools`
-  - `/compact`
-  - `/help`
+- ~~强化交互模式输出体验~~ ✅ 基础版已落地
+- ~~完善 slash commands~~ ✅ 已落地：
+  - `/new` `/sessions` `/session` `/switch` `/model` `/tools` `/compact` `/help` `/profiles` `/profile` `/branch`
+  - 结构化 CommandResult、session 交接、统一命令分发
+- ~~会话恢复和切换体验~~ ✅ 已落地：`/new` 创建、`/switch` 切换、`SessionRegistry` 缓存复用
 - 更好的工具展示：
   - tool start/end
   - 错误提示
   - 截断策略
   - 可选详细模式
-- 会话恢复和切换体验
 - 更清晰的中断、取消、超时反馈
 
 完成标志：
@@ -373,12 +357,12 @@
 
 建议按下面顺序推进，不要并行开太多战线：
 
-1. 合并并稳定当前 Desktop 分支
-2. 补关键测试和部署链路
-3. 做 tool lifecycle
-4. 做 `Operations + LocalOperations`
-5. 增强 tools
-6. 强化 CLI
+~~1. 合并并稳定当前 Desktop 分支~~ ✅ **已完成**
+~~2. 补关键测试和部署链路~~ ✅ **已完成**
+~~3. 做 tool lifecycle~~ ✅ **已完成**
+~~4. 做 `Operations + LocalOperations`~~ ✅ **已完成**
+~~5. 强化 CLI（控制面：slash commands / session switch / profile）~~ ✅ **已完成**
+6. 增强 tools
 7. 做 `SSHOperations`
 8. 稳定 server
 9. 接飞书 bridge
