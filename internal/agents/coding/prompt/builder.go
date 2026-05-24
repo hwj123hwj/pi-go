@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/earendil-works/pi-go/internal/agent"
+	codingprofile "github.com/earendil-works/pi-go/internal/agents/coding/profile"
 	platformprompt "github.com/earendil-works/pi-go/internal/prompt"
 	"github.com/earendil-works/pi-go/internal/skill"
 )
@@ -20,15 +21,21 @@ type Options struct {
 	ContextFiles       []platformprompt.ContextFile
 	Skills             []skill.Skill
 	AppendSystemPrompt string
+	Profile            string
 }
 
 // BuildSystemPrompt constructs the coding-agent system prompt on top of shared prompt context.
 func BuildSystemPrompt(opts Options) string {
 	var b strings.Builder
 
+	// Determine base prompt: custom > profile-specific > default
 	base := opts.CustomPrompt
 	if base == "" {
-		base = defaultPrompt
+		if profilePrompt := codingprofile.PromptFor(codingprofile.Profile(opts.Profile)); profilePrompt != "" {
+			base = profilePrompt
+		} else {
+			base = defaultPrompt
+		}
 	}
 	b.WriteString(base)
 	b.WriteString("\n")
@@ -80,6 +87,12 @@ func BuildSystemPrompt(opts Options) string {
 	if opts.AppendSystemPrompt != "" {
 		b.WriteString("\n")
 		b.WriteString(opts.AppendSystemPrompt)
+		b.WriteString("\n")
+	}
+
+	// Profile-specific prompt additions
+	if profileAppend := codingprofile.PromptAppendFor(codingprofile.Profile(opts.Profile)); profileAppend != "" {
+		b.WriteString(profileAppend)
 		b.WriteString("\n")
 	}
 

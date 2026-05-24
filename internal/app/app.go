@@ -233,5 +233,17 @@ func (a *App) CreateSession(ctx context.Context) (slashcmd.SessionContext, error
 	return a.NewSession(ctx)
 }
 
+// SwitchSession loads an existing session and returns it as a SessionContext.
+// This implements the slashcmd.AppContext interface.
+func (a *App) SwitchSession(ctx context.Context, sessionID string) (slashcmd.SessionContext, error) {
+	return a.LoadSession(ctx, sessionID)
+}
+
+// Profiles returns the list of available profile names.
+// This implements the slashcmd.AppContext interface.
+func (a *App) Profiles() []string {
+	return []string{"coding", "review"}
+}
+
 // Ensure App implements slashcmd.AppContext at compile time.
 var _ slashcmd.AppContext = (*App)(nil)

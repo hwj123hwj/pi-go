@@ -21,12 +21,16 @@ type SessionContext interface {
 	ModelInfo() (provider string, modelID string)
 	SwitchModel(ctx context.Context, modelID string, provider string) error
 	ToolNames() []string
+	Profile() string
+	SwitchProfile(ctx context.Context, profile string) error
 }
 
 // AppContext is the interface for app operations available to slash commands.
 type AppContext interface {
 	ListSessionsInfo() ([]SessionInfo, error)
 	CreateSession(ctx context.Context) (SessionContext, error)
+	SwitchSession(ctx context.Context, sessionID string) (SessionContext, error)
+	Profiles() []string
 }
 
 // SessionInfo holds session metadata for listing.

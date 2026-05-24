@@ -38,4 +38,5 @@ type PromptBuildOptions struct {
 	Tools        []agent.Tool
 	ContextFiles []prompt.ContextFile
 	Skills       []skill.Skill
+	Profile      string
 }

@@ -1,6 +1,7 @@
 package slashcmd
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -18,8 +19,8 @@ func TestRegistry_Register(t *testing.T) {
 	reg.Register(Command{
 		Name:        "test",
 		Description: "test command",
-		Handler: func(ctx Context, args string) (string, error) {
-			return "result: " + args, nil
+		Handler: func(ctx Context, args string) (CommandResult, error) {
+			return CommandResult{Output: "result: " + args}, nil
 		},
 	})
 	assert.Contains(t, reg.Names(), "test")
@@ -30,14 +31,15 @@ func TestRegistry_Execute(t *testing.T) {
 	reg.Register(Command{
 		Name:        "echo",
 		Description: "echo args",
-		Handler: func(ctx Context, args string) (string, error) {
-			return "echo: " + args, nil
+		Handler: func(ctx Context, args string) (CommandResult, error) {
+			return CommandResult{Output: "echo: " + args}, nil
 		},
 	})
 
-	output, err := reg.Execute(Context{}, "/echo hello world")
+	result, err := reg.Execute(Context{}, "/echo hello world")
 	require.NoError(t, err)
-	assert.Equal(t, "echo: hello world", output)
+	assert.Equal(t, "echo: hello world", result.Output)
+	assert.Nil(t, result.SessionSwitchTo)
 }
 
 func TestRegistry_Execute_Unknown(t *testing.T) {
@@ -45,6 +47,27 @@ func TestRegistry_Execute_Unknown(t *testing.T) {
 	_, err := reg.Execute(Context{}, "/unknown")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "unknown command")
+}
+
+func TestRegistry_Execute_WithSessionSwitch(t *testing.T) {
+	reg := NewRegistry()
+	mockSess := &mockSessionContext{id: "new-session"}
+	reg.Register(Command{
+		Name:        "switcher",
+		Description: "switches session",
+		Handler: func(ctx Context, args string) (CommandResult, error) {
+			return CommandResult{
+				Output:          "switched",
+				SessionSwitchTo: mockSess,
+			}, nil
+		},
+	})
+
+	result, err := reg.Execute(Context{}, "/switcher test")
+	require.NoError(t, err)
+	assert.Equal(t, "switched", result.Output)
+	assert.NotNil(t, result.SessionSwitchTo)
+	assert.Equal(t, "new-session", result.SessionSwitchTo.SessionID())
 }
 
 func TestRegistry_Help(t *testing.T) {
@@ -78,3 +101,15 @@ func TestParseSlashCommand(t *testing.T) {
 	assert.Equal(t, "test", name)
 	assert.Equal(t, "arg1 arg2", args)
 }
+
+// mockSessionContext implements SessionContext for testing.
+type mockSessionContext struct {
+	id string
+}
+
+func (m *mockSessionContext) SessionID() string                         { return m.id }
+func (m *mockSessionContext) ModelInfo() (string, string)               { return "mock", "mock" }
+func (m *mockSessionContext) SwitchModel(_ context.Context, _, _ string) error { return nil }
+func (m *mockSessionContext) ToolNames() []string                       { return nil }
+func (m *mockSessionContext) Profile() string                           { return "coding" }
+func (m *mockSessionContext) SwitchProfile(_ context.Context, _ string) error              { return nil }

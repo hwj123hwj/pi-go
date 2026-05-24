@@ -51,6 +51,7 @@ type AgentSession struct {
 	deps        Dependencies
 	skillDirs   []string
 	application Application
+	profile     string
 }
 
 // NewAgentSession creates a new AgentSession.
@@ -68,6 +69,7 @@ func NewAgentSession(ctx context.Context, opts AgentSessionOptions, deps Depende
 	var err error
 
 	s.application = deps.Application
+	s.profile = "coding" // default profile
 
 	if opts.SessionID != "" && s.sessionMgr.Exists(opts.SessionID) {
 		// Load existing session
@@ -199,6 +201,32 @@ func (s *AgentSession) Compact(ctx context.Context, reason string) error {
 	return nil
 }
 
+// Profile returns the current profile name.
+func (s *AgentSession) Profile() string {
+	return s.profile
+}
+
+// SwitchProfile changes the active profile and rebuilds the agent
+// so that the new profile's system prompt takes effect immediately.
+func (s *AgentSession) SwitchProfile(ctx context.Context, profile string) error {
+	switch profile {
+	case "coding", "review":
+		s.profile = profile
+	default:
+		return fmt.Errorf("unknown profile: %q (available: coding, review)", profile)
+	}
+
+	// Rebuild agent so the new profile's prompt is applied.
+	ag, err := s.buildAgent(ctx, s.deps.Registry, s.skillDirs)
+	if err != nil {
+		return fmt.Errorf("rebuild agent with profile %q: %w", profile, err)
+	}
+	s.agent = ag
+
+	slog.Info("switched profile", "profile", profile, "session", s.sessionID)
+	return nil
+}
+
 // MoveTo navigates the session to a specific entry (branch navigation).
 func (s *AgentSession) MoveTo(ctx context.Context, entryID string, summary string) error {
 	if s.session == nil {
@@ -285,6 +313,7 @@ func (s *AgentSession) buildAgent(ctx context.Context, registry *providers.Regis
 		Tools:        toolList,
 		ContextFiles: contextFiles,
 		Skills:       skills,
+		Profile:      s.profile,
 	})
 
 	// Aggregate lifecycle hooks from extension registry

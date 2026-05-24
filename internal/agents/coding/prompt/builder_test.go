@@ -119,3 +119,29 @@ func TestBuildSystemPrompt_NoGit(t *testing.T) {
 	prompt := BuildSystemPrompt(Options{CWD: dir})
 	assert.NotContains(t, prompt, "git branch")
 }
+
+func TestBuildSystemPrompt_CodingProfile(t *testing.T) {
+	prompt := BuildSystemPrompt(Options{Profile: "coding"})
+	assert.Contains(t, prompt, "Pi Go")
+	assert.Contains(t, prompt, "server-side coding agent")
+}
+
+func TestBuildSystemPrompt_ReviewProfile(t *testing.T) {
+	prompt := BuildSystemPrompt(Options{Profile: "review"})
+	assert.Contains(t, prompt, "Code Review")
+	assert.Contains(t, prompt, "REVIEW mode")
+	assert.Contains(t, prompt, "Review Mode Active")
+	assert.NotContains(t, prompt, "server-side coding agent")
+}
+
+func TestBuildSystemPrompt_ReviewProfile_WithCustomPrompt(t *testing.T) {
+	prompt := BuildSystemPrompt(Options{CustomPrompt: "Custom prompt", Profile: "review"})
+	assert.Contains(t, prompt, "Custom prompt")
+	// Custom prompt overrides profile-specific prompt
+	assert.NotContains(t, prompt, "Code Review")
+}
+
+func TestBuildSystemPrompt_CodingProfile_NoExtraAppend(t *testing.T) {
+	prompt := BuildSystemPrompt(Options{Profile: "coding"})
+	assert.NotContains(t, prompt, "Review Mode Active")
+}

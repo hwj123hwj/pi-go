@@ -33,6 +33,7 @@ func (CodingApplication) BuildPrompt(opts runtime.PromptBuildOptions) string {
 		Tools:       opts.Tools,
 		ContextFiles: opts.ContextFiles,
 		Skills:      opts.Skills,
+		Profile:     opts.Profile,
 	})
 }
 

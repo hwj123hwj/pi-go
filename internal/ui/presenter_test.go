@@ -171,10 +171,11 @@ func TestPresent_Error(t *testing.T) {
 // ─── Format helpers ──────────────────────────────────────────────────────────
 
 func TestFormatSessionStatus(t *testing.T) {
-	status := FormatSessionStatus("sess_123", "anthropic", "claude-3.5-sonnet", "/home/user/project")
+	status := FormatSessionStatus("sess_123", "anthropic", "claude-3.5-sonnet", "coding", "/home/user/project")
 	assert.Contains(t, status, "sess_123")
 	assert.Contains(t, status, "anthropic")
 	assert.Contains(t, status, "claude-3.5-sonnet")
+	assert.Contains(t, status, "coding")
 	assert.Contains(t, status, "project")
 }
 

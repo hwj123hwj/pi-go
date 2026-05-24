@@ -39,7 +39,7 @@ func (m *InteractiveMode) Run(ctx context.Context) error {
 	cwd, _ := os.Getwd()
 
 	fmt.Println("pi-go chat mode. Type your message and press Enter. Ctrl-D to exit.")
-	fmt.Println(ui.FormatSessionStatus(m.session.SessionID(), provider, modelID, cwd))
+	fmt.Println(ui.FormatSessionStatus(m.session.SessionID(), provider, modelID, m.session.Profile(), cwd))
 	fmt.Println()
 
 	for {
@@ -56,24 +56,29 @@ func (m *InteractiveMode) Run(ctx context.Context) error {
 		}
 
 		if slashcmd.IsSlashCommand(input) {
-			cmdName, _ := slashcmd.ParseSlashCommand(input)
-			if cmdName == "new" {
-				if err := m.handleNewSession(ctx); err != nil {
-					fmt.Printf("error: %s\n", err)
-				}
-				continue
-			}
-
 			cmdCtx := slashcmd.Context{
 				Ctx:     ctx,
 				Session: m.session,
 				App:     m.app,
 			}
-			output, err := m.slashCmds.Execute(cmdCtx, input)
+			result, err := m.slashCmds.Execute(cmdCtx, input)
 			if err != nil {
 				fmt.Printf("error: %s\n", err)
 			} else {
-				fmt.Println(output)
+				// Handle session switch if the command requests it.
+				// We only swap the pointer; the SessionRegistry owns the
+				// lifecycle (including Close) for all registered sessions.
+				if result.SessionSwitchTo != nil {
+					oldID := m.session.SessionID()
+					m.session = result.SessionSwitchTo.(*runtime.AgentSession)
+					provider, modelID := m.session.ModelInfo()
+					fmt.Printf("Session switched: %s → %s\n", oldID, m.session.SessionID())
+					fmt.Println(ui.FormatSessionStatus(m.session.SessionID(), provider, modelID, m.session.Profile(), cwd))
+					fmt.Println()
+				}
+				if result.Output != "" {
+					fmt.Println(result.Output)
+				}
 			}
 			continue
 		}
@@ -97,27 +102,4 @@ func (m *InteractiveMode) runPrompt(ctx context.Context, input string) {
 		m.presenter.Present(event)
 	}
 	fmt.Println()
-}
-
-func (m *InteractiveMode) handleNewSession(ctx context.Context) error {
-	if m.app == nil {
-		fmt.Println("error: app not available — cannot create new session")
-		return nil
-	}
-
-	newSession, err := m.app.NewSession(ctx)
-	if err != nil {
-		return fmt.Errorf("create session: %w", err)
-	}
-
-	oldID := m.session.SessionID()
-	_ = m.session.Close()
-	m.session = newSession
-
-	provider, modelID := m.session.ModelInfo()
-	cwd, _ := os.Getwd()
-	fmt.Printf("Created new session: %s (previous: %s)\n", m.session.SessionID(), oldID)
-	fmt.Println(ui.FormatSessionStatus(m.session.SessionID(), provider, modelID, cwd))
-	fmt.Println()
-	return nil
 }

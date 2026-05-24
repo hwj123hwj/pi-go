@@ -132,7 +132,7 @@ func (p *Presenter) render(de DisplayEvent) {
 }
 
 // FormatSessionStatus returns a formatted status line for the session.
-func FormatSessionStatus(sessionID, provider, modelID, cwd string) string {
+func FormatSessionStatus(sessionID, provider, modelID, profile, cwd string) string {
 	dir := cwd
 	if dir != "" {
 		// Show just the last directory component
@@ -141,7 +141,7 @@ func FormatSessionStatus(sessionID, provider, modelID, cwd string) string {
 			dir = parts[len(parts)-1]
 		}
 	}
-	return fmt.Sprintf("Session: %s | Model: %s/%s | CWD: %s", sessionID, provider, modelID, dir)
+	return fmt.Sprintf("Session: %s | Model: %s/%s | Profile: %s | CWD: %s", sessionID, provider, modelID, profile, dir)
 }
 
 // FormatTimestamp formats a Unix timestamp as a human-readable string.
