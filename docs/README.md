@@ -1,41 +1,107 @@
-# Docs Index
+# Pi-Go 文档中心
 
-当前 `docs/` 目录按两类维护：
+> 本目录是 pi-go 项目的所有文档入口。按文档性质分目录组织，方便不同角色（调研/计划/审核/执行 agent）快速定位。
 
-- `主文档`：仍然指导当前产品和开发主线
-- `archive/`：已完成的执行文档、分支快照、阶段性研究材料
+---
 
-## 主文档
+## 目录结构
 
-- [PRODUCT_ROADMAP.md](/Users/weijian/Desktop/develop/test/pi/pi-go/docs/PRODUCT_ROADMAP.md)
-  产品与技术主路线图。当前以 `CLI + Desktop + Server/Feishu` 为主线。
+```
+docs/
+├── README.md                          ← 你在这里
+├── PROJECT_CONTEXT.md                 # 项目上下文快照
+├── PRODUCT_ROADMAP.md                 # 产品路线图
+├── CONTRIBUTING.md                    # 贡献指南
+├── deploy.md                          # 部署说明
+│
+├── references/                        # 参考资料（不指导开发，只供查阅）
+│   ├── feishu-integration-ref.md      # 飞书接入参考
+│   └── skills-vs-application.md       # Skills 与 Application 扩展路径决策参考
+│
+├── research/                          # 外部项目调研报告（调研 agent 产出）
+│   ├── oh-my-pi-full-analysis.md
+│   └── competitive-research.md
+│
+├── dev/                               # 开发文档（4-agent 流水线产出）
+│   ├── layering-refactor/             # 分层重构
+│   ├── runtime-decoupling/            # Runtime 解耦
+│   └── coding-agent/                  # Coding Agent 规格
+│
+└── archive/                           # 已完成的开发主题
+    ├── cli-tui/
+    ├── ssh-operations/
+    ├── tool-lifecycle/
+    ├── desktop-golang/
+    ├── project-overview.md
+    └── code-review-issues.md
+```
 
-- [coding-agent-spec.md](/Users/weijian/Desktop/develop/test/pi/pi-go/docs/coding-agent-spec.md)
-  coding-agent 核心架构规格，偏底层设计。
+---
 
-- [LAYERING_REFACTOR_PROPOSAL.md](/Users/weijian/Desktop/develop/test/pi/pi-go/docs/LAYERING_REFACTOR_PROPOSAL.md)
-  当前推荐的分层重构方案，定义 `core / platform / applications / entrypoints` 边界。
+## 长期文档
 
-- [deploy.md](/Users/weijian/Desktop/develop/test/pi/pi-go/docs/deploy.md)
-  自动部署说明。
+这些文档始终位于 `docs/` 根目录，持续维护：
 
-- [feishu-integration-ref.md](/Users/weijian/Desktop/develop/test/pi/pi-go/docs/feishu-integration-ref.md)
-  飞书接入参考资料。
+| 文档 | 用途 |
+|------|------|
+| [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md) | 项目架构、核心能力、技术栈快照。调研 agent 和维护 agent 的对比基准 |
+| [PRODUCT_ROADMAP.md](PRODUCT_ROADMAP.md) | 产品与技术主路线图 |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | 贡献和开发协作说明 |
+| [deploy.md](deploy.md) | 自动部署说明 |
 
-- [CONTRIBUTING.md](/Users/weijian/Desktop/develop/test/pi/pi-go/docs/CONTRIBUTING.md)
-  贡献和开发协作说明。
+## 参考资料
 
-## 已归档
+`references/` 下是不直接指导开发、仅供查阅的参考资料。
 
-以下文档已移动到 [archive](/Users/weijian/Desktop/develop/test/pi/pi-go/docs/archive/)：
+| 文档 | 用途 |
+|------|------|
+| [feishu-integration-ref.md](references/feishu-integration-ref.md) | 飞书 Bot 接入参考 |
+| [skills-vs-application.md](references/skills-vs-application.md) | Skills 与 Application 扩展路径决策参考 |
 
-- 已完成的执行计划
-- 分支级变更说明
-- 一次性项目快照
-- 阶段性调研材料
+## 调研报告
 
-归档原则：
+`research/` 下是调研 agent 对外部项目的分析报告。详见 [research/](research/)。
 
-- 文档对应的任务已经完成
-- 文档内容主要反映某一阶段状态，而不是当前事实
-- 文档不会再作为执行 agent 的直接输入
+## 开发文档
+
+`dev/` 下按主题分目录，每个目录对应一个开发主题，包含该主题的全生命周期文档：
+
+```
+dev/{topic}/
+├── proposal.md          # 提案（plan-agent 产出）
+├── review.md            # 审核（review-agent 产出）
+└── execution-plan.md    # 执行计划（确认后，exec-agent 使用）
+```
+
+每个 `dev/` 文档都有 YAML 元信息头，标注状态和角色：
+
+```yaml
+---
+status: draft | reviewed | approved | done
+author: plan-agent | review-agent | exec-agent | research-agent
+created: YYYY-MM-DD
+updated: YYYY-MM-DD
+---
+```
+
+**状态流转**：`draft → reviewed → approved → done`（rejected 回到 draft）
+
+| 主题 | 状态 | 文档 |
+|------|------|------|
+| 分层重构 | approved | [proposal.md](dev/layering-refactor/proposal.md) |
+| Runtime 解耦 | done | [execution-plan.md](dev/runtime-decoupling/execution-plan.md) |
+| 第二个 Agent 验证 | approved | [execution-plan.md](dev/second-agent-validation/execution-plan.md) |
+| Coding Agent | approved | [spec.md](dev/coding-agent/spec.md) |
+
+## 归档
+
+`archive/` 下是已完成的开发主题。整个主题目录从 `dev/` 移入，保留完整上下文。
+
+---
+
+## 维护规则
+
+- **docs-maintainer skill** 负责定期同步文档与代码的一致性
+- **research skill** 负责生成 `research/` 下的调研报告
+- 新开发主题由 plan-agent 在 `dev/` 下创建目录
+- 完成的主题整体移入 `archive/`

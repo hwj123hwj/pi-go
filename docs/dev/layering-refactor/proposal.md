@@ -1,3 +1,10 @@
+---
+status: approved
+author: plan-agent
+created: 2026-05-23
+updated: 2026-05-24
+---
+
 # Pi-Go 分层重构建议
 
 > 目标：为 `pi-go` 建立一套既支持当前 `coding-agent`，又能承接未来多种 agent 的分层结构。  

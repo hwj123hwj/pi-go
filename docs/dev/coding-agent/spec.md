@@ -1,3 +1,10 @@
+---
+status: approved
+author: plan-agent
+created: 2026-05-22
+updated: 2026-05-24
+---
+
 # Coding Agent 实现规格
 
 > 目标：在现有通用 Agent 框架之上，实现完整的 coding-agent 应用层。  

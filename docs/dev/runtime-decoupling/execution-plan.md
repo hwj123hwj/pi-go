@@ -1,3 +1,10 @@
+---
+status: done
+author: plan-agent
+created: 2026-05-23
+updated: 2026-05-24
+---
+
 # Runtime 解耦执行文档
 
 > 目标：让 `internal/runtime` 不再直接依赖 `internal/agents/coding`，使 `runtime` 真正成为可复用的 `Platform` 层。
