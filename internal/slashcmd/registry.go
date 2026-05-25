@@ -6,11 +6,21 @@ import (
 	"strings"
 )
 
+// CommandResult holds the result of a slash command execution.
+// If SessionSwitchTo is non-nil, the caller (interactive mode) should switch
+// to the returned session.
+// If ClearScreen is true, the caller should clear the terminal display.
+type CommandResult struct {
+	Output          string         // command output text
+	SessionSwitchTo SessionContext // non-nil means the caller should switch session
+	ClearScreen     bool           // true means clear the terminal display
+}
+
 // Command defines a slash command.
 type Command struct {
 	Name        string
 	Description string
-	Handler     func(ctx Context, args string) (string, error)
+	Handler     func(ctx Context, args string) (CommandResult, error)
 }
 
 // Registry manages slash commands.
@@ -32,11 +42,11 @@ func (r *Registry) Register(cmd Command) {
 
 // Execute parses and executes a slash command.
 // input should be the full input string (e.g., "/help", "/compact reason").
-func (r *Registry) Execute(cmdCtx Context, input string) (string, error) {
+func (r *Registry) Execute(cmdCtx Context, input string) (CommandResult, error) {
 	name, args := ParseSlashCommand(input)
 	cmd, ok := r.commands[name]
 	if !ok {
-		return "", fmt.Errorf("unknown command: %s", name)
+		return CommandResult{}, fmt.Errorf("unknown command: %s", name)
 	}
 	return cmd.Handler(cmdCtx, args)
 }

@@ -8,53 +8,43 @@ import (
 	"time"
 
 	"github.com/earendil-works/pi-go/internal/agent"
+	codingprofile "github.com/earendil-works/pi-go/internal/agents/coding/profile"
+	platformprompt "github.com/earendil-works/pi-go/internal/prompt"
 	"github.com/earendil-works/pi-go/internal/skill"
 )
 
-// Options 系统提示构建选项。
+// Options configures the coding-agent system prompt.
 type Options struct {
-	// CustomPrompt 自定义系统提示。非空时替换默认提示。
-	CustomPrompt string
-	// CWD 当前工作目录。
-	CWD string
-	// Tools 可用的工具列表。
-	Tools []agent.Tool
-	// ContextFiles 项目上下文文件（CLAUDE.md 等）。
-	ContextFiles []ContextFile
-	// Skills 可用的技能列表。
-	Skills []skill.Skill
-	// AppendSystemPrompt 追加到系统提示末尾的内容。
+	CustomPrompt       string
+	CWD                string
+	Tools              []agent.Tool
+	ContextFiles       []platformprompt.ContextFile
+	Skills             []skill.Skill
 	AppendSystemPrompt string
+	Profile            string
+	Goal               string
 }
 
-// BuildSystemPrompt 构建完整的系统提示。
-//
-// 生成的系统提示包含以下区域（按顺序）：
-//  1. 基础提示（默认或自定义）
-//  2. 工具摘要（tool snippets）
-//  3. 工具详细描述
-//  4. 使用指南（guidelines）
-//  5. 项目上下文（CLAUDE.md 等）
-//  6. 技能列表（agentskills.io 格式）
-//  7. 运行时信息（日期、工作目录、git 分支）
-//  8. 追加内容
+// BuildSystemPrompt constructs the coding-agent system prompt on top of shared prompt context.
 func BuildSystemPrompt(opts Options) string {
 	var b strings.Builder
 
-	// ── 1. 基础提示 ──
+	// Determine base prompt: custom > profile-specific > default
 	base := opts.CustomPrompt
 	if base == "" {
-		base = defaultPrompt
+		if profilePrompt := codingprofile.PromptFor(codingprofile.Profile(opts.Profile)); profilePrompt != "" {
+			base = profilePrompt
+		} else {
+			base = defaultPrompt
+		}
 	}
 	b.WriteString(base)
 	b.WriteString("\n")
 
-	// ── 2. 收集工具信息 ──
 	toolNames := collectToolNames(opts.Tools)
 	snippets := collectToolSnippets(opts.Tools)
 	guidelines := collectToolGuidelines(opts.Tools, toolNames)
 
-	// ── 3. 工具摘要 ──
 	if len(snippets) > 0 {
 		b.WriteString("\n## Tool Summary\n\n")
 		for _, name := range toolNames {
@@ -64,7 +54,6 @@ func BuildSystemPrompt(opts Options) string {
 		}
 	}
 
-	// ── 4. 工具详细描述 ──
 	if len(opts.Tools) > 0 {
 		b.WriteString("\n## Available Tools\n\n")
 		for _, tool := range opts.Tools {
@@ -75,7 +64,6 @@ func BuildSystemPrompt(opts Options) string {
 		}
 	}
 
-	// ── 5. 使用指南 ──
 	if len(guidelines) > 0 {
 		b.WriteString("\n## Guidelines\n\n")
 		for _, g := range guidelines {
@@ -83,7 +71,6 @@ func BuildSystemPrompt(opts Options) string {
 		}
 	}
 
-	// ── 6. 项目上下文（CLAUDE.md 等）──
 	if len(opts.ContextFiles) > 0 {
 		b.WriteString("\n# Project Context\n\n")
 		b.WriteString("Project-specific instructions and guidelines:\n\n")
@@ -92,25 +79,34 @@ func BuildSystemPrompt(opts Options) string {
 		}
 	}
 
-	// ── 7. 技能列表 ──
 	if skillsPrompt := skill.FormatForSystemPrompt(opts.Skills); skillsPrompt != "" {
 		b.WriteString("\n")
 		b.WriteString(skillsPrompt)
 		b.WriteString("\n")
 	}
 
-	// ── 8. 追加内容 ──
 	if opts.AppendSystemPrompt != "" {
 		b.WriteString("\n")
 		b.WriteString(opts.AppendSystemPrompt)
 		b.WriteString("\n")
 	}
 
-	// ── 9. 运行时信息（始终在末尾）──
+	// Goal injection — if a session goal is set, include it in the system prompt
+	if opts.Goal != "" {
+		b.WriteString("\n## Current Goal\n\n")
+		b.WriteString(opts.Goal)
+		b.WriteString("\n")
+	}
+
+	// Profile-specific prompt additions
+	if profileAppend := codingprofile.PromptAppendFor(codingprofile.Profile(opts.Profile)); profileAppend != "" {
+		b.WriteString(profileAppend)
+		b.WriteString("\n")
+	}
+
 	b.WriteString("\n---\n")
 	b.WriteString(fmt.Sprintf("Current date: %s\n", time.Now().Format("2006-01-02")))
 	if opts.CWD != "" {
-		// 统一使用正斜杠
 		cwd := filepath.ToSlash(opts.CWD)
 		b.WriteString(fmt.Sprintf("Current working directory: %s\n", cwd))
 	}
@@ -121,8 +117,6 @@ func BuildSystemPrompt(opts Options) string {
 	return b.String()
 }
 
-// ─── 默认系统提示 ─────────────────────────────────────────────────────────────
-
 const defaultPrompt = `You are Pi Go, a server-side coding agent built in Go. You help users by reading files, executing commands, editing code, and writing new files.
 
 You operate inside an agent loop:
@@ -132,8 +126,6 @@ You operate inside an agent loop:
 4. Return your response
 
 Be concise, technical, and safe. Always prefer targeted operations over broad changes.`
-
-// ─── 工具信息收集 ─────────────────────────────────────────────────────────────
 
 func collectToolNames(tools []agent.Tool) []string {
 	names := make([]string, 0, len(tools))
@@ -167,7 +159,6 @@ func collectToolGuidelines(tools []agent.Tool, toolNames []string) []string {
 		}
 	}
 
-	// 基于工具组合的智能指南
 	has := make(map[string]bool)
 	for _, name := range toolNames {
 		has[name] = true
@@ -191,7 +182,6 @@ func collectToolGuidelines(tools []agent.Tool, toolNames []string) []string {
 		addGuideline("Avoid destructive commands (rm -rf, etc.) unless explicitly asked")
 	}
 
-	// 从工具收集自定义 guidelines
 	for _, t := range tools {
 		if pi, ok := t.(agent.ToolWithPromptInfo); ok {
 			for _, g := range pi.PromptGuidelines() {
@@ -200,15 +190,12 @@ func collectToolGuidelines(tools []agent.Tool, toolNames []string) []string {
 		}
 	}
 
-	// 通用指南
 	addGuideline("Be concise in your responses")
 	addGuideline("Show file paths clearly when working with files")
 	addGuideline("Explain your reasoning before taking actions")
 
 	return guidelines
 }
-
-// ─── 格式化工具参数 ───────────────────────────────────────────────────────────
 
 func formatParameters(toolName string, params map[string]any) string {
 	props, ok := params["properties"].(map[string]any)
@@ -246,8 +233,6 @@ func formatParameters(toolName string, params map[string]any) string {
 	return b.String()
 }
 
-// ─── Git 分支 ─────────────────────────────────────────────────────────────────
-
 func getCurrentGitBranch(cwd string) string {
 	if cwd == "" {
 		return ""
@@ -257,13 +242,8 @@ func getCurrentGitBranch(cwd string) string {
 		return ""
 	}
 	content := strings.TrimSpace(string(data))
-	// 格式: ref: refs/heads/branch-name
 	if strings.HasPrefix(content, "ref: refs/heads/") {
 		return strings.TrimPrefix(content, "ref: refs/heads/")
 	}
-	// Detached HEAD — 返回短 hash
-	if len(content) >= 8 {
-		return content[:8]
-	}
-	return content
+	return ""
 }

@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 
+	"github.com/earendil-works/pi-go/internal/agents/coding"
 	"github.com/earendil-works/pi-go/internal/app"
 	"github.com/earendil-works/pi-go/internal/config"
 	"github.com/earendil-works/pi-go/internal/mode"
@@ -75,7 +76,7 @@ func main() {
 // buildSlashRegistry creates the slash command registry with built-in commands.
 func buildSlashRegistry() *slashcmd.Registry {
 	registry := slashcmd.NewRegistry()
-	slashcmd.RegisterBuiltins(registry)
+	coding.RegisterCommands(registry)
 	return registry
 }
 

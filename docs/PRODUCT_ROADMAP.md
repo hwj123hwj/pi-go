@@ -1,7 +1,7 @@
 # Pi-Go 产品与技术规划
 
 > 目标：把 `pi-go` 从当前的可运行原型，逐步推进到三个可落地的最终形态：
-> 1. 类似 Claude Code 的 `CLI/TUI`
+> 1. 类似 Claude Code 的强 `CLI`
 > 2. 类似 OpenHanako 的桌面端应用（不自研编辑器）
 > 3. 运行在服务器端、通过飞书使用的 Agent 服务
 
@@ -13,7 +13,7 @@
 
 - 一个共用 Agent Runtime 内核
 - 三个交付入口：
-  - `CLI/TUI`
+  - `CLI`
   - `Desktop`
   - `Server + Feishu`
 
@@ -29,7 +29,7 @@
 
 ### 1.2 三种形态的角色分工
 
-#### A. CLI/TUI
+#### A. CLI
 
 定位：面向开发者的主生产力入口。
 
@@ -41,7 +41,7 @@
 - tmux / screen
 - 服务器侧直接操作代码仓库
 
-这是最接近 Claude Code 路线、也最值得优先打磨的产品形态。
+这是最接近 Claude Code 路线、也最值得优先打磨的产品形态。终端场景直接由 CLI 承担，不再单独规划 TUI。
 
 #### B. Desktop
 
@@ -78,15 +78,18 @@
 - Desktop 已有第一版可用壳子
 - HTTP/WebSocket 服务能力已具备
 - 飞书方向已有参考文档，但尚未形成正式产品模块
+- Layering refactor 已完成：Core → Platform → Application → Entrypoints 四层架构落地
+- Runtime decoupling 已完成：`runtime.Application` 接口使 Platform 与 Application 解耦
+- **Tool lifecycle hooks** 已落地：`BeforeToolCallHook` / `AfterToolCallHook` + `ToolWithPrepareArguments` 可选接口
+- **Operations 抽象** 已落地：`LocalOperations` + `SSHOperations` 双后端，工具通过 `BashOperations` / `FileOperations` 接口与执行后端解耦
+- **CLI 控制面** 已落地：结构化 slash command（CommandResult）、session 创建/切换（/new /switch）、model 切换（/model）、profile 机制（coding/review，/profile /profiles）、统一命令分发（消灭 /new 特判）
 
-当前最大的现实问题不是“入口不够多”，而是“内核还不够厚”。
+当前最大的现实问题不是”入口不够多”，而是”内核还不够厚”。
 
 核心薄弱点主要集中在：
 
-- tool lifecycle 还比较薄，缺少 prepare / before / after hooks
 - tool streaming / partial result 还未打通
 - tools 只有基础 7 件套，增强能力不够
-- 缺少 `Operations` 抽象，无法自然支持本地/远程执行切换
 - 模型元数据注册表较薄
 - 测试更多集中在基础层，入口级和端到端覆盖还不够
 
@@ -101,7 +104,7 @@
 后续需求按以下优先级排序：
 
 1. 先做共用内核
-2. 再做 CLI/TUI 主入口
+2. 再做 CLI 主入口
 3. 再稳住 Server + Feishu
 4. Desktop 放在产品化和展示层持续打磨
 
@@ -124,9 +127,9 @@
 
 ## 4. 核心路线图
 
-## Phase 0：稳定当前主干
+## Phase 0：稳定当前主干 ✅ **已完成**
 
-目标：把现有代码从“可运行”提升到“可持续演进”。
+目标：把现有代码从”可运行”提升到”可持续演进”。
 
 优先级：`P0`
 
@@ -146,9 +149,9 @@
 
 完成标志：
 
-- `go test ./...` 持续稳定
-- Desktop 主链路可用
-- 服务端可自动部署
+- ~~`go test ./...` 持续稳定~~ ✅ **已达到** — 全部 PASS，无 fail
+- ~~Desktop 主链路可用~~ ✅ **已达到** — `internal/desktop/` 存在，完整 Electron + Vite 项目结构
+- ~~服务端可自动部署~~ ✅ **已达到** — `.github/workflows/deploy.yml` 完整链路
 
 ## Phase 1：加厚共用运行时内核
 
@@ -156,42 +159,27 @@
 
 优先级：`P0`
 
-### 4.1 Tool lifecycle
+### 4.1 Tool lifecycle ✅ **已完成**
 
-建议补齐：
+已在 `internal/agent/tool_lifecycle.go` 落地：
+- `BeforeToolCallHook` — 在工具执行前调用，可修改参数或阻止执行
+- `AfterToolCallHook` — 在工具执行后调用，可修改结果或标记失败
+- `ToolWithPrepareArguments` 可选接口 — 参数规范化和扩充
+- `LifecycleHooks` 聚合类型 — 管理 before/after hook 切片
+- `AfterHookError` — 保留原始结果的错误包装
 
-- `prepareToolCall`
-- `beforeToolCall`
-- `afterToolCall`
-- `prepareArguments`
+后续可补：
 - tool partial result 回调链路
 
-价值：
+### 4.2 Operations 抽象 ✅ **已完成**
 
-- 扩展系统真正可用
-- 更好做审计、安全、参数修正
-- 为 Feishu 和未来插件能力打基础
+已在 `internal/operations/` 落地：
+- `BashOperations` 接口 — 命令执行
+- `FileOperations` 接口 — 文件读写
+- `LocalOperations` — 本地实现
+- `SSHOperations` — 远程实现
 
-### 4.2 Operations 抽象
-
-建议引入最小版本：
-
-- `BashOperations`
-- `FileOperations`
-- 后续再细分 grep/find/ls 所需能力
-
-先实现：
-
-- `LocalOperations`
-
-后续扩展：
-
-- `SSHOperations`
-
-价值：
-
-- 从“工具直接绑本地实现”升级成“工具对执行后端解耦”
-- 为远程开发、服务器运行、未来 RPC 保留演化路径
+已完成”工具对执行后端解耦”的目标。
 
 ### 4.3 模型注册表
 
@@ -224,68 +212,29 @@
 
 ## Phase 2：把 CLI 做成主入口
 
-目标：先把命令行体验做到足够强，再谈 TUI。
+目标：先把命令行体验做到足够强，让终端场景完全由 CLI 承担。
 
 优先级：`P0`
 
 关键事项：
 
-- 强化交互模式输出体验
-- 完善 slash commands：
-  - `/new`
-  - `/sessions`
-  - `/model`
-  - `/tools`
-  - `/compact`
-  - `/help`
+- ~~强化交互模式输出体验~~ ✅ 基础版已落地
+- ~~完善 slash commands~~ ✅ 已落地：
+  - `/new` `/sessions` `/session` `/switch` `/model` `/tools` `/compact` `/help` `/profiles` `/profile` `/branch`
+  - 结构化 CommandResult、session 交接、统一命令分发
+- ~~会话恢复和切换体验~~ ✅ 已落地：`/new` 创建、`/switch` 切换、`SessionRegistry` 缓存复用
 - 更好的工具展示：
   - tool start/end
   - 错误提示
   - 截断策略
   - 可选详细模式
-- 会话恢复和切换体验
 - 更清晰的中断、取消、超时反馈
 
 完成标志：
 
 - 不依赖 GUI，开发者已能顺手完成大部分使用场景
 
-## Phase 3：做轻量 TUI
-
-目标：提供类似 Claude Code 的终端工作台，但不做编辑器。
-
-优先级：`P1`
-
-建议功能范围：
-
-- 左侧 session 列表
-- 中间消息流
-- tool call / tool result 折叠块
-- 底部输入框
-- 状态栏：
-  - provider
-  - model
-  - cwd/workspace
-  - session id
-  - running 状态
-- 快捷键：
-  - 新建会话
-  - 切换会话
-  - 切模型
-  - 取消生成
-  - 查看工具详情
-
-建议原则：
-
-- 不把 TUI 做成编辑器
-- 不做复杂文件树和多 tab 编辑
-- 重点做好流式反馈、工具可视化、会话操作效率
-
-完成标志：
-
-- 在终端里形成稳定、舒服、可持续使用的主产品体验
-
-## Phase 4：稳定 Server 能力
+## Phase 3：稳定 Server 能力
 
 目标：让服务端形态成为真正可靠的产品底座。
 
@@ -313,7 +262,7 @@
 
 - 服务端不仅能给 Desktop 用，也能给 Feishu bridge 或其他客户端稳定复用
 
-## Phase 5：正式接入飞书
+## Phase 4：正式接入飞书
 
 目标：把 Agent 变成团队可用服务。
 
@@ -344,7 +293,7 @@
 
 - 飞书里可以稳定完成对话、工具调用、状态反馈、会话延续
 
-## Phase 6：持续打磨 Desktop
+## Phase 5：持续打磨 Desktop
 
 目标：把桌面端做成稳定、耐看、可展示的 Agent 工作台。
 
@@ -386,7 +335,6 @@
 
 ### P1：内核稳后立即做
 
-- 轻量 TUI
 - 稳定服务端协议
 - 飞书 bridge
 - SSH 远程执行基础版
@@ -409,17 +357,16 @@
 
 建议按下面顺序推进，不要并行开太多战线：
 
-1. 合并并稳定当前 Desktop 分支
-2. 补关键测试和部署链路
-3. 做 tool lifecycle
-4. 做 `Operations + LocalOperations`
-5. 增强 tools
-6. 强化 CLI
-7. 做轻量 TUI
-8. 做 `SSHOperations`
-9. 稳定 server
-10. 接飞书 bridge
-11. 持续打磨 Desktop
+~~1. 合并并稳定当前 Desktop 分支~~ ✅ **已完成**
+~~2. 补关键测试和部署链路~~ ✅ **已完成**
+~~3. 做 tool lifecycle~~ ✅ **已完成**
+~~4. 做 `Operations + LocalOperations`~~ ✅ **已完成**
+~~5. 强化 CLI（控制面：slash commands / session switch / profile）~~ ✅ **已完成**
+6. 增强 tools
+7. 做 `SSHOperations`
+8. 稳定 server
+9. 接飞书 bridge
+10. 持续打磨 Desktop
 
 ## 7. 里程碑定义
 
@@ -436,7 +383,6 @@
 包含：
 
 - CLI 成熟
-- 轻量 TUI 可用
 - 基础 SSH 远程执行可用
 
 ### M3：团队服务版
@@ -451,10 +397,10 @@
 
 包含：
 
-- TUI 主生产力入口
+- CLI 主生产力入口
 - Desktop 展示与轻量入口
 - Server + Feishu 团队服务入口
 
 ## 8. 一句话结论
 
-`pi-go` 后续最重要的不是继续分散做入口，而是先把共用内核做厚，再以 `CLI/TUI` 为主线，`Server + Feishu` 为服务化方向，`Desktop` 为产品化展示和轻量工作台方向逐步推进。
+`pi-go` 后续最重要的不是继续分散做入口，而是先把共用内核做厚，再以 `CLI` 为主线，`Server + Feishu` 为服务化方向，`Desktop` 为产品化展示和轻量工作台方向逐步推进。

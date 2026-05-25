@@ -18,7 +18,6 @@ import (
 	"github.com/earendil-works/pi-go/internal/session"
 	"github.com/earendil-works/pi-go/internal/sessionmgr"
 	"github.com/earendil-works/pi-go/internal/skill"
-	"github.com/earendil-works/pi-go/internal/tools"
 	"github.com/earendil-works/pi-go/internal/util"
 )
 
@@ -28,6 +27,7 @@ type Dependencies struct {
 	Registry    *providers.Registry
 	SessionMgr  *sessionmgr.Manager
 	ExtRegistry *extensions.Registry
+	Application Application
 }
 
 // AgentSessionOptions holds the options for creating a new AgentSession.
@@ -50,6 +50,9 @@ type AgentSession struct {
 	sessionPath string
 	deps        Dependencies
 	skillDirs   []string
+	application Application
+	profile     string
+	goal        string
 }
 
 // NewAgentSession creates a new AgentSession.
@@ -65,6 +68,9 @@ func NewAgentSession(ctx context.Context, opts AgentSessionOptions, deps Depende
 	}
 
 	var err error
+
+	s.application = deps.Application
+	s.profile = "coding" // default profile
 
 	if opts.SessionID != "" && s.sessionMgr.Exists(opts.SessionID) {
 		// Load existing session
@@ -189,11 +195,69 @@ func (s *AgentSession) SwitchModel(ctx context.Context, modelID string, provider
 }
 
 // Compact manually triggers context compaction.
-func (s *AgentSession) Compact(ctx context.Context, reason string) error {
-	slog.Info("manual compaction triggered", "reason", reason, "session", s.sessionID)
-	// Compaction happens automatically in the agent loop;
-	// this is a placeholder for manual compaction if we want to pre-emptively compact.
+// It generates an LLM summary of older messages, persists it to session storage,
+// and returns the summary along with trimming stats.
+func (s *AgentSession) Compact(ctx context.Context, customInstructions string) (string, int, int, error) {
+	if s.agent == nil {
+		return "", 0, 0, fmt.Errorf("no active agent")
+	}
+	return s.agent.CompactNow(ctx, customInstructions)
+}
+
+// Profile returns the current profile name.
+func (s *AgentSession) Profile() string {
+	return s.profile
+}
+
+// SwitchProfile changes the active profile and rebuilds the agent
+// so that the new profile's system prompt takes effect immediately.
+func (s *AgentSession) SwitchProfile(ctx context.Context, profile string) error {
+	switch profile {
+	case "coding", "review":
+		s.profile = profile
+	default:
+		return fmt.Errorf("unknown profile: %q (available: coding, review)", profile)
+	}
+
+	// Rebuild agent so the new profile's prompt is applied.
+	ag, err := s.buildAgent(ctx, s.deps.Registry, s.skillDirs)
+	if err != nil {
+		return fmt.Errorf("rebuild agent with profile %q: %w", profile, err)
+	}
+	s.agent = ag
+
+	slog.Info("switched profile", "profile", profile, "session", s.sessionID)
 	return nil
+}
+
+// Goal returns the current session goal.
+func (s *AgentSession) Goal() string {
+	return s.goal
+}
+
+// SetGoal sets the current session goal and rebuilds the agent
+// so the goal is injected into the system prompt immediately.
+func (s *AgentSession) SetGoal(goal string) {
+	s.goal = goal
+	ag, err := s.buildAgent(context.Background(), s.deps.Registry, s.skillDirs)
+	if err != nil {
+		slog.Error("failed to rebuild agent after goal set", "error", err)
+		return
+	}
+	s.agent = ag
+	slog.Info("goal set", "goal", goal, "session", s.sessionID)
+}
+
+// ClearGoal clears the current session goal and rebuilds the agent.
+func (s *AgentSession) ClearGoal() {
+	s.goal = ""
+	ag, err := s.buildAgent(context.Background(), s.deps.Registry, s.skillDirs)
+	if err != nil {
+		slog.Error("failed to rebuild agent after goal clear", "error", err)
+		return
+	}
+	s.agent = ag
+	slog.Info("goal cleared", "session", s.sessionID)
 }
 
 // MoveTo navigates the session to a specific entry (branch navigation).
@@ -213,13 +277,13 @@ func (s *AgentSession) Close() error {
 }
 
 // buildAgent constructs the agent.Agent for this session.
-// This is the logic that was previously in main.go's buildAgent().
+// Tool and prompt assembly is delegated to the injected Application.
 func (s *AgentSession) buildAgent(ctx context.Context, registry *providers.Registry, skillDirs []string) (*agent.Agent, error) {
 	cfg := s.cfg
 	cwd := util.CWD()
 
-	// Build tools
-	toolList := s.buildToolList(cwd)
+	// Build tools via Application interface
+	toolList := s.application.BuildTools(s.toolBuildOptions(cwd))
 
 	// Determine model
 	modelID := cfg.AnthropicModel
@@ -275,13 +339,15 @@ func (s *AgentSession) buildAgent(ctx context.Context, registry *providers.Regis
 		}
 	}
 
-	// Build system prompt
-	systemPrompt := prompt.BuildSystemPrompt(prompt.Options{
+	// Build system prompt via Application interface
+	systemPrompt := s.application.BuildPrompt(PromptBuildOptions{
 		CustomPrompt: cfg.PromptTemplate,
 		CWD:          cwd,
 		Tools:        toolList,
 		ContextFiles: contextFiles,
 		Skills:       skills,
+		Profile:      s.profile,
+		Goal:         s.goal,
 	})
 
 	// Aggregate lifecycle hooks from extension registry
@@ -303,12 +369,11 @@ func (s *AgentSession) buildAgent(ctx context.Context, registry *providers.Regis
 	}), nil
 }
 
-// buildToolList constructs the list of tools based on config.
-func (s *AgentSession) buildToolList(cwd string) []agent.Tool {
+// toolBuildOptions constructs ToolBuildOptions from the current config and session state.
+func (s *AgentSession) toolBuildOptions(cwd string) ToolBuildOptions {
 	cfg := s.cfg
 
 	// Resolve workspace: prefer config, fallback to cwd
-	// For SSH mode, workspace must be the remote working directory
 	workspace := cfg.Workspace
 	if workspace == "" {
 		workspace = cwd
@@ -318,63 +383,26 @@ func (s *AgentSession) buildToolList(cwd string) []agent.Tool {
 	ops := s.buildOperations(workspace)
 
 	// In SSH mode, override workspace with remote working directory
-	// so tools resolve paths against the remote filesystem
 	if cfg.ExecutionMode == "ssh" && cfg.SSHWorkDir != "" {
 		workspace = cfg.SSHWorkDir
 	}
 
-	// Get base tools (all tools receive workspace for path resolution)
-	toolList := []agent.Tool{}
-
-	// Bash tool respects EnableBash config
-	if cfg.EnableBash {
-		toolList = append(toolList, tools.NewBashTool(
-			tools.WithBashWorkspace(workspace),
-			tools.WithBashMaxOutputLen(cfg.MaxOutputLen),
-			tools.WithBashOperations(ops.Bash),
-		))
-	}
-
-	toolList = append(toolList,
-		tools.NewReadTool(
-			tools.WithReadWorkspace(workspace),
-			tools.WithReadMaxOutputLen(cfg.MaxOutputLen),
-			tools.WithReadOperations(ops.Files),
-		),
-		tools.NewWriteTool(
-			tools.WithWriteWorkspace(workspace),
-			tools.WithWriteOperations(ops.Files),
-		),
-		tools.NewEditTool(
-			tools.WithEditWorkspace(workspace),
-			tools.WithEditOperations(ops.Files),
-		),
-		tools.NewGrepTool(
-			tools.WithGrepWorkspace(workspace),
-			tools.WithGrepMaxOutputLen(cfg.MaxOutputLen),
-			tools.WithGrepOperations(ops.Files),
-		),
-		tools.NewFindTool(
-			tools.WithFindWorkspace(workspace),
-			tools.WithFindOperations(ops.Files),
-		),
-		tools.NewLsTool(
-			tools.WithLsWorkspace(workspace),
-			tools.WithLsMaxOutputLen(cfg.MaxOutputLen),
-			tools.WithLsOperations(ops.Files),
-		),
-	)
-
-	// Add extension tools
+	// Extension tools
+	var extTools []agent.Tool
 	if s.extRegistry != nil {
-		extTools := s.extRegistry.Tools()
-		toolList = append(toolList, extTools...)
+		extTools = s.extRegistry.Tools()
 	}
 
-	// Apply AllowedTools/BlockedTools filtering
-	toolList = filterTools(toolList, cfg.AllowedTools, cfg.BlockedTools)
-
-	return toolList
+	return ToolBuildOptions{
+		Workspace:      workspace,
+		MaxOutputLen:   cfg.MaxOutputLen,
+		EnableBash:     cfg.EnableBash,
+		BashOps:        ops.Bash,
+		FileOps:        ops.Files,
+		ExtensionTools: extTools,
+		AllowedTools:   cfg.AllowedTools,
+		BlockedTools:   cfg.BlockedTools,
+	}
 }
 
 // buildOperations creates the Operations container based on config.ExecutionMode.
@@ -391,53 +419,24 @@ func (s *AgentSession) buildOperations(workspace string) *operations.Operations 
 	}
 }
 
-// filterTools applies allowed/blocked tool filters from config.
-func filterTools(tools []agent.Tool, allowed []string, blocked []string) []agent.Tool {
-	if len(allowed) == 0 && len(blocked) == 0 {
-		return tools
-	}
-
-	allowedSet := make(map[string]bool, len(allowed))
-	for _, name := range allowed {
-		allowedSet[name] = true
-	}
-	blockedSet := make(map[string]bool, len(blocked))
-	for _, name := range blocked {
-		blockedSet[name] = true
-	}
-
-	var filtered []agent.Tool
-	for _, tool := range tools {
-		name := tool.Name()
-		if len(allowed) > 0 && !allowedSet[name] {
-			continue
-		}
-		if blockedSet[name] {
-			continue
-		}
-		filtered = append(filtered, tool)
-	}
-	return filtered
-}
-
 // contextWindowForModel returns the context window size for a given model ID.
 func contextWindowForModel(modelID string) int {
 	windows := map[string]int{
-		"claude-3-5-sonnet":   200000,
-		"claude-3-5-haiku":    200000,
-		"claude-3-opus":       200000,
-		"claude-sonnet-4":     200000,
-		"claude-sonnet-4-5":   200000,
-		"gpt-4o":              128000,
-		"gpt-4o-mini":         128000,
-		"gpt-4-turbo":         128000,
-		"gpt-4":               8192,
-		"o1":                  200000,
-		"o1-mini":             128000,
-		"o3-mini":             200000,
-		"claude-sonnet-4-6":   200000,
-		"glm-5":               128000,
-		"deepseek-v4-flash":   128000,
+		"claude-3-5-sonnet": 200000,
+		"claude-3-5-haiku":  200000,
+		"claude-3-opus":     200000,
+		"claude-sonnet-4":   200000,
+		"claude-sonnet-4-5": 200000,
+		"gpt-4o":            128000,
+		"gpt-4o-mini":       128000,
+		"gpt-4-turbo":       128000,
+		"gpt-4":             8192,
+		"o1":                200000,
+		"o1-mini":           128000,
+		"o3-mini":           200000,
+		"claude-sonnet-4-6": 200000,
+		"glm-5":             128000,
+		"deepseek-v4-flash": 128000,
 	}
 	if w, ok := windows[modelID]; ok {
 		return w

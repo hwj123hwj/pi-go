@@ -96,7 +96,7 @@ func (s *JSONLStorage) Append(ctx context.Context, entry Entry) error {
 	switch entry.Type {
 	case EntryTypeLeaf:
 		s.leafID = entry.TargetID
-	case EntryTypeMessage:
+	case EntryTypeMessage, EntryTypeCompaction:
 		s.leafID = entry.ID
 	}
 	return nil

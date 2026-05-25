@@ -26,7 +26,7 @@ Claude Code（以下简称 CC）的**核心源码**是编译到二进制（Bun �
 
 #### 事件类型
 
-CC 定义了 8 种 Hook 事件：
+CC 定义了 9 种 Hook 事件：
 
 | 事件 | 触发时机 | 典型用途 |
 |---|---|---|
@@ -38,6 +38,7 @@ CC 定义了 8 种 Hook 事件：
 | `SessionStart` | 会话开始时 | 加载项目上下文、检测环境 |
 | `SessionEnd` | 会话结束时 | 清理、日志、状态保存 |
 | `PreCompact` | 上下文压缩前 | 保留关键信息 |
+| `Notification` | Claude 发送通知时 | 日志、自动响应 |
 
 #### Hook 类型
 
@@ -204,14 +205,14 @@ Pi-Go 已有 `compaction` 包，只需加一个 PreCompact 回调点即可对齐
 | 问题 | 说明 |
 |---|---|
 | `code-review` vs `pr-review-toolkit` | 两个插件都做 PR review，agent 重复定义 |
-| `explanatory-output-style` vs `learning-output-style` | 结构完全一样，只是 prompt 文案不同 |
+| `explanatory-output-style` vs `learning-output-style` | 目录结构一样，但 learning 额外增加了"交互式用户贡献模式"，功能差异比表面看起来大 |
 | `feature-dev` 的 code-reviewer vs `pr-review-toolkit` 的 code-reviewer | 同名 agent，能力重叠 |
 
 **Pi-Go 应该**：一个功能只做一个插件，用参数/配置切换行为，而不是分拆多个。
 
 ### 3.2 文档即插件的混淆
 
-`plugin-dev` 插件 **20752 行 markdown**，占据了 plugins 总内容的一半。它本质是一份开发文档，但因为 CC 没有独立的文档系统，只能把文档包装成插件。
+`plugin-dev` 插件 **20752 行 markdown**，占据了 plugins 总内容的 **~79%**（全量 26313 行）。它本质是一份开发文档，但因为 CC 没有独立的文档系统，只能把文档包装成插件。
 
 **Pi-Go 应该**：文档放文档目录，插件放插件目录，不混在一起。
 
@@ -302,8 +303,8 @@ skills/frontend-design/SKILL.md
 ### 第二期（中等价值）
 
 3. **技能自动匹配**
-   - 将 skill 描述集成到 system prompt 构建过程
-   - 根据用户输入自动加载相关 skill
+   - Skill 描述已集成到 system prompt（`<available_skills>` XML 列表）
+   - 待补齐：根据用户输入自动加载相关 skill 内容（当前需 Agent 主动读取）
 
 4. **插件文件系统发现**
    - 支持 `~/.pi-go/plugins/` 目录扫描
@@ -347,7 +348,7 @@ skills/frontend-design/SKILL.md
 │  │   ├── agent/          ← 核心Agent循环           │
 │  │   ├── extensions/     ← 代码接口注册             │
 │  │   ├── tools/          ← 内置工具                 │
-│  │   ├── skill/          ← Skill接口（未集成）       │
+│  │   ├── skill/          ← Skill接口（已集成到AgentSession）│
 │  │   └── ...                                       │
 │                                                   │
 │  发现方式：Go import + 手工注册                      │

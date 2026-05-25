@@ -5,12 +5,13 @@ import (
 	"log/slog"
 	"os"
 
+	"github.com/earendil-works/pi-go/internal/agents/coding"
 	"github.com/earendil-works/pi-go/internal/ai/providers"
 	"github.com/earendil-works/pi-go/internal/config"
 	"github.com/earendil-works/pi-go/internal/extensions"
-	"github.com/earendil-works/pi-go/internal/slashcmd"
 	"github.com/earendil-works/pi-go/internal/runtime"
 	"github.com/earendil-works/pi-go/internal/sessionmgr"
+	"github.com/earendil-works/pi-go/internal/slashcmd"
 )
 
 // App is the thin assembly layer for the coding-agent.
@@ -119,6 +120,7 @@ func (a *App) deps() runtime.Dependencies {
 		Registry:    a.registry,
 		SessionMgr:  a.sessionMgr,
 		ExtRegistry: a.extRegistry,
+		Application: coding.CodingApplication{},
 	}
 }
 
@@ -127,10 +129,7 @@ func (a *App) deps() runtime.Dependencies {
 func (a *App) ToolNames() []string {
 	cfg := a.cfg
 
-	baseNames := []string{"read", "write", "edit", "grep", "find", "ls"}
-	if cfg.EnableBash {
-		baseNames = append([]string{"bash"}, baseNames...)
-	}
+	baseNames := coding.BaseToolNames(cfg.EnableBash)
 
 	// Extension tools
 	if a.extRegistry != nil {
@@ -192,7 +191,7 @@ func registerProviders(registry *providers.Registry, cfg config.Config) {
 			if workDir == "" {
 				workDir, _ = os.Getwd()
 			}
-			registry.Register(providers.NewDeepVProvider(cfg.DeepVServerURL, workDir))
+			registry.Register(providers.NewDeepVProvider(cfg.DeepVServerURL, coding.NewDeepVHeaderProvider(workDir)))
 			slog.Info("registered deepv provider", "model", cfg.DeepVModel, "server", cfg.DeepVServerURL)
 		} else {
 			slog.Warn("deepv provider selected but DEEPV_ENABLED is not true, falling back to mock")
@@ -232,6 +231,33 @@ func (a *App) ListSessionsInfo() ([]slashcmd.SessionInfo, error) {
 // This implements the slashcmd.AppContext interface.
 func (a *App) CreateSession(ctx context.Context) (slashcmd.SessionContext, error) {
 	return a.NewSession(ctx)
+}
+
+// SwitchSession loads an existing session and returns it as a SessionContext.
+// This implements the slashcmd.AppContext interface.
+func (a *App) SwitchSession(ctx context.Context, sessionID string) (slashcmd.SessionContext, error) {
+	return a.LoadSession(ctx, sessionID)
+}
+
+// Profiles returns the list of available profile names.
+// This implements the slashcmd.AppContext interface.
+func (a *App) Profiles() []string {
+	return []string{"coding", "review"}
+}
+
+// AvailableModels returns the list of models available for switching.
+// This implements the slashcmd.AppContext interface.
+func (a *App) AvailableModels() []slashcmd.ModelInfo {
+	return []slashcmd.ModelInfo{
+		{Provider: "anthropic", ModelID: "claude-sonnet-4-6"},
+		{Provider: "anthropic", ModelID: "claude-sonnet-4-5"},
+		{Provider: "anthropic", ModelID: "claude-sonnet-4"},
+		{Provider: "openai", ModelID: "gpt-4o"},
+		{Provider: "openai", ModelID: "gpt-4o-mini"},
+		{Provider: "deepv", ModelID: "glm-5"},
+		{Provider: "deepv", ModelID: "deepseek-v4-flash"},
+		{Provider: "mock", ModelID: "mock"},
+	}
 }
 
 // Ensure App implements slashcmd.AppContext at compile time.
