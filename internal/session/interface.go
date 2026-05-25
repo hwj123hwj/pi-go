@@ -24,9 +24,10 @@ type Entry struct {
 	User      *ai.UserMessage       `json:"user,omitempty"`
 	Assistant *ai.AssistantMessage  `json:"assistant,omitempty"`
 	Tool      *ai.ToolResultMessage `json:"tool,omitempty"`
-	Model     string                `json:"model,omitempty"`
-	Summary   string                `json:"summary,omitempty"`
-	TargetID  string                `json:"target_id,omitempty"`
+	Model             string                `json:"model,omitempty"`
+	Summary           string                `json:"summary,omitempty"`
+	TargetID          string                `json:"target_id,omitempty"`
+	FirstKeptEntryID  string                `json:"first_kept_entry_id,omitempty"`
 }
 
 type SessionStorage interface {

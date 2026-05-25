@@ -1,96 +1,89 @@
 ---
-status: approved
+status: deferred
 author: plan-agent
 created: 2026-05-24
-updated: 2026-05-24
+updated: 2026-05-25
 depends-on:
   - dev/layering-refactor/proposal.md
-  - dev/runtime-decoupling/execution-plan.md
+  - archive/runtime-decoupling/execution-plan.md
 ---
 
 # 第二个最小 Agent 验证执行文档
 
-> 目标：新增一个最小可运行的第二 agent，用来验证 `core / platform / application / entrypoint` 分层是否真的成立，而不是只对 `coding-agent` 特例成立。
+> 状态：**暂缓预案，不是当前主线。**
+>
+> 目标：在未来确有必要时，新增一个最小可运行的第二 agent，用来验证 `core / platform / application / entrypoint` 分层是否真的成立，而不是只对 `coding-agent` 特例成立。
 
-本文档是给执行 agent 的直接施工说明。
+本文档保留为预案，不建议执行 agent 立即开工。
 
 ---
 
-## 1. 为什么现在做这件事
+## 1. 为什么现在暂缓
 
-当前已经完成两步关键重构：
+当前分层重构和 runtime 解耦已经完成，这意味着架构上**有能力**承接第二个 application。
 
-1. `coding-agent` 的 `tools / commands / prompt / cli / deepv adapter` 已显式收进 `internal/agents/coding/`
-2. `runtime` 已通过 `runtime.Application` 接口与 `coding-agent` 解耦
+但基于后续讨论，当前更清楚的判断是：
 
-这意味着架构上已经具备“承接第二个 agent”的条件。
+- 短期产品主线仍然是一个强的 `coding-agent`
+- 很多角色差异更适合先走 `skills / prompt profile / tool filtering`
+- 只有在“执行循环明显变化”或“默认行为契约严重冲突且成为一等公民产品形态”时，第二个 application 才会真正产生高价值
 
-但是否真的成立，还没有被证明。
+也就是说，这份文档保留的价值主要是：
 
-真正的验证标准不是“文档上看起来可以”，而是：
+- 作为未来架构验证预案
+- 不是当前开发优先级
 
-- 能不能新增一个第二 agent
-- 基本不改 `internal/agent`
-- 基本不改 `internal/ai`
+---
+
+## 2. 什么时候再启用这份文档
+
+只有在出现下面任一触发条件时，才建议重新把这份文档拉回主线：
+
+1. 明确要做一个新的、平级的一等公民 application
+2. 新能力已经不适合继续塞在 `CodingApplication` 里
+3. 出现了明显不同的执行模型，例如：
+   - 事件驱动
+   - 多租户 bot
+   - DAG / multi-agent orchestration
+   - 自治 daemon
+4. 或者要做一个默认行为契约明显不同的独立产品形态，例如真正独立的 browser agent
+
+在此之前，优先继续沿着：
+
+- `coding-agent`
+- `profile`
+- `skills`
+- `tool filtering`
+
+这条路推进。
+
+---
+
+## 3. 这份预案保留什么价值
+
+虽然现在暂缓，但文档不删除。
+
+保留原因：
+
+1. 它仍然记录了“第二个 application 最小验证”应怎么做
+2. 它可以作为未来检验分层是否真的站住的执行模板
+3. 后面如果要做 browser agent / bot agent / orchestration agent，可以拿这里的最小实现思路做参考
+
+---
+
+## 4. 未来启用时的最小验证思路
+
+如果未来重新启用，推荐仍然采用“最小第二 agent”策略，而不是直接做完整产品。
+
+原始建议保留：
+
+- 选择一个极小 application
+- 尽量不改 `internal/agent`
+- 尽量不改 `internal/ai`
 - 尽量不改 `internal/runtime`
-- 只靠新的 application 实现就能跑起来
+- 只靠新的 application 实现来跑通主链
 
-如果这一步成功，说明分层真的站住了。
-
----
-
-## 2. 这次要做什么
-
-这次新增一个**最小**第二 agent。
-
-推荐名称：
-
-- `review-lite`
-
-它的定位不是产品，而是一个架构验证样例。
-
-### 2.1 目标能力
-
-这个 agent 只需要做到：
-
-1. 有自己的 `Application` 实现
-2. 有自己的最小 tool 组合
-3. 有自己的 system prompt
-4. 能通过 CLI 跑起来
-5. 能走完整的 `app -> runtime -> agent core` 链路
-
-### 2.2 不要求的能力
-
-这次**不要**追求：
-
-- 完整 PR review 产品能力
-- server / websocket / desktop 全入口接入
-- SSH / remote workspace
-- 自定义 slash commands 大全
-- 新的 provider 逻辑
-- 飞书接入
-
-这次的本质是：
-
-**证明平台层能承接第二个 application。**
-
----
-
-## 3. 推荐最小 agent 设计
-
-## 3.1 名称
-
-建议目录：
-
-```text
-internal/agents/reviewlite/
-```
-
-推荐 package 命名：
-
-- `reviewlite`
-
-## 3.2 职责定位
+文档下面原有的最小实现建议，继续保留供将来参考。
 
 `review-lite-agent` 的职责非常简单：
 
@@ -130,7 +123,7 @@ internal/agents/reviewlite/
 
 ---
 
-## 4. 推荐目录结构
+## 5. 推荐目录结构
 
 建议最小结构如下：
 
@@ -161,7 +154,7 @@ internal/agents/reviewlite/
 
 ---
 
-## 5. Application 设计要求
+## 6. Application 设计要求
 
 必须实现：
 
@@ -198,7 +191,7 @@ type ReviewLiteApplication struct{}
 
 ---
 
-## 6. App 装配方式
+## 7. App 装配方式
 
 这次需要让 `app.App` 能装配不同 application。
 
@@ -240,7 +233,7 @@ Application runtime.Application
 
 ---
 
-## 7. CLI 验证方式
+## 8. CLI 验证方式
 
 这次不要求让 `main.go` 做复杂多 agent 选择系统，但至少要能验证第二 agent 真能跑。
 

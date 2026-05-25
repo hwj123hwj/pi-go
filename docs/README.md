@@ -22,7 +22,6 @@ docs/
 │   ├── oh-my-pi-full-analysis.md
 │   ├── cc-haha-architecture-analysis.md
 │   ├── cc-haha-core-engine-analysis.md
-│   ├── codex-architecture.md
 │   ├── codex-rust-cli-analysis.md
 │   ├── deepv-code-full-analysis.md
 │   └── competitive-research.md        # (archived)
@@ -31,7 +30,8 @@ docs/
 │   ├── layering-refactor/             # 分层重构
 │   ├── coding-agent/                  # Coding Agent 规格
 │   ├── coding-agent-cli-control-plane/# Coding Agent CLI 控制面
-│   └── second-agent-validation/       # 第二个 Agent 验证（预案）
+│   ├── coding-agent-slash-hardening/  # Coding Agent Slash 第二阶段补强
+│   └── second-agent-validation/       # 第二个 Agent 验证（暂缓预案）
 │
 └── archive/                           # 已完成的开发主题
     ├── cli-tui/
@@ -74,9 +74,9 @@ docs/
 | [oh-my-pi-full-analysis.md](research/oh-my-pi-full-analysis.md) | oh-my-pi (omp) 全面分析：32 工具、Native Rust、TTSR、Subagent 等 |
 | [cc-haha-architecture-analysis.md](research/cc-haha-architecture-analysis.md) | cc-haha 桌面端架构与功能全景分析 |
 | [cc-haha-core-engine-analysis.md](research/cc-haha-core-engine-analysis.md) | cc-haha Agent 循环、Tool 系统、核心引擎源码深度分析 |
-| [codex-architecture.md](research/codex-architecture.md) | OpenAI Codex CLI (Rust) 架构设计与功能分析 |
 | [codex-rust-cli-analysis.md](research/codex-rust-cli-analysis.md) | Codex Rust CLI 详细调研 |
 | [deepv-code-full-analysis.md](research/deepv-code-full-analysis.md) | DeepV Code 全面分析 |
+| [manual-compaction-design-analysis.md](research/manual-compaction-design-analysis.md) | `/compact` 手动上下文治理设计收敛文档 |
 | ~~competitive-research.md~~ | *(已归档)* 阶段性竞品对比分析 |
 
 ## 开发文档
@@ -108,7 +108,8 @@ updated: YYYY-MM-DD
 | 分层重构 | approved | [proposal.md](dev/layering-refactor/proposal.md) |
 | Coding Agent | approved | [spec.md](dev/coding-agent/spec.md) |
 | Coding Agent CLI 控制面 | done | [execution-plan.md](dev/coding-agent-cli-control-plane/execution-plan.md) |
-| 第二个 Agent 验证 | approved | [execution-plan.md](dev/second-agent-validation/execution-plan.md) |
+| Coding Agent Slash Hardening | approved | [execution-plan.md](dev/coding-agent-slash-hardening/execution-plan.md) |
+| 第二个 Agent 验证 | deferred | [execution-plan.md](dev/second-agent-validation/execution-plan.md) |
 
 ## 归档
 

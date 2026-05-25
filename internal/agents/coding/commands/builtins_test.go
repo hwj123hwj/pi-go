@@ -2,6 +2,8 @@ package commands
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/earendil-works/pi-go/internal/slashcmd"
@@ -10,12 +12,17 @@ import (
 )
 
 type mockSession struct {
-	sessionID string
-	provider  string
-	modelID   string
-	toolNames []string
-	switchErr error
-	profile   string
+	sessionID     string
+	provider      string
+	modelID       string
+	toolNames     []string
+	switchErr     error
+	profile       string
+	goal          string
+	compactResult string
+	compactFrom   int
+	compactTo     int
+	compactErr    error
 }
 
 func (m *mockSession) SessionID() string { return m.sessionID }
@@ -62,6 +69,16 @@ func (m *mockSession) SwitchProfile(_ context.Context, profile string) error {
 	}
 }
 
+func (m *mockSession) Goal() string                        { return m.goal }
+func (m *mockSession) SetGoal(goal string)                  { m.goal = goal }
+func (m *mockSession) ClearGoal()                           { m.goal = "" }
+func (m *mockSession) Compact(_ context.Context, _ string) (string, int, int, error) {
+	if m.compactErr != nil {
+		return "", 0, 0, m.compactErr
+	}
+	return m.compactResult, m.compactFrom, m.compactTo, nil
+}
+
 type mockApp struct {
 	sessions     []slashcmd.SessionInfo
 	newSession   slashcmd.SessionContext
@@ -92,6 +109,13 @@ func (m *mockApp) Profiles() []string {
 	return []string{"coding", "review"}
 }
 
+func (m *mockApp) AvailableModels() []slashcmd.ModelInfo {
+	return []slashcmd.ModelInfo{
+		{Provider: "mock", ModelID: "mock"},
+		{Provider: "anthropic", ModelID: "claude-sonnet-4-6"},
+	}
+}
+
 func newRegistry() *slashcmd.Registry {
 	reg := slashcmd.NewRegistry()
 	RegisterBuiltins(reg)
@@ -110,8 +134,12 @@ func TestRegisterBuiltins(t *testing.T) {
 	assert.Contains(t, reg.Names(), "switch")
 	assert.Contains(t, reg.Names(), "tools")
 	assert.Contains(t, reg.Names(), "model")
+	assert.Contains(t, reg.Names(), "models")
 	assert.Contains(t, reg.Names(), "profiles")
 	assert.Contains(t, reg.Names(), "profile")
+	assert.Contains(t, reg.Names(), "goal")
+	assert.Contains(t, reg.Names(), "context")
+	assert.Contains(t, reg.Names(), "clear")
 }
 
 func TestHelp_Formatted(t *testing.T) {
@@ -125,13 +153,17 @@ func TestHelp_Formatted(t *testing.T) {
 	result, err := reg.Execute(cmdCtx, "/help")
 	require.NoError(t, err)
 	assert.Contains(t, result.Output, "Session management")
-	assert.Contains(t, result.Output, "Information")
+	assert.Contains(t, result.Output, "Information & control")
 	assert.Contains(t, result.Output, "/help")
 	assert.Contains(t, result.Output, "/tools")
 	assert.Contains(t, result.Output, "/new")
 	assert.Contains(t, result.Output, "/switch")
 	assert.Contains(t, result.Output, "/profiles")
 	assert.Contains(t, result.Output, "/profile")
+	assert.Contains(t, result.Output, "/goal")
+	assert.Contains(t, result.Output, "/context")
+	assert.Contains(t, result.Output, "/models")
+	assert.Contains(t, result.Output, "/clear")
 }
 
 func TestTools_UsesRealToolList(t *testing.T) {
@@ -345,4 +377,245 @@ func TestSession_IncludesProfile(t *testing.T) {
 	result, err := reg.Execute(cmdCtx, "/session")
 	require.NoError(t, err)
 	assert.Contains(t, result.Output, "review")
+}
+
+// --- New command tests ---
+
+func TestRegisterBuiltins_IncludesNewCommands(t *testing.T) {
+	reg := newRegistry()
+
+	assert.Contains(t, reg.Names(), "goal")
+	assert.Contains(t, reg.Names(), "context")
+	assert.Contains(t, reg.Names(), "models")
+	assert.Contains(t, reg.Names(), "clear")
+}
+
+func TestGoal_ShowEmpty(t *testing.T) {
+	reg := newRegistry()
+
+	cmdCtx := slashcmd.Context{
+		Ctx:     context.Background(),
+		Session: &mockSession{sessionID: "test"},
+		App:     &mockApp{},
+	}
+	result, err := reg.Execute(cmdCtx, "/goal")
+	require.NoError(t, err)
+	assert.Contains(t, result.Output, "No goal set")
+}
+
+func TestGoal_Set(t *testing.T) {
+	reg := newRegistry()
+
+	sess := &mockSession{sessionID: "test"}
+	cmdCtx := slashcmd.Context{
+		Ctx:     context.Background(),
+		Session: sess,
+		App:     &mockApp{},
+	}
+	result, err := reg.Execute(cmdCtx, "/goal Review the auth flow for regressions")
+	require.NoError(t, err)
+	assert.Contains(t, result.Output, "Goal set:")
+	assert.Contains(t, result.Output, "Review the auth flow for regressions")
+	assert.Equal(t, "Review the auth flow for regressions", sess.Goal())
+}
+
+func TestGoal_ShowSet(t *testing.T) {
+	reg := newRegistry()
+
+	cmdCtx := slashcmd.Context{
+		Ctx:     context.Background(),
+		Session: &mockSession{sessionID: "test", goal: "Fix the login bug"},
+		App:     &mockApp{},
+	}
+	result, err := reg.Execute(cmdCtx, "/goal")
+	require.NoError(t, err)
+	assert.Contains(t, result.Output, "Current goal:")
+	assert.Contains(t, result.Output, "Fix the login bug")
+}
+
+func TestGoal_Clear(t *testing.T) {
+	reg := newRegistry()
+
+	sess := &mockSession{sessionID: "test", goal: "Fix the login bug"}
+	cmdCtx := slashcmd.Context{
+		Ctx:     context.Background(),
+		Session: sess,
+		App:     &mockApp{},
+	}
+	result, err := reg.Execute(cmdCtx, "/goal clear")
+	require.NoError(t, err)
+	assert.Contains(t, result.Output, "Goal cleared")
+	assert.Equal(t, "", sess.Goal())
+}
+
+func TestContext_ShowsFullInfo(t *testing.T) {
+	reg := newRegistry()
+
+	cmdCtx := slashcmd.Context{
+		Ctx: context.Background(),
+		Session: &mockSession{
+			sessionID: "sess_abc",
+			provider:  "anthropic",
+			modelID:   "claude-sonnet-4-6",
+			profile:   "coding",
+			goal:      "Refactor the auth module",
+			toolNames: []string{"bash", "read", "edit"},
+		},
+		App: &mockApp{},
+	}
+	result, err := reg.Execute(cmdCtx, "/context")
+	require.NoError(t, err)
+	assert.Contains(t, result.Output, "sess_abc")
+	assert.Contains(t, result.Output, "anthropic")
+	assert.Contains(t, result.Output, "claude-sonnet-4-6")
+	assert.Contains(t, result.Output, "coding")
+	assert.Contains(t, result.Output, "Refactor the auth module")
+	assert.Contains(t, result.Output, "bash")
+	assert.Contains(t, result.Output, "read")
+	assert.Contains(t, result.Output, "edit")
+}
+
+func TestContext_ShowsGoalNotSet(t *testing.T) {
+	reg := newRegistry()
+
+	cmdCtx := slashcmd.Context{
+		Ctx:     context.Background(),
+		Session: &mockSession{sessionID: "test"},
+		App:     &mockApp{},
+	}
+	result, err := reg.Execute(cmdCtx, "/context")
+	require.NoError(t, err)
+	assert.Contains(t, result.Output, "(not set)")
+}
+
+func TestModels_ListsModels(t *testing.T) {
+	reg := newRegistry()
+
+	cmdCtx := slashcmd.Context{
+		Ctx:     context.Background(),
+		Session: &mockSession{sessionID: "test", provider: "mock", modelID: "mock"},
+		App:     &mockApp{},
+	}
+	result, err := reg.Execute(cmdCtx, "/models")
+	require.NoError(t, err)
+	assert.Contains(t, result.Output, "mock/mock")
+	assert.Contains(t, result.Output, "anthropic/claude-sonnet-4-6")
+	assert.Contains(t, result.Output, "→")
+}
+
+func TestModels_ShowsSwitchHint(t *testing.T) {
+	reg := newRegistry()
+
+	cmdCtx := slashcmd.Context{
+		Ctx:     context.Background(),
+		Session: &mockSession{sessionID: "test"},
+		App:     &mockApp{},
+	}
+	result, err := reg.Execute(cmdCtx, "/models")
+	require.NoError(t, err)
+	assert.Contains(t, result.Output, "/model")
+}
+
+func TestClear_ReturnsClearScreen(t *testing.T) {
+	reg := newRegistry()
+
+	cmdCtx := slashcmd.Context{
+		Ctx:     context.Background(),
+		Session: &mockSession{sessionID: "test"},
+		App:     &mockApp{},
+	}
+	result, err := reg.Execute(cmdCtx, "/clear")
+	require.NoError(t, err)
+	assert.True(t, result.ClearScreen)
+	assert.Nil(t, result.SessionSwitchTo)
+	assert.Empty(t, result.Output)
+}
+
+func TestCompact_Success(t *testing.T) {
+	reg := newRegistry()
+
+	sess := &mockSession{
+		sessionID:     "test",
+		compactResult: "Summary: user asked to build a web server.",
+		compactFrom:   10,
+		compactTo:     3,
+	}
+	cmdCtx := slashcmd.Context{
+		Ctx:     context.Background(),
+		Session: sess,
+		App:     &mockApp{},
+	}
+	result, err := reg.Execute(cmdCtx, "/compact focus on file changes")
+	require.NoError(t, err)
+	assert.Contains(t, result.Output, "compacted")
+	assert.Contains(t, result.Output, "10 → 3")
+	assert.Contains(t, result.Output, "Summary: user asked to build a web server.")
+}
+
+func TestCompact_NoSession(t *testing.T) {
+	reg := newRegistry()
+
+	cmdCtx := slashcmd.Context{
+		Ctx: context.Background(),
+		App: &mockApp{},
+	}
+	result, err := reg.Execute(cmdCtx, "/compact")
+	require.NoError(t, err)
+	assert.Contains(t, result.Output, "no active session")
+}
+
+func TestCompact_Error(t *testing.T) {
+	reg := newRegistry()
+
+	sess := &mockSession{
+		sessionID:  "test",
+		compactErr: fmt.Errorf("not enough messages to compact (have 1)"),
+	}
+	cmdCtx := slashcmd.Context{
+		Ctx:     context.Background(),
+		Session: sess,
+		App:     &mockApp{},
+	}
+	_, err := reg.Execute(cmdCtx, "/compact")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "not enough messages")
+}
+
+func TestCompact_TruncatesLongSummary(t *testing.T) {
+	reg := newRegistry()
+
+	longSummary := strings.Repeat("x", 600)
+	sess := &mockSession{
+		sessionID:     "test",
+		compactResult: longSummary,
+		compactFrom:   20,
+		compactTo:     5,
+	}
+	cmdCtx := slashcmd.Context{
+		Ctx:     context.Background(),
+		Session: sess,
+		App:     &mockApp{},
+	}
+	result, err := reg.Execute(cmdCtx, "/compact")
+	require.NoError(t, err)
+	assert.Contains(t, result.Output, "20 → 5")
+	assert.Contains(t, result.Output, "...")
+}
+
+func TestHelp_IncludesNewCommands(t *testing.T) {
+	reg := newRegistry()
+
+	cmdCtx := slashcmd.Context{
+		Ctx:     context.Background(),
+		Session: &mockSession{sessionID: "test"},
+		App:     &mockApp{},
+	}
+	result, err := reg.Execute(cmdCtx, "/help")
+	require.NoError(t, err)
+	assert.Contains(t, result.Output, "/goal")
+	assert.Contains(t, result.Output, "/context")
+	assert.Contains(t, result.Output, "/models")
+	assert.Contains(t, result.Output, "/clear")
+	// Help section should now be called "Information & control"
+	assert.Contains(t, result.Output, "Information & control")
 }

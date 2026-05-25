@@ -29,11 +29,12 @@ func (CodingApplication) BuildTools(opts runtime.ToolBuildOptions) []agent.Tool 
 func (CodingApplication) BuildPrompt(opts runtime.PromptBuildOptions) string {
 	return codingprompt.BuildSystemPrompt(codingprompt.Options{
 		CustomPrompt: opts.CustomPrompt,
-		CWD:         opts.CWD,
-		Tools:       opts.Tools,
+		CWD:          opts.CWD,
+		Tools:        opts.Tools,
 		ContextFiles: opts.ContextFiles,
-		Skills:      opts.Skills,
-		Profile:     opts.Profile,
+		Skills:       opts.Skills,
+		Profile:      opts.Profile,
+		Goal:         opts.Goal,
 	})
 }
 

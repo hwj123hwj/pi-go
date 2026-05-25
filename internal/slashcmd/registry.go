@@ -9,9 +9,11 @@ import (
 // CommandResult holds the result of a slash command execution.
 // If SessionSwitchTo is non-nil, the caller (interactive mode) should switch
 // to the returned session.
+// If ClearScreen is true, the caller should clear the terminal display.
 type CommandResult struct {
 	Output          string         // command output text
 	SessionSwitchTo SessionContext // non-nil means the caller should switch session
+	ClearScreen     bool           // true means clear the terminal display
 }
 
 // Command defines a slash command.

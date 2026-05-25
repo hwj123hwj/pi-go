@@ -84,7 +84,8 @@ func SplitMessages(msgs []ai.Message, keepRecentTokens int) (history []ai.Messag
 }
 
 // SummarizePrompt 生成摘要的 prompt。
-func SummarizePrompt(history []ai.Message) string {
+// customInstructions: 可选的用户自定义摘要指令，会追加到基础 prompt 中。
+func SummarizePrompt(history []ai.Message, customInstructions string) string {
 	var b strings.Builder
 	b.WriteString("Summarize the following conversation history. ")
 	b.WriteString("Focus on:\n")
@@ -92,8 +93,13 @@ func SummarizePrompt(history []ai.Message) string {
 	b.WriteString("2. Progress: What has been done so far?\n")
 	b.WriteString("3. Key Decisions: Any important choices made?\n")
 	b.WriteString("4. Next Steps: What remains to be done?\n")
-	b.WriteString("5. Critical Context: Any important details that must be preserved?\n\n")
-	b.WriteString("Conversation history:\n\n")
+	b.WriteString("5. Critical Context: Any important details that must be preserved?\n")
+	if customInstructions != "" {
+		b.WriteString("\nAdditional instructions from user:\n")
+		b.WriteString(customInstructions)
+		b.WriteString("\n")
+	}
+	b.WriteString("\nConversation history:\n\n")
 
 	for _, msg := range history {
 		switch m := msg.(type) {

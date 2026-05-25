@@ -52,6 +52,7 @@ type AgentSession struct {
 	skillDirs   []string
 	application Application
 	profile     string
+	goal        string
 }
 
 // NewAgentSession creates a new AgentSession.
@@ -194,11 +195,13 @@ func (s *AgentSession) SwitchModel(ctx context.Context, modelID string, provider
 }
 
 // Compact manually triggers context compaction.
-func (s *AgentSession) Compact(ctx context.Context, reason string) error {
-	slog.Info("manual compaction triggered", "reason", reason, "session", s.sessionID)
-	// Compaction happens automatically in the agent loop;
-	// this is a placeholder for manual compaction if we want to pre-emptively compact.
-	return nil
+// It generates an LLM summary of older messages, persists it to session storage,
+// and returns the summary along with trimming stats.
+func (s *AgentSession) Compact(ctx context.Context, customInstructions string) (string, int, int, error) {
+	if s.agent == nil {
+		return "", 0, 0, fmt.Errorf("no active agent")
+	}
+	return s.agent.CompactNow(ctx, customInstructions)
 }
 
 // Profile returns the current profile name.
@@ -225,6 +228,36 @@ func (s *AgentSession) SwitchProfile(ctx context.Context, profile string) error 
 
 	slog.Info("switched profile", "profile", profile, "session", s.sessionID)
 	return nil
+}
+
+// Goal returns the current session goal.
+func (s *AgentSession) Goal() string {
+	return s.goal
+}
+
+// SetGoal sets the current session goal and rebuilds the agent
+// so the goal is injected into the system prompt immediately.
+func (s *AgentSession) SetGoal(goal string) {
+	s.goal = goal
+	ag, err := s.buildAgent(context.Background(), s.deps.Registry, s.skillDirs)
+	if err != nil {
+		slog.Error("failed to rebuild agent after goal set", "error", err)
+		return
+	}
+	s.agent = ag
+	slog.Info("goal set", "goal", goal, "session", s.sessionID)
+}
+
+// ClearGoal clears the current session goal and rebuilds the agent.
+func (s *AgentSession) ClearGoal() {
+	s.goal = ""
+	ag, err := s.buildAgent(context.Background(), s.deps.Registry, s.skillDirs)
+	if err != nil {
+		slog.Error("failed to rebuild agent after goal clear", "error", err)
+		return
+	}
+	s.agent = ag
+	slog.Info("goal cleared", "session", s.sessionID)
 }
 
 // MoveTo navigates the session to a specific entry (branch navigation).
@@ -314,6 +347,7 @@ func (s *AgentSession) buildAgent(ctx context.Context, registry *providers.Regis
 		ContextFiles: contextFiles,
 		Skills:       skills,
 		Profile:      s.profile,
+		Goal:         s.goal,
 	})
 
 	// Aggregate lifecycle hooks from extension registry

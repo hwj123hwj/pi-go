@@ -31,17 +31,19 @@ func ShouldCompact(contextTokens int, contextWindow int, settings Settings) bool
 }
 
 // SummarizeFunc 是调用 LLM 生成摘要的函数，由调用方注入（依赖倒置）。
-type SummarizeFunc func(ctx context.Context, history []ai.Message, recent []ai.Message) (string, error)
+// customInstructions: 可选的用户自定义摘要指令（/compact <instructions>）。
+type SummarizeFunc func(ctx context.Context, history []ai.Message, recent []ai.Message, customInstructions string) (string, error)
 
 // Compact 执行上下文压缩。
 // history: 被压缩的历史消息
 // recent: 保留的最近消息
+// customInstructions: 可选的用户自定义摘要指令
 // 返回摘要文本。
-func Compact(ctx context.Context, history []ai.Message, recent []ai.Message, summarize SummarizeFunc) (string, error) {
+func Compact(ctx context.Context, history []ai.Message, recent []ai.Message, customInstructions string, summarize SummarizeFunc) (string, error) {
 	if len(history) == 0 {
 		return "", nil
 	}
-	summary, err := summarize(ctx, history, recent)
+	summary, err := summarize(ctx, history, recent, customInstructions)
 	if err != nil {
 		return "", fmt.Errorf("compaction summarize failed: %w", err)
 	}

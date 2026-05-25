@@ -23,6 +23,10 @@ type SessionContext interface {
 	ToolNames() []string
 	Profile() string
 	SwitchProfile(ctx context.Context, profile string) error
+	Goal() string
+	SetGoal(goal string)
+	ClearGoal()
+	Compact(ctx context.Context, customInstructions string) (summary string, trimmedFrom int, trimmedTo int, err error)
 }
 
 // AppContext is the interface for app operations available to slash commands.
@@ -31,6 +35,13 @@ type AppContext interface {
 	CreateSession(ctx context.Context) (SessionContext, error)
 	SwitchSession(ctx context.Context, sessionID string) (SessionContext, error)
 	Profiles() []string
+	AvailableModels() []ModelInfo
+}
+
+// ModelInfo holds metadata about an available model.
+type ModelInfo struct {
+	Provider string
+	ModelID  string
 }
 
 // SessionInfo holds session metadata for listing.

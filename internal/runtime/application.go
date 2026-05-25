@@ -39,4 +39,5 @@ type PromptBuildOptions struct {
 	ContextFiles []prompt.ContextFile
 	Skills       []skill.Skill
 	Profile      string
+	Goal         string
 }

@@ -70,8 +70,27 @@ func TestSummarizePrompt(t *testing.T) {
 		ai.NewTextUserMessage("Build a web server"),
 		ai.AssistantMessage{Text: "I'll create a web server using Go."},
 	}
-	prompt := SummarizePrompt(msgs)
+	prompt := SummarizePrompt(msgs, "")
 	assert.Contains(t, prompt, "Build a web server")
 	assert.Contains(t, prompt, "I'll create a web server")
 	assert.Contains(t, prompt, "Goal")
+}
+
+func TestSummarizePrompt_WithCustomInstructions(t *testing.T) {
+	msgs := []ai.Message{
+		ai.NewTextUserMessage("Refactor the auth module"),
+		ai.AssistantMessage{Text: "I'll start by reviewing the existing code."},
+	}
+	prompt := SummarizePrompt(msgs, "Focus on security implications")
+	assert.Contains(t, prompt, "Additional instructions from user")
+	assert.Contains(t, prompt, "Focus on security implications")
+	assert.Contains(t, prompt, "Refactor the auth module")
+}
+
+func TestSummarizePrompt_NoCustomInstructions(t *testing.T) {
+	msgs := []ai.Message{
+		ai.NewTextUserMessage("Fix the bug"),
+	}
+	prompt := SummarizePrompt(msgs, "")
+	assert.NotContains(t, prompt, "Additional instructions from user")
 }

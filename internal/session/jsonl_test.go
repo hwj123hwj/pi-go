@@ -171,3 +171,150 @@ func TestSession_PersistenceAcrossReload(t *testing.T) {
 	assert.Equal(t, ai.RoleUser, messages[0].Role())
 	assert.Equal(t, ai.RoleAssistant, messages[1].Role())
 }
+
+// TestSession_Compaction_BuildContext 验证 compaction entry 写入后，
+// BuildContext 注入摘要并跳过已压缩的旧消息。
+func TestSession_Compaction_BuildContext(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "session.jsonl")
+	storage := NewJSONLStorage(path)
+	require.NoError(t, storage.Init())
+	defer storage.Close()
+
+	ctx := context.Background()
+	sess := New(storage)
+
+	// 写入 4 条消息
+	require.NoError(t, sess.AppendMessage(ctx, ai.NewTextUserMessage("msg 1")))
+	require.NoError(t, sess.AppendMessage(ctx, ai.AssistantMessage{Text: "resp 1"}))
+	require.NoError(t, sess.AppendMessage(ctx, ai.NewTextUserMessage("msg 2")))
+	require.NoError(t, sess.AppendMessage(ctx, ai.AssistantMessage{Text: "resp 2"}))
+
+	// 压缩前：4 条消息
+	before, err := sess.BuildContext(ctx)
+	require.NoError(t, err)
+	assert.Len(t, before, 4)
+
+	// 写入 compaction entry
+	require.NoError(t, sess.AppendCompaction(ctx, "Summary: discussed topics 1 and 2"))
+
+	// 压缩后：只有 summary 消息（compaction 之后没有新消息）
+	after, err := sess.BuildContext(ctx)
+	require.NoError(t, err)
+	assert.Len(t, after, 1)
+	assert.Equal(t, ai.RoleUser, after[0].Role())
+	// Summary 应包含压缩摘要
+	userMsg, ok := after[0].(ai.UserMessage)
+	require.True(t, ok)
+	assert.Contains(t, userMsg.Content[0].Text, "Summary: discussed topics 1 and 2")
+}
+
+// TestSession_Compaction_WithNewMessages 验证 compaction 后的新消息也被 BuildContext 正确恢复。
+func TestSession_Compaction_WithNewMessages(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "session.jsonl")
+	storage := NewJSONLStorage(path)
+	require.NoError(t, storage.Init())
+	defer storage.Close()
+
+	ctx := context.Background()
+	sess := New(storage)
+
+	// 写入旧消息
+	require.NoError(t, sess.AppendMessage(ctx, ai.NewTextUserMessage("old msg 1")))
+	require.NoError(t, sess.AppendMessage(ctx, ai.AssistantMessage{Text: "old resp 1"}))
+
+	// 压缩
+	require.NoError(t, sess.AppendCompaction(ctx, "Summary of old conversation"))
+
+	// 写入新消息
+	require.NoError(t, sess.AppendMessage(ctx, ai.NewTextUserMessage("new msg")))
+	require.NoError(t, sess.AppendMessage(ctx, ai.AssistantMessage{Text: "new resp"}))
+
+	// BuildContext 应返回：summary + 2 条新消息
+	messages, err := sess.BuildContext(ctx)
+	require.NoError(t, err)
+	assert.Len(t, messages, 3)
+
+	// 第一条是 summary
+	assert.Equal(t, ai.RoleUser, messages[0].Role())
+	userMsg, ok := messages[0].(ai.UserMessage)
+	require.True(t, ok)
+	assert.Contains(t, userMsg.Content[0].Text, "Summary of old conversation")
+
+	// 第二条是新 user message
+	assert.Equal(t, ai.RoleUser, messages[1].Role())
+
+	// 第三条是新 assistant message
+	assert.Equal(t, ai.RoleAssistant, messages[2].Role())
+}
+
+// TestSession_Compaction_PersistenceAcrossReload 验证 compaction entry 持久化后重载能正确恢复。
+func TestSession_Compaction_PersistenceAcrossReload(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "session.jsonl")
+	ctx := context.Background()
+
+	// 第一次写入
+	storage1 := NewJSONLStorage(path)
+	require.NoError(t, storage1.Init())
+	sess1 := New(storage1)
+	require.NoError(t, sess1.AppendMessage(ctx, ai.NewTextUserMessage("old")))
+	require.NoError(t, sess1.AppendMessage(ctx, ai.AssistantMessage{Text: "response"}))
+	require.NoError(t, sess1.AppendCompaction(ctx, "Compacted summary"))
+	require.NoError(t, sess1.AppendMessage(ctx, ai.NewTextUserMessage("after compact")))
+	require.NoError(t, storage1.Close())
+
+	// 重新加载
+	storage2 := NewJSONLStorage(path)
+	require.NoError(t, storage2.Init())
+	defer storage2.Close()
+	sess2 := New(storage2)
+	require.NoError(t, sess2.InitFromStorage(ctx))
+
+	messages, err := sess2.BuildContext(ctx)
+	require.NoError(t, err)
+	// summary + "after compact" = 2 messages
+	assert.Len(t, messages, 2)
+	assert.Contains(t, messages[0].(ai.UserMessage).Content[0].Text, "Compacted summary")
+}
+
+// TestSession_Compaction_LastOperation_PersistenceAcrossReload 验证
+// compaction 作为最后一个操作时，重载后 leaf 指针正确恢复到 compaction entry，
+// BuildContext 能看到摘要（而非旧消息）。
+func TestSession_Compaction_LastOperation_PersistenceAcrossReload(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "session.jsonl")
+	ctx := context.Background()
+
+	// 第一次写入：消息 → 压缩（压缩是最后一步）
+	storage1 := NewJSONLStorage(path)
+	require.NoError(t, storage1.Init())
+	sess1 := New(storage1)
+	require.NoError(t, sess1.AppendMessage(ctx, ai.NewTextUserMessage("old msg 1")))
+	require.NoError(t, sess1.AppendMessage(ctx, ai.AssistantMessage{Text: "old resp 1"}))
+	require.NoError(t, sess1.AppendMessage(ctx, ai.NewTextUserMessage("old msg 2")))
+	require.NoError(t, sess1.AppendMessage(ctx, ai.AssistantMessage{Text: "old resp 2"}))
+	// compact 是最后一个操作
+	require.NoError(t, sess1.AppendCompaction(ctx, "Summary of old conversation"))
+	require.NoError(t, storage1.Close())
+
+	// 重新加载 — 验证 leaf 指向 compaction entry
+	storage2 := NewJSONLStorage(path)
+	require.NoError(t, storage2.Init())
+	defer storage2.Close()
+	sess2 := New(storage2)
+	require.NoError(t, sess2.InitFromStorage(ctx))
+
+	// BuildContext 应只返回 summary 消息（无旧消息）
+	messages, err := sess2.BuildContext(ctx)
+	require.NoError(t, err)
+	assert.Len(t, messages, 1)
+	assert.Equal(t, ai.RoleUser, messages[0].Role())
+	userMsg, ok := messages[0].(ai.UserMessage)
+	require.True(t, ok)
+	assert.Contains(t, userMsg.Content[0].Text, "Summary of old conversation")
+	// 确保旧消息不在
+	assert.NotContains(t, userMsg.Content[0].Text, "old msg 1")
+	assert.NotContains(t, userMsg.Content[0].Text, "old resp")
+}

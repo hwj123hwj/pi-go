@@ -65,8 +65,9 @@ pi-go 是一个用 Go 实现的通用 Agent 框架，核心目标是：**可扩�
 | 多执行模式 | app 层 | ✅ interactive/print/serve |
 | SSH 远程执行 | `internal/operations/ssh.go` | ✅ |
 | Slash Commands 框架 | `internal/slashcmd/` | ✅ 注册制 + 结构化 CommandResult + Session 交接 |
-| CLI 控制面 | `internal/agents/coding/commands/` + `cli/` | ✅ /new /switch /sessions /model /tools /profiles /profile |
+| CLI 控制面 | `internal/agents/coding/commands/` + `cli/` | ✅ /new /switch /sessions /model /models /tools /profiles /profile /goal /context /clear |
 | Profile 机制 | `internal/agents/coding/profile/` | ✅ coding/review 双 profile，切换即重建 agent |
+| Session Goal | `runtime.AgentSession` + prompt builder | ✅ session 级目标注入 system prompt |
 
 ## 技术栈
 

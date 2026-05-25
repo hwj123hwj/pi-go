@@ -312,7 +312,7 @@ Agent 看到这个列表后，如果需要使用某个 skill，会主动读取�
 | **Skill 注入** | 元数据始终可见，内容按需读取 | 同 CC（XML 列表 + 按需读取） | 两者一致 |
 | **基础提示自定义** | 不可见（编译二进制） | 支持 `PI_GO_PROMPT_TEMPLATE` 环境变量覆盖 | Pi-Go 更开放 |
 | **运行时信息** | 不可见 | 自动注入日期/CWD/分支 | Pi-Go 更实用 |
-| **扩展注入点** | 8 个 Hook 事件点 | `AppendSystemPrompt` 预留字段 | CC 的 Hook 事件更丰富 |
+| **扩展注入点** | 9 个 Hook 事件点 | `AppendSystemPrompt` 预留字段 | CC 的 Hook 事件更丰富 |
 | **Guidelines 生成** | 不可见 | 基于工具组合的智能规则生成 | Pi-Go 有独特优势 |
 
 ---

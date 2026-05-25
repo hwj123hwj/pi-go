@@ -21,9 +21,30 @@ func RegisterBuiltins(registry *slashcmd.Registry) {
 
 	registry.Register(slashcmd.Command{
 		Name:        "compact",
-		Description: "Manually trigger context compaction",
+		Description: "Compact conversation context, summarizing older messages",
 		Handler: func(ctx slashcmd.Context, args string) (slashcmd.CommandResult, error) {
-			return slashcmd.CommandResult{Output: "Context compaction runs automatically when the conversation grows too long.\nManual compaction is not yet implemented — it will be available in a future update."}, nil
+			if ctx.Session == nil {
+				return slashcmd.CommandResult{Output: "no active session"}, nil
+			}
+
+			customInstructions := strings.TrimSpace(args)
+
+			summary, from, to, err := ctx.Session.Compact(ctx.Ctx, customInstructions)
+			if err != nil {
+				return slashcmd.CommandResult{}, fmt.Errorf("compact failed: %w", err)
+			}
+
+			var b strings.Builder
+			b.WriteString(fmt.Sprintf("Context compacted: %d → %d messages\n", from, to))
+			b.WriteString(fmt.Sprintf("Summary (%d chars):\n", len(summary)))
+			displaySummary := summary
+			if len(displaySummary) > 500 {
+				displaySummary = displaySummary[:500] + "..."
+			}
+			b.WriteString(displaySummary)
+			b.WriteString("\n")
+
+			return slashcmd.CommandResult{Output: b.String()}, nil
 		},
 	})
 
@@ -177,6 +198,38 @@ func RegisterBuiltins(registry *slashcmd.Registry) {
 	})
 
 	registry.Register(slashcmd.Command{
+		Name:        "models",
+		Description: "List available models for switching",
+		Handler: func(ctx slashcmd.Context, args string) (slashcmd.CommandResult, error) {
+			if ctx.App == nil {
+				return slashcmd.CommandResult{Output: "app not available"}, nil
+			}
+			models := ctx.App.AvailableModels()
+			if len(models) == 0 {
+				return slashcmd.CommandResult{Output: "no models available"}, nil
+			}
+
+			// Get current model for marking
+			var currentProvider, currentModel string
+			if ctx.Session != nil {
+				currentProvider, currentModel = ctx.Session.ModelInfo()
+			}
+
+			var b strings.Builder
+			b.WriteString("Available models:\n")
+			for _, m := range models {
+				marker := "  "
+				if m.Provider == currentProvider && m.ModelID == currentModel {
+					marker = "→ "
+				}
+				b.WriteString(fmt.Sprintf("%s%s/%s\n", marker, m.Provider, m.ModelID))
+			}
+			b.WriteString("\nUse /model <provider:model> to switch")
+			return slashcmd.CommandResult{Output: b.String()}, nil
+		},
+	})
+
+	registry.Register(slashcmd.Command{
 		Name:        "profiles",
 		Description: "List all available profiles",
 		Handler: func(ctx slashcmd.Context, args string) (slashcmd.CommandResult, error) {
@@ -219,6 +272,68 @@ func RegisterBuiltins(registry *slashcmd.Registry) {
 			return slashcmd.CommandResult{Output: fmt.Sprintf("Switched profile: %s → %s", oldProfile, ctx.Session.Profile())}, nil
 		},
 	})
+
+	registry.Register(slashcmd.Command{
+		Name:        "goal",
+		Description: "Show, set, or clear the current session goal",
+		Handler: func(ctx slashcmd.Context, args string) (slashcmd.CommandResult, error) {
+			if ctx.Session == nil {
+				return slashcmd.CommandResult{Output: "no active session"}, nil
+			}
+			args = strings.TrimSpace(args)
+			switch {
+			case args == "":
+				// Show current goal
+				goal := ctx.Session.Goal()
+				if goal == "" {
+					return slashcmd.CommandResult{Output: "No goal set. Use /goal <text> to set one."}, nil
+				}
+				return slashcmd.CommandResult{Output: fmt.Sprintf("Current goal:\n  %s", goal)}, nil
+			case args == "clear":
+				// Clear the goal
+				ctx.Session.ClearGoal()
+				return slashcmd.CommandResult{Output: "Goal cleared."}, nil
+			default:
+				// Set the goal
+				ctx.Session.SetGoal(args)
+				return slashcmd.CommandResult{Output: fmt.Sprintf("Goal set:\n  %s", args)}, nil
+			}
+		},
+	})
+
+	registry.Register(slashcmd.Command{
+		Name:        "context",
+		Description: "Show full runtime context (session, model, profile, goal, tools)",
+		Handler: func(ctx slashcmd.Context, args string) (slashcmd.CommandResult, error) {
+			if ctx.Session == nil {
+				return slashcmd.CommandResult{Output: "no active session"}, nil
+			}
+			provider, modelID := ctx.Session.ModelInfo()
+			tools := ctx.Session.ToolNames()
+			profile := ctx.Session.Profile()
+			goal := ctx.Session.Goal()
+
+			var b strings.Builder
+			b.WriteString("Session:  " + ctx.Session.SessionID() + "\n")
+			b.WriteString("Model:    " + provider + "/" + modelID + "\n")
+			b.WriteString("Profile:  " + profile + "\n")
+			if goal != "" {
+				b.WriteString("Goal:     " + goal + "\n")
+			} else {
+				b.WriteString("Goal:     (not set)\n")
+			}
+			b.WriteString("Tools:    " + strings.Join(tools, ", ") + "\n")
+			return slashcmd.CommandResult{Output: b.String()}, nil
+		},
+	})
+
+	registry.Register(slashcmd.Command{
+		Name:        "clear",
+		Description: "Clear the terminal display",
+		Handler: func(ctx slashcmd.Context, args string) (slashcmd.CommandResult, error) {
+			return slashcmd.CommandResult{ClearScreen: true}, nil
+		},
+	})
 }
 
 func formatHelp(registry *slashcmd.Registry) string {
@@ -229,7 +344,7 @@ func formatHelp(registry *slashcmd.Registry) string {
 		switch name {
 		case "sessions", "session", "new", "switch", "branch":
 			sessionCmds = append(sessionCmds, name)
-		case "help", "tools", "model", "profiles", "profile":
+		case "help", "tools", "model", "models", "profiles", "profile", "context", "goal":
 			infoCmds = append(infoCmds, name)
 		default:
 			actionCmds = append(actionCmds, name)
@@ -254,7 +369,7 @@ func formatHelp(registry *slashcmd.Registry) string {
 	}
 
 	if len(infoCmds) > 0 {
-		b.WriteString("  Information:\n")
+		b.WriteString("  Information & control:\n")
 		for _, name := range infoCmds {
 			cmd := registry.Command(name)
 			b.WriteString(fmt.Sprintf("    %-14s %s\n", "/"+name, cmd.Description))

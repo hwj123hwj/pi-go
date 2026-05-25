@@ -2,6 +2,7 @@ package slashcmd
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -107,9 +108,15 @@ type mockSessionContext struct {
 	id string
 }
 
-func (m *mockSessionContext) SessionID() string                         { return m.id }
-func (m *mockSessionContext) ModelInfo() (string, string)               { return "mock", "mock" }
+func (m *mockSessionContext) SessionID() string                          { return m.id }
+func (m *mockSessionContext) ModelInfo() (string, string)                { return "mock", "mock" }
 func (m *mockSessionContext) SwitchModel(_ context.Context, _, _ string) error { return nil }
-func (m *mockSessionContext) ToolNames() []string                       { return nil }
-func (m *mockSessionContext) Profile() string                           { return "coding" }
-func (m *mockSessionContext) SwitchProfile(_ context.Context, _ string) error              { return nil }
+func (m *mockSessionContext) ToolNames() []string                        { return nil }
+func (m *mockSessionContext) Profile() string                            { return "coding" }
+func (m *mockSessionContext) SwitchProfile(_ context.Context, _ string) error { return nil }
+func (m *mockSessionContext) Goal() string                               { return "" }
+func (m *mockSessionContext) SetGoal(_ string)                           {}
+func (m *mockSessionContext) ClearGoal()                                 {}
+func (m *mockSessionContext) Compact(_ context.Context, _ string) (string, int, int, error) {
+	return "", 0, 0, fmt.Errorf("not implemented")
+}

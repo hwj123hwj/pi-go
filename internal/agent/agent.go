@@ -238,6 +238,57 @@ func (a *Agent) PromptStream(ctx context.Context, msg ai.Message) (<-chan AgentS
 	return ch, nil
 }
 
+// CompactNow manually triggers context compaction.
+// It reads the full history from session storage, splits it, generates an LLM
+// summary, and persists a compaction entry. Returns summary, trimmedFrom,
+// trimmedTo, error.
+func (a *Agent) CompactNow(ctx context.Context, customInstructions string) (string, int, int, error) {
+	if a.session == nil {
+		return "", 0, 0, fmt.Errorf("no session for compaction")
+	}
+	if a.summarizeFunc == nil {
+		return "", 0, 0, fmt.Errorf("compaction not available (no summarizer configured)")
+	}
+
+	// 1. Load full history from session storage.
+	history, err := a.session.BuildContext(ctx)
+	if err != nil {
+		return "", 0, 0, fmt.Errorf("build context: %w", err)
+	}
+
+	if len(history) < 2 {
+		return "", 0, 0, fmt.Errorf("not enough messages to compact (have %d)", len(history))
+	}
+
+	// 2. Split into history (to summarize) and recent (to keep).
+	historyPart, recentPart := compaction.SplitMessages(history, a.compactionSettings.KeepRecentTokens)
+	if len(historyPart) == 0 {
+		return "", 0, 0, fmt.Errorf("nothing to compact (recent context too large)")
+	}
+
+	// 3. Generate summary via LLM.
+	summary, err := compaction.Compact(ctx, historyPart, recentPart, customInstructions, a.summarizeFunc)
+	if err != nil {
+		return "", 0, 0, fmt.Errorf("compact: %w", err)
+	}
+
+	// 4. Persist compaction entry to session storage.
+	if err := a.session.AppendCompaction(ctx, summary); err != nil {
+		return "", 0, 0, fmt.Errorf("persist compaction: %w", err)
+	}
+
+	trimmedFrom := len(history)
+	trimmedTo := len(recentPart) + 1 // +1 for the summary message
+
+	a.emit(ctx, EventCompacted{
+		Summary:     summary,
+		TrimmedFrom: trimmedFrom,
+		TrimmedTo:   trimmedTo,
+	})
+
+	return summary, trimmedFrom, trimmedTo, nil
+}
+
 func (a *Agent) Steer(ctx context.Context, msg ai.Message) {
 	a.steeringQueue.Enqueue(msg)
 }

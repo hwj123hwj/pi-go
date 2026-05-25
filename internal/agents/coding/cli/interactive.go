@@ -13,6 +13,11 @@ import (
 	"github.com/earendil-works/pi-go/internal/ui"
 )
 
+// clearScreen clears the terminal display using ANSI escape sequences.
+func clearScreen() {
+	fmt.Print("\033[2J\033[H")
+}
+
 // InteractiveMode is the coding-agent CLI conversation loop.
 // It owns coding-specific command handling and terminal presentation behavior.
 type InteractiveMode struct {
@@ -65,6 +70,11 @@ func (m *InteractiveMode) Run(ctx context.Context) error {
 			if err != nil {
 				fmt.Printf("error: %s\n", err)
 			} else {
+				// Handle clear screen first
+				if result.ClearScreen {
+					clearScreen()
+					continue
+				}
 				// Handle session switch if the command requests it.
 				// We only swap the pointer; the SessionRegistry owns the
 				// lifecycle (including Close) for all registered sessions.

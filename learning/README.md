@@ -19,6 +19,10 @@
 | [cc-comparison.md](./cc-comparison.md) | Claude Code 源码分析：插件生态、Hooks 系统与 pi-go 对比借鉴 |
 | [oh-my-pi-full-analysis.md](../docs/research/oh-my-pi-full-analysis.md) | oh-my-pi (omp) 全面分析：32 工具/Native Rust/TTSR/Subagent/Hashline 对比 pi-go |
 | [competitive-research.md](../docs/research/competitive-research.md) | 竞品调研：阶段性竞品对比分析 |
+| [cc-haha-architecture-analysis.md](../docs/research/cc-haha-architecture-analysis.md) | cc-haha 全景分析：桌面工作台/IM/Provider 代理等外围功能对比 |
+| [cc-haha-core-engine-analysis.md](../docs/research/cc-haha-core-engine-analysis.md) | **cc-haha 核心引擎源码分析**：Agent 循环/Tool 系统/系统提示/上下文压缩，与 pi-go coding-agent 差距清单 |
+| [deepv-code-full-analysis.md](../docs/research/deepv-code-full-analysis.md) | DeepV Code 全面分析：Google Gemini CLI Fork、Proxy 架构、Hook 系统、技能市场，对比 pi-go 迁移建议 |
+| [codex-rust-cli-analysis.md](../docs/research/codex-rust-cli-analysis.md) | **OpenAI Codex CLI (Rust) 调研**：90+ crate 架构、Responses API、跨平台沙箱、App Server、MCP 双向集成，对比 pi-go 迁移建议 |
 
 ## 设计文档
 

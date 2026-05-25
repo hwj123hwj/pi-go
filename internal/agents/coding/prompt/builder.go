@@ -22,6 +22,7 @@ type Options struct {
 	Skills             []skill.Skill
 	AppendSystemPrompt string
 	Profile            string
+	Goal               string
 }
 
 // BuildSystemPrompt constructs the coding-agent system prompt on top of shared prompt context.
@@ -87,6 +88,13 @@ func BuildSystemPrompt(opts Options) string {
 	if opts.AppendSystemPrompt != "" {
 		b.WriteString("\n")
 		b.WriteString(opts.AppendSystemPrompt)
+		b.WriteString("\n")
+	}
+
+	// Goal injection — if a session goal is set, include it in the system prompt
+	if opts.Goal != "" {
+		b.WriteString("\n## Current Goal\n\n")
+		b.WriteString(opts.Goal)
 		b.WriteString("\n")
 	}
 

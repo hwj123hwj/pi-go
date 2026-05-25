@@ -245,5 +245,20 @@ func (a *App) Profiles() []string {
 	return []string{"coding", "review"}
 }
 
+// AvailableModels returns the list of models available for switching.
+// This implements the slashcmd.AppContext interface.
+func (a *App) AvailableModels() []slashcmd.ModelInfo {
+	return []slashcmd.ModelInfo{
+		{Provider: "anthropic", ModelID: "claude-sonnet-4-6"},
+		{Provider: "anthropic", ModelID: "claude-sonnet-4-5"},
+		{Provider: "anthropic", ModelID: "claude-sonnet-4"},
+		{Provider: "openai", ModelID: "gpt-4o"},
+		{Provider: "openai", ModelID: "gpt-4o-mini"},
+		{Provider: "deepv", ModelID: "glm-5"},
+		{Provider: "deepv", ModelID: "deepseek-v4-flash"},
+		{Provider: "mock", ModelID: "mock"},
+	}
+}
+
 // Ensure App implements slashcmd.AppContext at compile time.
 var _ slashcmd.AppContext = (*App)(nil)

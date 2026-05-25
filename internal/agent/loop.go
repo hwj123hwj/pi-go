@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"sync"
 
 	"github.com/earendil-works/pi-go/internal/ai"
@@ -211,11 +212,18 @@ func (a *Agent) maybeCompact(ctx context.Context, history []ai.Message) []ai.Mes
 		return history
 	}
 
-	summary, err := compaction.Compact(ctx, historyPart, recentPart, a.summarizeFunc)
+	summary, err := compaction.Compact(ctx, historyPart, recentPart, "", a.summarizeFunc)
 	if err != nil {
 		// 压缩失败，继续使用完整历史
 		a.emit(ctx, EventCompactionFailed{Error: err.Error()})
 		return history
+	}
+
+	// Persist compaction entry to session storage so it survives across prompts.
+	if a.session != nil {
+		if pErr := a.session.AppendCompaction(ctx, summary); pErr != nil {
+			slog.Warn("failed to persist compaction entry", "error", pErr)
+		}
 	}
 
 	a.emit(ctx, EventCompacted{

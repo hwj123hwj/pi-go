@@ -64,18 +64,75 @@ func (s *Session) BuildContext(ctx context.Context) ([]ai.Message, error) {
 	if err != nil {
 		return nil, err
 	}
-	messages := make([]ai.Message, 0, len(entries))
-	for _, entry := range entries {
-		switch {
-		case entry.User != nil:
-			messages = append(messages, *entry.User)
-		case entry.Assistant != nil:
-			messages = append(messages, *entry.Assistant)
-		case entry.Tool != nil:
-			messages = append(messages, *entry.Tool)
+
+	// Find the last compaction entry (if any).
+	var lastCompaction *Entry
+	var lastCompactionIdx int
+	for i := len(entries) - 1; i >= 0; i-- {
+		if entries[i].Type == EntryTypeCompaction {
+			e := entries[i]
+			lastCompaction = &e
+			lastCompactionIdx = i
+			break
 		}
 	}
+
+	messages := make([]ai.Message, 0, len(entries))
+
+	if lastCompaction != nil {
+		// Inject summary as context header.
+		summaryText := "Context summary from previous conversation:\n\n" + lastCompaction.Summary
+		messages = append(messages, ai.NewTextUserMessage(summaryText))
+
+		// Collect messages after the compaction entry (skip compacted history).
+		for _, entry := range entries[lastCompactionIdx+1:] {
+			messages = append(messages, entryToMessages(entry)...)
+		}
+	} else {
+		// No compaction — use original logic.
+		for _, entry := range entries {
+			messages = append(messages, entryToMessages(entry)...)
+		}
+	}
+
 	return messages, nil
+}
+
+// entryToMessages extracts ai.Message values from an Entry.
+func entryToMessages(entry Entry) []ai.Message {
+	switch {
+	case entry.User != nil:
+		return []ai.Message{*entry.User}
+	case entry.Assistant != nil:
+		return []ai.Message{*entry.Assistant}
+	case entry.Tool != nil:
+		return []ai.Message{*entry.Tool}
+	}
+	return nil
+}
+
+// AppendCompaction writes a compaction entry to the session storage.
+// The summary replaces all prior messages when BuildContext is called.
+func (s *Session) AppendCompaction(ctx context.Context, summary string) error {
+	entry := Entry{
+		Type:     EntryTypeCompaction,
+		ParentID: s.leafID,
+		Summary:  summary,
+	}
+	if err := s.storage.Append(ctx, entry); err != nil {
+		return err
+	}
+	leaf, err := s.storage.GetLeaf(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get leaf after compaction: %w", err)
+	}
+	// Persist leaf pointer so compaction survives session reload,
+	// matching the pattern in AppendMessage().
+	if err := s.storage.SetLeaf(ctx, leaf); err != nil {
+		return fmt.Errorf("failed to set leaf after compaction: %w", err)
+	}
+	s.leafID = leaf
+	return nil
 }
 
 func (s *Session) MoveTo(ctx context.Context, entryID string, summary string) error {
