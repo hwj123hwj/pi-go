@@ -134,6 +134,12 @@ func (t *ReadTool) Execute(ctx context.Context, raw json.RawMessage, onUpdate fu
 	return agent.ToolResult{Content: content}, nil
 }
 
+// IsConcurrencySafe implements agent.ConcurrencySafeChecker.
+// ReadTool is always safe to execute concurrently.
+func (t *ReadTool) IsConcurrencySafe(params json.RawMessage) bool {
+	return true
+}
+
 // Format is used by prompt_info to give snippet
 func lineCount(s string) string {
 	return strconv.Itoa(len(strings.Split(s, "\n")))

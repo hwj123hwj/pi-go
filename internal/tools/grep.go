@@ -338,3 +338,9 @@ func groupMatchesByFile(matches []grepMatch) []fileMatchGroup {
 	}
 	return groups
 }
+
+// IsConcurrencySafe implements agent.ConcurrencySafeChecker.
+// GrepTool is always safe to execute concurrently.
+func (t *GrepTool) IsConcurrencySafe(params json.RawMessage) bool {
+	return true
+}

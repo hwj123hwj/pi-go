@@ -53,6 +53,9 @@ func (t *EditTool) PromptGuidelines() []string {
 		"Use edit for targeted modifications; it is safer and more precise than write for changes",
 		"Always read a file before editing to ensure old_string matches exactly",
 		"The old_string must be unique in the file; if not, include more surrounding context",
+		"Multi-edit mode: use the edits[] array to apply multiple replacements in one call — more efficient than separate edit calls for the same file",
+		"In multi-edit mode, each old_string must be unique in the original file and edits must not overlap",
+		"Do not use both edits[] and old_string/new_string in the same call — they are mutually exclusive",
 	}
 }
 
