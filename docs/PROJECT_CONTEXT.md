@@ -100,7 +100,7 @@ pi-go 是一个用 Go 实现的通用 Agent 框架，核心目标是：**可扩�
 |------|------|
 | `internal/ai/stream.go` | 统一 LLM 流式 API 入口 |
 | `internal/agent/agent.go` | Agent 核心状态机 |
-| `internal/agent/agent-loop.go` | Agent 双层循环实现 |
+| `internal/agent/loop.go` | Agent 双层循环实现 |
 | `internal/runtime/agent_session.go` | AgentSession 生命周期 |
 | `internal/runtime/application.go` | Application 接口定义 |
 | `internal/agents/coding/application.go` | CodingApplication 实现 |

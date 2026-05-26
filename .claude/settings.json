@@ -1,0 +1,10 @@
+{
+  "skills": [
+    "docs-maintainer",
+    "research",
+    "handoff"
+  ],
+  "enabledPlugins": {
+    "codex@openai-codex": true
+  }
+}

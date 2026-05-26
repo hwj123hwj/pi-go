@@ -2,6 +2,8 @@
 
 > 基于 DeepVcodeClient 的飞书集成经验总结，供 pi-go 对接飞书时复用。
 > 参考实现：`DeepVcodeClient/packages/cli/src/services/feishu/` 和 `easyagent/src/easyagent/gateway/feishu_oapi.py`
+>
+> **最后更新**: 2025-05，补充了卡片回调、用户交互、动态工具、流式消息等实战踩坑经验。
 
 ---
 
@@ -24,6 +26,15 @@
 | **Webhook 回调** | 配置飞书开放平台事件回调 URL，POST 接收 | 已有 HTTP 服务的场景 |
 
 对 pi-go 来说，**推荐用 WebSocket 方式**，因为 pi-go 本身是长驻进程，和 WS 长连接生命周期匹配。也可以单独启动一个桥接进程通过 pi-go 的 HTTP API 调用。
+
+> ⚠️ **关键限制：WS 长连接只支持事件订阅，不支持回调订阅。**
+>
+> 飞书的事件分两类：
+> - **事件订阅型**（如 `im.message.receive_v1`）→ WS 和 Webhook 都能收到
+> - **回调型**（如 `card.action.trigger`，即卡片按钮点击）→ **只有 Webhook 能收到**
+>
+> 这意味着如果你用 WS 方式，**交互式卡片的按钮点击事件是收不到的**，无论怎么注册都没用。
+> 如果需要卡片交互，要么改用 Webhook 方式，要么用文本选择替代（见下方 §8）。
 
 ---
 
@@ -96,6 +107,60 @@ Authorization: Bearer {token}
 ```
 
 需要实现 markdown → post 格式的转换器（支持粗体、标题、列表即可）。
+
+### 更新已发送消息（流式进度）
+
+```bash
+# 更新消息内容（只能更新 Bot 自己发的消息）
+PATCH https://open.feishu.cn/open-apis/im/v1/messages/{message_id}
+Authorization: Bearer {token}
+Content-Type: application/json
+
+{"content": "{\"text\":\"更新后的内容\"}"}
+```
+
+**使用场景**：LLM 长回复时，先发一条"处理中..."的消息，然后边生成边 PATCH 更新，实现流式效果。
+
+**注意事项**：
+- 只能更新 Bot 自己发送的消息
+- 更新时需要传入完整的 content JSON（不是增量）
+- 飞书 API 有频率限制，建议调用方做 3 秒节流
+- 更新后消息的 msg_type 不可变（初始是 text 就一直是 text，post 就一直是 post）
+- 更新为 post 格式时需要用 `mdToPostContent` 转换
+
+### 文件上传与发送
+
+飞书发文件分两步：先上传获取 key，再用 key 发消息。图片和文件走不同 API。
+
+```bash
+# 1. 上传图片（返回 image_key）
+POST https://open.feishu.cn/open-apis/im/v1/images
+Authorization: Bearer {token}
+Content-Type: multipart/form-data
+
+image_type: message
+image: <binary>
+
+# 2. 发送图片消息
+POST https://open.feishu.cn/open-apis/im/v1/messages?receive_id_type=chat_id
+{"receive_id": "oc_xxx", "msg_type": "image", "content": "{\"image_key\":\"img_xxx\"}"}
+
+# 3. 上传文件（返回 file_key，需要 parent_node / parent_type）
+POST https://open.feishu.cn/open-apis/drive/v1/medias/upload_all
+Authorization: Bearer {token}
+Content-Type: multipart/form-data
+
+parent_type: ccm_import
+parent_node: xxx
+file_name: report.pdf
+file: <binary>
+
+# 4. 发送文件消息
+POST https://open.feishu.cn/open-apis/im/v1/messages?receive_id_type=chat_id
+{"receive_id": "oc_xxx", "msg_type": "file", "content": "{\"file_key\":\"file_xxx\"}"}
+```
+
+> **建议**：在 pi-go 中实现为 Agent 工具（如 `send_feishu_file`），让 LLM 可以主动发送生成的文件给用户。
 
 ### Bot 信息查询
 
@@ -185,6 +250,124 @@ for turn := 0; turn < MAX_TURNS; turn++ {
 // 达到最大轮数 → 返回"已达到最大处理轮数限制"
 ```
 
+### 7. WS 模式下的用户交互（卡片回调不可用）
+
+**问题**：LLM 可能调用 `ask_user_question` 工具向用户提问（例如"选择哪个方案？"）。在 TUI 模式下会弹出交互选项，但飞书模式是非交互的，怎么处理？
+
+**根因**：飞书交互式卡片（Interactive Card）的按钮点击事件是**回调型**，只有 Webhook 方式能收到。WS 长连接无论怎么注册 `card.action.trigger` 都不会触发。
+
+**解决方案：文本选择模式**
+
+替代卡片，发送格式化的选项列表，用户回复序号或选项名称来选择：
+
+```
+**请选择项目模板**
+
+> **1**. 单页静态
+> **2**. React SPA
+> **3**. Next.js SSR
+
+请回复序号或选项名称进行选择。
+```
+
+匹配逻辑：
+- 数字匹配：用户回复 "1" → 选择第一项
+- 文本匹配：用户回复 "单页静态" → 选择对应项（大小写不敏感）
+- 超时：默认 60 秒后自动选默认值
+
+**实现要点**：
+- 在 gateway 层维护一个 `textChoiceCallback`，在主消息处理器之前拦截
+- 用户回复的消息被消费后，不让它进入 Agent 循环（否则 LLM 会当成普通消息处理）
+- 匹配成功后 resolve Promise，超时后自动 resolve 默认值
+
+**Go 伪代码**：
+
+```go
+// 文本选择等待器
+func (g *Gateway) WaitForTextChoice(chatId, title string, buttons []Button, defaultVal string, timeout time.Duration) string {
+    // 1. 发送格式化选项列表（用 post 消息类型）
+    // 2. 注册 textChoiceCallback
+    // 3. 等 channel 或 timeout
+    g.textChoiceCallback = func(msg FeishuMessage) bool {
+        text := strings.TrimSpace(msg.Text)
+        // 数字匹配
+        if idx, err := strconv.Atoi(text); err == nil && idx >= 1 && idx <= len(buttons) {
+            result <- buttons[idx-1].Value
+            return true // 消费掉
+        }
+        // 文本匹配（大小写不敏感）
+        for _, btn := range buttons {
+            if strings.EqualFold(text, btn.Label) {
+                result <- btn.Value
+                return true
+            }
+        }
+        return false // 不消费，走正常流程
+    }
+    defer func() { g.textChoiceCallback = nil }()
+    
+    select {
+    case val := <-result:
+        return val
+    case <-time.After(timeout):
+        return defaultVal
+    }
+}
+```
+
+> **备选方案**：如果 pi-go 部署时能配 Webhook 回调 URL，可以同时支持真正的卡片交互。但 WS 模式下文本选择是唯一可靠方案。
+
+### 8. 动态工具注册/注销
+
+**问题**：飞书模式需要额外的 Agent 工具（如 `send_feishu_file`），但这些工具在非飞书模式下不应该存在，否则 LLM 会尝试调用一个用不了的工具。
+
+**解决方案**：在飞书连接建立时注册工具，断开时注销：
+
+```go
+// 飞书连接建立
+registry.Register(&SendFeishuFileTool{gateway: gw, getChatId: activeChatId})
+
+// 飞书断开
+registry.Unregister("send_feishu_file")
+```
+
+**Go 实现建议**：
+- ToolRegistry 需要支持 `Unregister(name string)` 方法
+- 飞书相关的工具定义在 `internal/feishu/tools/` 包下
+- 工具需要依赖 Gateway 实例（构造时注入）
+- 注册/注销后需要通知 Agent 重新加载工具列表
+
+### 9. 流式消息更新（长回复体验优化）
+
+**问题**：LLM 回复可能很长（代码生成等），如果等全部完成再发送，用户等待体验差。
+
+**解决方案**：分段更新已发送的消息
+
+```go
+// 1. 收到用户消息后，立即发一条"处理中..."
+msgId := gateway.SendMessage(chatId, "⏳ 处理中...")
+
+// 2. LLM 流式响应，每 N 秒 PATCH 更新消息
+ticker := time.NewTicker(3 * time.Second)
+buffer := ""
+for {
+    select {
+    case delta := <-streamCh:
+        buffer += delta
+    case <-ticker.C:
+        gateway.UpdateMessage(msgId, buffer) // PATCH 更新
+    }
+}
+
+// 3. 最终完成，用完整内容更新一次
+gateway.UpdateMessage(msgId, fullResponse)
+```
+
+**注意**：
+- 飞书 PATCH API 有频率限制，3 秒节流比较安全
+- 消息初始用 `text` 类型发的，更新时也必须用 `text` 格式（msg_type 不可变）
+- 如果想支持富文本，初始消息就要用 `post` 类型发送
+
 ---
 
 ## pi-go 推荐实现方案
@@ -244,10 +427,13 @@ POST /sessions
 
 | 文件 | 行数 | 核心功能 |
 |------|------|----------|
-| `gateway.ts` | 480 | 网关核心：连接管理、消息收发、reaction、去重、token 管理 |
-| `credentials.ts` | 100 | AES-256 加密存储凭证，支持项目级目录 |
-| `registration.ts` | 230 | 扫码自动建应用（飞书私有协议，可选） |
-| `feishuCommand.ts` | 587 | TUI 命令注册 + Agent 模式消息处理循环 |
+| `gateway.ts` | ~1170 | 网关核心：连接管理、消息收发、reaction、去重、token 管理、卡片回调、文本选择、流式更新、文件上传 |
+| `feishu-send-file-tool.ts` | ~136 | Agent 工具：发送本地文件/图片到飞书 |
+| `credentials.ts` | ~100 | AES-256 加密存储凭证，支持项目级目录 |
+| `registration.ts` | ~230 | 扫码自动建应用（飞书私有协议，可选） |
+| `feishuCommand.ts` | ~855 | TUI 命令注册 + Agent 模式消息处理循环 + ask_user_question 文本选择路由 |
+
+> **重点参考**：`gateway.ts` 的 `waitForTextChoice()` 和 `textChoiceCallback` 消息拦截机制，以及 `feishuCommand.ts` 的 `handleAskUserQuestionViaCard()` 函数。
 
 ### easyagent（Python，参考 emoji pool 和 gateway 架构）
 
@@ -289,3 +475,6 @@ POST /sessions
 3. **Gateway 优先**：连接管理、token 刷新、去重是基础，gateway 稳定了再实现 Agent 模式
 4. **emoji reaction 是锦上添花**：可以在 Phase 1 不需要，但用户体验提升明显
 5. **斜杠命令在 gateway 层拦截**：不要等发到 LLM 再处理
+6. **WS 模式下别碰卡片交互**：直接用文本选择模式（`waitForTextChoice`），卡片回调在 WS 下收不到
+7. **动态工具管理**：飞书专用工具（发文件等）在连接时注册、断开时注销
+8. **长回复用流式更新**：先发消息再 PATCH，3 秒节流，用户体验远好于等待全部完成

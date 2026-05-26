@@ -261,7 +261,7 @@ SwitchSession(ctx context.Context, sessionID string) (SessionContext, error)  //
 | 依赖 | 路径 | 存在 |
 |------|------|------|
 | coding-agent spec | `docs/dev/coding-agent/spec.md` | ✅ |
-| skills-vs-application | `docs/references/skills-vs-application.md` | ✅ |
+| skills-vs-application | `docs/decisions/skills-vs-application.md` | ✅ |
 | cc-haha core engine analysis | `docs/research/cc-haha-core-engine-analysis.md` | ✅ |
 | deepv-code full analysis | `docs/research/deepv-code-full-analysis.md` | ✅ |
 

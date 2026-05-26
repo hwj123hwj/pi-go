@@ -5,7 +5,7 @@ created: 2026-05-24
 updated: 2026-05-25
 depends-on:
   - dev/coding-agent/spec.md
-  - references/skills-vs-application.md
+  - decisions/skills-vs-application.md
   - research/cc-haha-core-engine-analysis.md
   - research/deepv-code-full-analysis.md
 ---
@@ -146,7 +146,7 @@ depends-on:
 
 ### 4.4 profile 机制还没有成型
 
-根据 [skills-vs-application.md](/Users/weijian/Desktop/develop/test/pi/pi-go/docs/references/skills-vs-application.md) 的判断，很多“角色差异”现在不应该拆成新 application，而应该优先走：
+根据 [skills-vs-application.md](/Users/weijian/Desktop/develop/test/pi/pi-go/docs/decisions/skills-vs-application.md) 的判断，很多“角色差异”现在不应该拆成新 application，而应该优先走：
 
 - prompt profile
 - tool filtering

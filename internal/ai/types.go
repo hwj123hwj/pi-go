@@ -121,18 +121,20 @@ type StreamAssistantMessage struct {
 }
 
 type StreamRequest struct {
-	Model      Model
-	Messages   []Message
-	System     string
-	Tools      []ToolDefinition
-	MaxTokens  *int
-	ToolChoice *ToolChoice
+	Model       Model
+	Messages    []Message
+	System      string
+	Tools       []ToolDefinition
+	MaxTokens   *int
+	Temperature *float64
+	ToolChoice  *ToolChoice
 }
 
 type SimpleStreamRequest struct {
-	Model     Model
-	Messages  []Message
-	System    string
-	Tools     []ToolDefinition
-	MaxTokens *int
+	Model       Model
+	Messages    []Message
+	System      string
+	Tools       []ToolDefinition
+	MaxTokens   *int
+	Temperature *float64
 }

@@ -293,8 +293,8 @@ docs: add contributing guide
 
 | 文档 | 说明 |
 |------|------|
-| `docs/desktop-golang-changes.md` | 桌面客户端涉及的 Go 后端改动详解 |
-| `docs/coding-agent-spec.md` | Coding Agent 功能规格 |
+| `docs/archive/desktop-golang/changes.md` | 桌面客户端涉及的 Go 后端改动详解 |
+| `docs/dev/coding-agent/spec.md` | Coding Agent 功能规格 |
 | `docs/deploy.md` | 部署相关说明 |
 
 新增重大架构决策时，请在 `docs/` 下新增或更新对应文档。

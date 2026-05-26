@@ -361,9 +361,20 @@ func (p *DeepVProvider) convertRequest(req ai.StreamRequest) (*deepVRequest, err
 	if req.MaxTokens != nil {
 		maxTokens = *req.MaxTokens
 	}
+
+	// temperature: 默认 0.7，kimi 系列模型强制 1
+	temperature := 0.7
+	if req.Temperature != nil {
+		temperature = *req.Temperature
+	}
+	// kimi 系列模型只允许 temperature=1
+	if strings.HasPrefix(req.Model.ID, "kimi-") {
+		temperature = 1.0
+	}
+
 	result.Config = &deepVConfig{
 		MaxOutputTokens: maxTokens,
-		Temperature:     0.7,
+		Temperature:     temperature,
 	}
 
 	// tools
