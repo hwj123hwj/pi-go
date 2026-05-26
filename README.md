@@ -69,6 +69,27 @@ cp .env.example .env
 ./pi-agent -mode serve -listen 127.0.0.1:8080
 ```
 
+### 桌面端
+
+pi-go 提供了基于 Electron + React 的桌面客户端：
+
+```bash
+cd desktop
+
+# 安装依赖
+npm install
+
+# 开发模式（Vite + Electron 热重载）
+npm run electron:dev
+
+# 构建桌面应用
+npm run electron:build
+
+# 指定架构构建
+npm run electron:build:arm64
+npm run electron:build:x64
+```
+
 ### 指定会话
 
 ```bash

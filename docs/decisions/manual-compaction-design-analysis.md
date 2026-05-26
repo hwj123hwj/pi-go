@@ -7,7 +7,7 @@ depends-on:
   - research/codex-rust-cli-analysis.md
   - research/cc-haha-core-engine-analysis.md
   - ../references/pi-go-analysis.md
-  - ../../learning/cc-comparison.md
+  - ../research/claude-code-plugins-hooks-analysis.md
 ---
 
 # Manual Compaction Design Analysis
@@ -105,7 +105,7 @@ depends-on:
 
 ### 已确认事实
 
-来自 [docs/research/cc-haha-core-engine-analysis.md](cc-haha-core-engine-analysis.md) 与 [learning/cc-comparison.md](../../learning/cc-comparison.md)：
+来自 [docs/research/cc-haha-core-engine-analysis.md](../research/cc-haha-core-engine-analysis.md) 与 [claude-code-plugins-hooks-analysis.md](../research/claude-code-plugins-hooks-analysis.md)：
 
 - `cc-haha` 有 **4 级渐进压缩策略**：
   - snip
@@ -138,7 +138,7 @@ depends-on:
 
 ### 已确认事实
 
-来自 [docs/research/codex-rust-cli-analysis.md](codex-rust-cli-analysis.md)：
+来自 [docs/research/codex-rust-cli-analysis.md](../research/codex-rust-cli-analysis.md)：
 
 - Codex 有 `goal` 管理能力
 - Codex 有 `auto_compact`

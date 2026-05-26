@@ -6,7 +6,7 @@ updated: 2026-05-25
 depends-on:
   - dev/coding-agent/spec.md
   - dev/coding-agent-cli-control-plane/execution-plan.md
-  - references/skills-vs-application.md
+  - decisions/skills-vs-application.md
   - research/codex-rust-cli-analysis.md
   - research/cc-haha-core-engine-analysis.md
 ---
