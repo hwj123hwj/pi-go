@@ -37,8 +37,9 @@ func main() {
 
 	// Create App (thin assembly layer)
 	application, err := app.New(app.AppOptions{
-		Config:    cfg,
-		SkillDirs: skillDirs(*skillDir),
+		Config:      cfg,
+		SkillDirs:   skillDirs(*skillDir),
+		Application: coding.NewCodingApplication(cfg),
 	})
 	if err != nil {
 		slog.Error("failed to create app", "error", err)

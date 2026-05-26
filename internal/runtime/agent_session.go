@@ -9,6 +9,7 @@ import (
 
 	"github.com/earendil-works/pi-go/internal/agent"
 	"github.com/earendil-works/pi-go/internal/ai"
+	"github.com/earendil-works/pi-go/internal/ai/models"
 	"github.com/earendil-works/pi-go/internal/ai/providers"
 	"github.com/earendil-works/pi-go/internal/compaction"
 	"github.com/earendil-works/pi-go/internal/config"
@@ -24,10 +25,11 @@ import (
 // Dependencies holds the shared dependencies needed to create an AgentSession.
 // These are provided by the App layer and shared across sessions.
 type Dependencies struct {
-	Registry    *providers.Registry
-	SessionMgr  *sessionmgr.Manager
-	ExtRegistry *extensions.Registry
-	Application Application
+	Registry         *providers.Registry
+	SessionMgr       *sessionmgr.Manager
+	ExtRegistry      *extensions.Registry
+	Application      Application
+	BuildOperations  func(cfg config.Config, workspace string) *operations.Operations
 }
 
 // AgentSessionOptions holds the options for creating a new AgentSession.
@@ -37,9 +39,10 @@ type AgentSessionOptions struct {
 	SkillDirs []string
 }
 
-// AgentSession is the central runtime abstraction for the coding-agent.
+// AgentSession is the central runtime abstraction for agent sessions.
 // It unifies agent lifecycle, session, events, compaction, and branch navigation.
 // All modes (interactive, print, serve) depend on this object.
+// Application-specific state (profile, goal) is delegated to SessionExt.
 type AgentSession struct {
 	agent       *agent.Agent
 	session     *session.Session
@@ -51,8 +54,7 @@ type AgentSession struct {
 	deps        Dependencies
 	skillDirs   []string
 	application Application
-	profile     string
-	goal        string
+	ext         SessionExt
 }
 
 // NewAgentSession creates a new AgentSession.
@@ -67,10 +69,23 @@ func NewAgentSession(ctx context.Context, opts AgentSessionOptions, deps Depende
 		skillDirs:   opts.SkillDirs,
 	}
 
-	var err error
-
 	s.application = deps.Application
-	s.profile = "coding" // default profile
+
+	// Create per-session extension (holds application-specific state like profile/goal)
+	if deps.Application != nil {
+		s.ext = deps.Application.NewSessionExt()
+		if cse, ok := s.ext.(interface{ SetRebuild(func() error) }); ok {
+			cse.SetRebuild(func() error {
+				// Use Background instead of the creation context: profile/goal
+					// changes can happen long after the request that created this
+					// session has completed and its context been canceled.
+					_, err := s.rebuildAgent(context.Background(), s.deps.Registry, s.skillDirs)
+				return err
+			})
+		}
+	}
+
+	var err error
 
 	if opts.SessionID != "" && s.sessionMgr.Exists(opts.SessionID) {
 		// Load existing session
@@ -205,59 +220,50 @@ func (s *AgentSession) Compact(ctx context.Context, customInstructions string) (
 }
 
 // Profile returns the current profile name.
+// Delegates to SessionExt if available.
 func (s *AgentSession) Profile() string {
-	return s.profile
+	if s.ext != nil {
+		return s.ext.Profile()
+	}
+	return ""
 }
 
 // SwitchProfile changes the active profile and rebuilds the agent
 // so that the new profile's system prompt takes effect immediately.
+// Delegates to SessionExt if available.
 func (s *AgentSession) SwitchProfile(ctx context.Context, profile string) error {
-	switch profile {
-	case "coding", "review":
-		s.profile = profile
-	default:
-		return fmt.Errorf("unknown profile: %q (available: coding, review)", profile)
+	if s.ext == nil {
+		return fmt.Errorf("profile switching not supported")
 	}
-
-	// Rebuild agent so the new profile's prompt is applied.
-	ag, err := s.buildAgent(ctx, s.deps.Registry, s.skillDirs)
-	if err != nil {
-		return fmt.Errorf("rebuild agent with profile %q: %w", profile, err)
-	}
-	s.agent = ag
-
-	slog.Info("switched profile", "profile", profile, "session", s.sessionID)
-	return nil
+	return s.ext.SwitchProfile(ctx, profile)
 }
 
 // Goal returns the current session goal.
+// Delegates to SessionExt if available.
 func (s *AgentSession) Goal() string {
-	return s.goal
+	if s.ext != nil {
+		return s.ext.Goal()
+	}
+	return ""
 }
 
 // SetGoal sets the current session goal and rebuilds the agent
 // so the goal is injected into the system prompt immediately.
+// Delegates to SessionExt if available.
 func (s *AgentSession) SetGoal(goal string) {
-	s.goal = goal
-	ag, err := s.buildAgent(context.Background(), s.deps.Registry, s.skillDirs)
-	if err != nil {
-		slog.Error("failed to rebuild agent after goal set", "error", err)
+	if s.ext == nil {
 		return
 	}
-	s.agent = ag
-	slog.Info("goal set", "goal", goal, "session", s.sessionID)
+	s.ext.SetGoal(goal)
 }
 
 // ClearGoal clears the current session goal and rebuilds the agent.
+// Delegates to SessionExt if available.
 func (s *AgentSession) ClearGoal() {
-	s.goal = ""
-	ag, err := s.buildAgent(context.Background(), s.deps.Registry, s.skillDirs)
-	if err != nil {
-		slog.Error("failed to rebuild agent after goal clear", "error", err)
+	if s.ext == nil {
 		return
 	}
-	s.agent = ag
-	slog.Info("goal cleared", "session", s.sessionID)
+	s.ext.ClearGoal()
 }
 
 // MoveTo navigates the session to a specific entry (branch navigation).
@@ -274,6 +280,17 @@ func (s *AgentSession) Close() error {
 		return s.session.Storage().Close()
 	}
 	return nil
+}
+
+// rebuildAgent rebuilds the agent with the current session state.
+// This is called after profile/goal changes via SessionExt's rebuild callback.
+func (s *AgentSession) rebuildAgent(ctx context.Context, registry *providers.Registry, skillDirs []string) (*agent.Agent, error) {
+	ag, err := s.buildAgent(ctx, registry, skillDirs)
+	if err != nil {
+		return nil, err
+	}
+	s.agent = ag
+	return ag, nil
 }
 
 // buildAgent constructs the agent.Agent for this session.
@@ -303,7 +320,7 @@ func (s *AgentSession) buildAgent(ctx context.Context, registry *providers.Regis
 		ID:            modelID,
 		Name:          modelID,
 		Provider:      providerName,
-		ContextWindow: contextWindowForModel(modelID),
+		ContextWindow: models.ContextWindow(modelID),
 		MaxTokens:     4096,
 	}
 
@@ -339,6 +356,13 @@ func (s *AgentSession) buildAgent(ctx context.Context, registry *providers.Regis
 		}
 	}
 
+	// Read profile/goal from SessionExt
+	var profileName, goal string
+	if s.ext != nil {
+		profileName = s.ext.Profile()
+		goal = s.ext.Goal()
+	}
+
 	// Build system prompt via Application interface
 	systemPrompt := s.application.BuildPrompt(PromptBuildOptions{
 		CustomPrompt: cfg.PromptTemplate,
@@ -346,9 +370,7 @@ func (s *AgentSession) buildAgent(ctx context.Context, registry *providers.Regis
 		Tools:        toolList,
 		ContextFiles: contextFiles,
 		Skills:       skills,
-		Profile:      s.profile,
-		Goal:         s.goal,
-	})
+	}, profileName, goal)
 
 	// Aggregate lifecycle hooks from extension registry
 	var lifecycleHooks agent.LifecycleHooks
@@ -379,8 +401,13 @@ func (s *AgentSession) toolBuildOptions(cwd string) ToolBuildOptions {
 		workspace = cwd
 	}
 
-	// Build operations backend based on execution mode
-	ops := s.buildOperations(workspace)
+	// Build operations backend via Dependencies callback
+	var ops *operations.Operations
+	if s.deps.BuildOperations != nil {
+		ops = s.deps.BuildOperations(cfg, workspace)
+	} else {
+		ops = operations.NewLocalOperations()
+	}
 
 	// In SSH mode, override workspace with remote working directory
 	if cfg.ExecutionMode == "ssh" && cfg.SSHWorkDir != "" {
@@ -396,50 +423,10 @@ func (s *AgentSession) toolBuildOptions(cwd string) ToolBuildOptions {
 	return ToolBuildOptions{
 		Workspace:      workspace,
 		MaxOutputLen:   cfg.MaxOutputLen,
-		EnableBash:     cfg.EnableBash,
 		BashOps:        ops.Bash,
 		FileOps:        ops.Files,
 		ExtensionTools: extTools,
 		AllowedTools:   cfg.AllowedTools,
 		BlockedTools:   cfg.BlockedTools,
 	}
-}
-
-// buildOperations creates the Operations container based on config.ExecutionMode.
-func (s *AgentSession) buildOperations(workspace string) *operations.Operations {
-	switch s.cfg.ExecutionMode {
-	case "ssh":
-		return operations.NewSSHOperations(operations.SSHConfig{
-			Host:    s.cfg.SSHHost,
-			Port:    s.cfg.SSHPort,
-			WorkDir: s.cfg.SSHWorkDir,
-		})
-	default:
-		return operations.NewLocalOperations()
-	}
-}
-
-// contextWindowForModel returns the context window size for a given model ID.
-func contextWindowForModel(modelID string) int {
-	windows := map[string]int{
-		"claude-3-5-sonnet": 200000,
-		"claude-3-5-haiku":  200000,
-		"claude-3-opus":     200000,
-		"claude-sonnet-4":   200000,
-		"claude-sonnet-4-5": 200000,
-		"gpt-4o":            128000,
-		"gpt-4o-mini":       128000,
-		"gpt-4-turbo":       128000,
-		"gpt-4":             8192,
-		"o1":                200000,
-		"o1-mini":           128000,
-		"o3-mini":           200000,
-		"claude-sonnet-4-6": 200000,
-		"glm-5":             128000,
-		"deepseek-v4-flash": 128000,
-	}
-	if w, ok := windows[modelID]; ok {
-		return w
-	}
-	return 128000
 }

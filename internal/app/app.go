@@ -9,12 +9,13 @@ import (
 	"github.com/earendil-works/pi-go/internal/ai/providers"
 	"github.com/earendil-works/pi-go/internal/config"
 	"github.com/earendil-works/pi-go/internal/extensions"
+	"github.com/earendil-works/pi-go/internal/operations"
 	"github.com/earendil-works/pi-go/internal/runtime"
 	"github.com/earendil-works/pi-go/internal/sessionmgr"
 	"github.com/earendil-works/pi-go/internal/slashcmd"
 )
 
-// App is the thin assembly layer for the coding-agent.
+// App is the thin assembly layer for the agent.
 // It assembles dependencies (providers, session manager, runtime registry, etc.)
 // but does NOT carry session-specific behavior — that belongs to AgentSession.
 type App struct {
@@ -24,12 +25,14 @@ type App struct {
 	registry     *providers.Registry
 	sessionStore *runtime.SessionRegistry
 	extRegistry  *extensions.Registry
+	application  runtime.Application
 }
 
 // AppOptions holds the options for creating a new App.
 type AppOptions struct {
-	Config    config.Config
-	SkillDirs []string
+	Config      config.Config
+	SkillDirs   []string
+	Application runtime.Application // inject a concrete Application; defaults to CodingApplication
 }
 
 // New creates a new App, assembling all shared dependencies.
@@ -49,6 +52,12 @@ func New(opts AppOptions) (*App, error) {
 	// Session registry (runtime)
 	store := runtime.NewSessionRegistry()
 
+	// Use injected Application, or default to CodingApplication
+	application := opts.Application
+	if application == nil {
+		application = coding.NewCodingApplication(cfg)
+	}
+
 	return &App{
 		cfg:          cfg,
 		skillDirs:    opts.SkillDirs,
@@ -56,6 +65,7 @@ func New(opts AppOptions) (*App, error) {
 		registry:     reg,
 		sessionStore: store,
 		extRegistry:  extReg,
+		application:  application,
 	}, nil
 }
 
@@ -120,7 +130,19 @@ func (a *App) deps() runtime.Dependencies {
 		Registry:    a.registry,
 		SessionMgr:  a.sessionMgr,
 		ExtRegistry: a.extRegistry,
-		Application: coding.CodingApplication{},
+		Application: a.application,
+		BuildOperations: func(cfg config.Config, workspace string) *operations.Operations {
+			switch cfg.ExecutionMode {
+			case "ssh":
+				return operations.NewSSHOperations(operations.SSHConfig{
+					Host:    cfg.SSHHost,
+					Port:    cfg.SSHPort,
+					WorkDir: cfg.SSHWorkDir,
+				})
+			default:
+				return operations.NewLocalOperations()
+			}
+		},
 	}
 }
 
@@ -129,7 +151,16 @@ func (a *App) deps() runtime.Dependencies {
 func (a *App) ToolNames() []string {
 	cfg := a.cfg
 
-	baseNames := coding.BaseToolNames(cfg.EnableBash)
+	// Try to delegate to Application
+	type toolNamer interface {
+		ToolNames(enableBash bool) []string
+	}
+	var baseNames []string
+	if tn, ok := a.application.(toolNamer); ok {
+		baseNames = tn.ToolNames(cfg.EnableBash)
+	} else {
+		baseNames = coding.BaseToolNames(cfg.EnableBash)
+	}
 
 	// Extension tools
 	if a.extRegistry != nil {
@@ -201,14 +232,6 @@ func registerProviders(registry *providers.Registry, cfg config.Config) {
 	}
 }
 
-// homeDir returns the user's home directory.
-func homeDir() string {
-	if home := os.Getenv("HOME"); home != "" {
-		return home
-	}
-	return ""
-}
-
 // ListSessionsInfo implements slashcmd.AppContext.
 func (a *App) ListSessionsInfo() ([]slashcmd.SessionInfo, error) {
 	mgr := a.sessionMgr
@@ -242,22 +265,21 @@ func (a *App) SwitchSession(ctx context.Context, sessionID string) (slashcmd.Ses
 // Profiles returns the list of available profile names.
 // This implements the slashcmd.AppContext interface.
 func (a *App) Profiles() []string {
-	return []string{"coding", "review"}
+	type profileLister interface{ Profiles() []string }
+	if pl, ok := a.application.(profileLister); ok {
+		return pl.Profiles()
+	}
+	return nil
 }
 
 // AvailableModels returns the list of models available for switching.
 // This implements the slashcmd.AppContext interface.
 func (a *App) AvailableModels() []slashcmd.ModelInfo {
-	return []slashcmd.ModelInfo{
-		{Provider: "anthropic", ModelID: "claude-sonnet-4-6"},
-		{Provider: "anthropic", ModelID: "claude-sonnet-4-5"},
-		{Provider: "anthropic", ModelID: "claude-sonnet-4"},
-		{Provider: "openai", ModelID: "gpt-4o"},
-		{Provider: "openai", ModelID: "gpt-4o-mini"},
-		{Provider: "deepv", ModelID: "glm-5"},
-		{Provider: "deepv", ModelID: "deepseek-v4-flash"},
-		{Provider: "mock", ModelID: "mock"},
+	type modelLister interface{ AvailableModels() []slashcmd.ModelInfo }
+	if ml, ok := a.application.(modelLister); ok {
+		return ml.AvailableModels()
 	}
+	return nil
 }
 
 // Ensure App implements slashcmd.AppContext at compile time.

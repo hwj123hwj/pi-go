@@ -17,7 +17,7 @@ import (
 	"github.com/earendil-works/pi-go/internal/runtime"
 )
 
-// Server provides HTTP REST + SSE endpoints for the coding agent.
+// Server provides HTTP REST + SSE endpoints for the agent.
 // It routes requests to AgentSessions via the App's SessionRegistry.
 type Server struct {
 	app *app.App
