@@ -1,0 +1,18 @@
+[Unit]
+Description=Pi-Go Feishu Bridge
+After=network.target pi-go.service
+Wants=pi-go.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=__DEPLOY_PATH__/current
+EnvironmentFile=__DEPLOY_PATH__/shared/.env
+ExecStart=__DEPLOY_PATH__/current/pi-feishu-bridge
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

@@ -68,6 +68,7 @@ func (s *Server) Handler() http.Handler {
 	restMux.HandleFunc("POST /sessions/{id}/model", s.switchModel)
 	restMux.HandleFunc("GET /models", s.listModels)
 	restMux.HandleFunc("GET /tools", s.listTools)
+	restMux.HandleFunc("POST /sessions/{id}/compact", s.compactSession)
 
 	var restHandler http.Handler = restMux
 	restHandler = corsMiddleware(restHandler)
@@ -409,6 +410,52 @@ func (s *Server) switchModel(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(map[string]string{
 		"provider": provider,
 		"model":    modelID,
+	})
+}
+
+// ─── POST /sessions/{id}/compact ──────────────────────────────────────────────
+
+// CompactRequest is the request body for context compaction.
+type CompactRequest struct {
+	CustomInstructions string `json:"custom_instructions,omitempty"`
+}
+
+// CompactResponse is the response for context compaction.
+type CompactResponse struct {
+	Summary     string `json:"summary"`
+	TrimmedFrom int    `json:"trimmed_from"`
+	TrimmedTo   int    `json:"trimmed_to"`
+}
+
+func (s *Server) compactSession(w http.ResponseWriter, r *http.Request) {
+	sessionID := r.PathValue("id")
+
+	var req CompactRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		// Allow empty body
+		req = CompactRequest{}
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Minute)
+	defer cancel()
+
+	sess, err := s.app.LoadSession(ctx, sessionID)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "session not found")
+		return
+	}
+
+	summary, trimmedFrom, trimmedTo, err := sess.Compact(ctx, req.CustomInstructions)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "compact failed: "+err.Error())
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(CompactResponse{
+		Summary:     summary,
+		TrimmedFrom: trimmedFrom,
+		TrimmedTo:   trimmedTo,
 	})
 }
 
