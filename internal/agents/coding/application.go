@@ -23,15 +23,17 @@ func NewCodingApplication(cfg config.Config) CodingApplication {
 
 // BuildTools assembles the coding-agent toolset based on the provided options.
 func (a CodingApplication) BuildTools(opts runtime.ToolBuildOptions) []agent.Tool {
+	mutationQueue := codingtools.NewFileMutationQueue()
 	return codingtools.BuildList(codingtools.ListOptions{
-		Workspace:      opts.Workspace,
-		MaxOutputLen:   opts.MaxOutputLen,
-		EnableBash:     a.Cfg.EnableBash,
-		BashOps:        opts.BashOps,
-		FileOps:        opts.FileOps,
-		ExtensionTools: opts.ExtensionTools,
-		AllowedTools:   opts.AllowedTools,
-		BlockedTools:   opts.BlockedTools,
+		Workspace:         opts.Workspace,
+		MaxOutputLen:      opts.MaxOutputLen,
+		EnableBash:        a.Cfg.EnableBash,
+		BashOps:           opts.BashOps,
+		FileOps:           opts.FileOps,
+		ExtensionTools:    opts.ExtensionTools,
+		AllowedTools:      opts.AllowedTools,
+		BlockedTools:      opts.BlockedTools,
+		FileMutationQueue: mutationQueue,
 	})
 }
 

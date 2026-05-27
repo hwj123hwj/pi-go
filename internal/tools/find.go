@@ -195,3 +195,9 @@ func (t *FindTool) Execute(ctx context.Context, raw json.RawMessage, onUpdate fu
 
 	return agent.ToolResult{Content: b.String()}, nil
 }
+
+// IsConcurrencySafe implements agent.ConcurrencySafeChecker.
+// FindTool is always safe to execute concurrently.
+func (t *FindTool) IsConcurrencySafe(params json.RawMessage) bool {
+	return true
+}

@@ -11,8 +11,9 @@ import (
 )
 
 type WriteTool struct {
-	workspace string // 工作目录，用于解析相对路径
-	ops       operations.FileOperations
+	workspace     string // 工作目录，用于解析相对路径
+	ops           operations.FileOperations
+	mutationQueue MutationQueue // 可选：per-file 串行化
 }
 
 type WriteParams struct {
@@ -31,6 +32,11 @@ func WithWriteWorkspace(ws string) WriteToolOption {
 // WithWriteOperations sets the FileOperations backend.
 func WithWriteOperations(ops operations.FileOperations) WriteToolOption {
 	return func(t *WriteTool) { t.ops = ops }
+}
+
+// WithWriteMutationQueue sets the per-file mutation queue for serialized writes.
+func WithWriteMutationQueue(q MutationQueue) WriteToolOption {
+	return func(t *WriteTool) { t.mutationQueue = q }
 }
 
 func NewWriteTool(opts ...WriteToolOption) *WriteTool {
@@ -66,6 +72,20 @@ func (t *WriteTool) Validate(raw json.RawMessage) (json.RawMessage, error) {
 	return json.Marshal(params)
 }
 func (t *WriteTool) Execute(ctx context.Context, raw json.RawMessage, onUpdate func(agent.PartialResult)) (agent.ToolResult, error) {
+	if t.mutationQueue != nil {
+		var params WriteParams
+		if err := json.Unmarshal(raw, &params); err != nil {
+			return agent.ToolResult{IsError: true}, err
+		}
+		cleanPath := ResolvePath(t.workspace, params.Path)
+		return t.mutationQueue.Execute(ctx, cleanPath, func() (agent.ToolResult, error) {
+			return t.doExecute(ctx, raw, onUpdate)
+		})
+	}
+	return t.doExecute(ctx, raw, onUpdate)
+}
+
+func (t *WriteTool) doExecute(ctx context.Context, raw json.RawMessage, onUpdate func(agent.PartialResult)) (agent.ToolResult, error) {
 	var params WriteParams
 	if err := json.Unmarshal(raw, &params); err != nil {
 		return agent.ToolResult{IsError: true}, err

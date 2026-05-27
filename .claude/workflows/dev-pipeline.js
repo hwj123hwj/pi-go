@@ -1,9 +1,10 @@
 export const meta = {
   name: 'dev-pipeline',
-  description: 'Pi-Go 6阶段完整开发流水线：Plan → Review → Confirm → Execute → Implement → Codex Review',
+  description: 'Pi-Go 7阶段完整开发流水线：Research → Plan → Review → Confirm → Execute → Implement → Codex Review',
   whenToUse: '当用户说"开始一个新开发主题"、"走一遍开发流程"、"帮我规划 XXX 功能"、"启动开发流水线"时使用',
   phases: [
-    { title: 'Plan', detail: 'plan-agent 阅读项目上下文，产出提案 proposal.md', model: 'opus' },
+    { title: 'Research', detail: 'research-agent 调研参考项目和代码库，产出 research.md', model: 'opus' },
+    { title: 'Plan', detail: 'plan-agent 基于调研报告阅读项目上下文，产出提案 proposal.md', model: 'opus' },
     { title: 'Review', detail: 'review-agent 独立审核提案，交叉验证源码，产出 review.md', model: 'opus' },
     { title: 'Confirm', detail: '展示提案摘要和审核结论，等待用户 approve/reject' },
     { title: 'Execute', detail: 'exec-agent 基于已批准提案，产出可施工的 execution-plan.md', model: 'sonnet' },
@@ -19,11 +20,77 @@ const CODEX_COMPANION = '/Users/weijian/.claude/plugins/cache/openai-codex/codex
 
 // ── Prompt 模板 ──
 
+const RESEARCH_PROMPT = `You are a **research-agent** for the pi-go project (a Go-based Agent framework).
+
+Your job: investigate reference projects and codebases to produce a thorough research report that will feed into the plan phase.
+
+## Step 1: Understand the topic
+The topic is: {TOPIC_INFO}
+
+Read the project context to understand pi-go's current state:
+- ${PROJECT_ROOT}/docs/PROJECT_CONTEXT.md
+- ${PROJECT_ROOT}/docs/PRODUCT_ROADMAP.md
+
+## Step 2: Investigate reference codebases
+Based on the topic, identify and read relevant reference implementations. Common reference locations:
+- /Users/weijian/Desktop/develop/test/pi/cc-haha/ — Claude Code (TypeScript coding agent)
+- /Users/weijian/Desktop/develop/test/pi/codex/ — OpenAI Codex (Rust agent)
+- /Users/weijian/Desktop/develop/test/pi/packages/ — Pi monorepo packages
+
+For each reference, focus on:
+- How they implement the relevant feature
+- Key design patterns and architecture decisions
+- Code structure and file organization
+- Specific implementation details worth porting
+
+## Step 3: Analyze pi-go's current implementation
+Read the relevant pi-go source files to understand the current state and identify gaps.
+Focus on the interfaces, types, and extension points that the new feature would touch.
+
+## Step 4: Gap analysis
+Compare what pi-go has vs what the reference projects provide. Be specific:
+- List concrete missing pieces (not vague descriptions)
+- Identify what can be directly ported vs what needs adaptation
+- Note any architectural constraints that affect the design
+
+## Output
+Write the research report to ${PROJECT_ROOT}/docs/dev/{TOPIC}/research.md with this YAML frontmatter:
+
+\`\`\`yaml
+---
+status: complete
+author: research-agent
+created: {TODAY}
+updated: {TODAY}
+---
+\`\`\`
+
+The report body MUST include:
+1. **调研目标** — what we're investigating and why
+2. **参考项目分析** — for each reference project analyzed:
+   - Project name and relevant file paths
+   - Key implementation details (with code snippets)
+   - Design patterns used
+3. **pi-go 现状分析** — current implementation state relevant to the topic
+4. **Gap 分析** — concrete differences, table format preferred
+5. **移植建议** — what to port, what to adapt, what to skip
+6. **关键发现** — important insights that should inform the proposal
+
+Writing standards:
+- Include actual file paths from reference projects
+- Show relevant code snippets (10-30 lines) to illustrate patterns
+- Be specific about interfaces and types, not hand-wavy
+- This report will be the primary input for the plan-agent — make it actionable
+
+## Topic
+{TOPIC_INFO}`
+
 const PLAN_PROMPT = `You are a **plan-agent** for the pi-go project (a Go-based Agent framework).
 
-Your job: produce a proposal for a new development topic.
+Your job: produce a proposal for a new development topic, informed by the research report.
 
 ## Context you MUST read first
+- ${PROJECT_ROOT}/docs/dev/{TOPIC}/research.md — research report with reference analysis and gap findings
 - ${PROJECT_ROOT}/docs/PROJECT_CONTEXT.md — current architecture, core capabilities, key interfaces
 - ${PROJECT_ROOT}/docs/PRODUCT_ROADMAP.md — product roadmap, understand where this topic fits
 - ${PROJECT_ROOT}/docs/README.md — existing dev topics, avoid duplication
@@ -228,9 +295,19 @@ const fill = (tpl) => tpl
   .replaceAll('{TOPIC}', topicName)
   .replaceAll('{TODAY}', today)
 
+// ── Phase 0: Research (opus: 需要深入阅读参考代码库) ──
+phase('Research')
+log(`🔬 Research phase: investigating reference projects for "${topicName}"`)
+const researchResult = await agent(fill(RESEARCH_PROMPT), {
+  label: `research:${topicName}`,
+  phase: 'Research',
+  model: 'opus',
+})
+log(`✅ Research report written to docs/dev/${topicName}/research.md`)
+
 // ── Phase 1: Plan (opus: 需要深度思考和架构判断) ──
 phase('Plan')
-log(`📋 Plan phase: generating proposal for "${topicName}"`)
+log(`📋 Plan phase: generating proposal for "${topicName}" (based on research)`)
 const planResult = await agent(fill(PLAN_PROMPT), {
   label: `plan:${topicName}`,
   phase: 'Plan',
@@ -251,16 +328,21 @@ log(`✅ Review written to docs/dev/${topicName}/review.md`)
 // ── Phase 3: Confirm (user gate — 展示摘要，等待人工审批) ──
 phase('Confirm')
 const summary = `
-## 📋 开发流水线产出摘要
+## 📋 开发流水线产出摘要（设计阶段）
 
 **主题**: ${topicName}
 
-### 提案核心结论
+### 🔬 调研报告要点
+${researchResult}
+
+---
+
+### 📝 提案核心结论
 ${planResult}
 
 ---
 
-### 审核结论
+### 🔍 审核结论
 ${reviewResult}
 
 ---
@@ -276,6 +358,7 @@ log(summary)
 return {
   status: 'awaiting-approval',
   topic: topicName,
+  researchPath: `docs/dev/${topicName}/research.md`,
   proposalPath: `docs/dev/${topicName}/proposal.md`,
   reviewPath: `docs/dev/${topicName}/review.md`,
   summary,

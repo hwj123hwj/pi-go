@@ -15,6 +15,12 @@ import (
 // 不同的调用者（RunLoop vs PromptStream）提供不同的实现。
 type consumeStreamFunc func(stream *ai.EventStream) (ai.StreamAssistantMessage, error)
 
+// toolBatch 表示一组可一起执行的工具调用。
+type toolBatch struct {
+	safe  bool          // true = 批次内可并行执行
+	calls []ai.ToolCall // 批次内的工具调用
+}
+
 // turnAction 表示一轮处理后的动作。
 type turnAction int
 
@@ -245,21 +251,96 @@ func executeToolCalls(ctx context.Context, a *Agent, calls []ai.ToolCall) ([]ai.
 		return nil, nil
 	}
 
-	// 判断是否有需要顺序执行的工具
-	hasSequential := false
+	batches := partitionToolCalls(ctx, a, calls)
+	var allResults []ai.Message
+
+	for i, batch := range batches {
+		// 批次开始事件
+		names := make([]string, 0, len(batch.calls))
+		for _, c := range batch.calls {
+			names = append(names, c.Name)
+		}
+		a.emit(ctx, EventToolBatchStart{
+			BatchIndex: i,
+			Safe:       batch.safe,
+			ToolNames:  names,
+		})
+
+		var results []ai.Message
+		var err error
+
+		if batch.safe {
+			results, err = executeToolCallsParallel(ctx, a, batch.calls)
+		} else {
+			results, err = executeToolCallsSequential(ctx, a, batch.calls)
+		}
+
+		if err != nil {
+			// 返回已执行的结果（支持未来 continueOnError 扩展）
+			return allResults, err
+		}
+		allResults = append(allResults, results...)
+	}
+
+	return allResults, nil
+}
+
+// partitionToolCalls 将工具调用按并发安全性分区为有序的批次。
+//
+// 分区规则：
+//  1. 查找每个 call 对应的 tool
+//  2. 若 tool 实现了 ConcurrencySafeChecker 且 IsConcurrencySafe(params) == true → safe
+//     若 tool 实现了 ToolWithMode 且 ExecutionMode() == Sequential → unsafe（保守策略）
+//     两者都不满足 → unsafe（保守策略）
+//  3. 连续的 safe call 合入同一并行批次
+//  4. 每个 unsafe call 独占一个串行批次
+//
+// 注：此处直接将 call.Args（string）转为 json.RawMessage 传给 IsConcurrencySafe，
+// 无需先 validate。对只读工具而言 IsConcurrencySafe 始终返回 true，不依赖参数内容。
+// 参数预留用于未来可能的动态判断。
+func partitionToolCalls(ctx context.Context, a *Agent, calls []ai.ToolCall) []toolBatch {
+	var batches []toolBatch
+	var currentBatch *toolBatch
+
 	for _, call := range calls {
-		if tool, ok := a.tools[call.Name]; ok {
-			if tm, ok := tool.(ToolWithMode); ok && tm.ExecutionMode() == ExecutionModeSequential {
-				hasSequential = true
-				break
+		safe := isToolCallSafe(a, call)
+
+		if safe {
+			if currentBatch == nil || !currentBatch.safe {
+				// 开始新的并行批次
+				batches = append(batches, toolBatch{safe: true})
+				currentBatch = &batches[len(batches)-1]
 			}
+			currentBatch.calls = append(currentBatch.calls, call)
+		} else {
+			// 不安全：独占串行批次
+			batches = append(batches, toolBatch{safe: false, calls: []ai.ToolCall{call}})
+			currentBatch = nil
 		}
 	}
 
-	if hasSequential {
-		return executeToolCallsSequential(ctx, a, calls)
+	return batches
+}
+
+// isToolCallSafe 判断单个 tool call 是否可安全并发执行。
+func isToolCallSafe(a *Agent, call ai.ToolCall) bool {
+	tool, ok := a.tools[call.Name]
+	if !ok {
+		return false // 未知工具，保守策略
 	}
-	return executeToolCallsParallel(ctx, a, calls)
+
+	// 优先级 1: ToolWithMode.Sequential → 保守不安全
+	if tm, ok := tool.(ToolWithMode); ok && tm.ExecutionMode() == ExecutionModeSequential {
+		return false
+	}
+
+	// 优先级 2: ConcurrencySafeChecker
+	if csc, ok := tool.(ConcurrencySafeChecker); ok {
+		return csc.IsConcurrencySafe(json.RawMessage(call.Args))
+	}
+
+	// 默认不安全
+	return false
 }
 
 func executeToolCallsParallel(ctx context.Context, a *Agent, calls []ai.ToolCall) ([]ai.Message, error) {

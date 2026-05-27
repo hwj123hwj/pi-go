@@ -238,3 +238,9 @@ func formatFileEntry(path string, info operations.FileInfo) string {
 	}
 	return fmt.Sprintf("%s  %s  (%s)", path, formatSize(info.Size), info.ModTime.Format("2006-01-02 15:04"))
 }
+
+// IsConcurrencySafe implements agent.ConcurrencySafeChecker.
+// LsTool is always safe to execute concurrently.
+func (t *LsTool) IsConcurrencySafe(params json.RawMessage) bool {
+	return true
+}

@@ -29,12 +29,14 @@ jobs:
         run: |
           mkdir -p dist
           GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o "dist/${BINARY_NAME}" ./cmd/pi-agent
+          GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o "dist/pi-feishu-bridge" ./cmd/pi-feishu-bridge
 
       - name: Package release
         run: |
           RELEASE_NAME="release-${GITHUB_SHA}"
           mkdir -p "dist/${RELEASE_NAME}"
           cp "dist/${BINARY_NAME}" "dist/${RELEASE_NAME}/${BINARY_NAME}"
+          cp "dist/pi-feishu-bridge" "dist/${RELEASE_NAME}/pi-feishu-bridge"
           cp README.md "dist/${RELEASE_NAME}/README.md"
           tar -C dist -czf "dist/${RELEASE_NAME}.tar.gz" "${RELEASE_NAME}"
           echo "RELEASE_NAME=${RELEASE_NAME}" >> "$GITHUB_ENV"
@@ -53,6 +55,7 @@ jobs:
         run: |
           mkdir -p dist/deploy
           sed "s#__DEPLOY_PATH__#${{ secrets.DEPLOY_PATH }}#g" deploy/pi-go.service > dist/deploy/pi-go.service
+          sed "s#__DEPLOY_PATH__#${{ secrets.DEPLOY_PATH }}#g" deploy/pi-feishu-bridge.service > dist/deploy/pi-feishu-bridge.service
           cp scripts/install_release.sh dist/deploy/install_release.sh
           chmod +x dist/deploy/install_release.sh
 
@@ -62,6 +65,7 @@ jobs:
             "dist/${RELEASE_NAME}.tar.gz" \
             "dist/deploy/install_release.sh" \
             "dist/deploy/pi-go.service" \
+            "dist/deploy/pi-feishu-bridge.service" \
             "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/tmp/"
 
       - name: Write env file
@@ -78,7 +82,13 @@ jobs:
              RELEASE_NAME='${RELEASE_NAME}' \
              SERVICE_NAME='${SERVICE_NAME}' \
              BINARY_NAME='${BINARY_NAME}' \
-             /tmp/install_release.sh"
+             /tmp/install_release.sh && \
+             if [ -f /tmp/pi-feishu-bridge.service ]; then \
+               cp /tmp/pi-feishu-bridge.service /etc/systemd/system/pi-feishu-bridge.service && \
+               systemctl daemon-reload && \
+               systemctl enable pi-feishu-bridge.service && \
+               systemctl restart pi-feishu-bridge.service || true; \
+             fi"
 
       - name: Health check
         run: |

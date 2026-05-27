@@ -326,8 +326,8 @@ func (p *DeepVProvider) convertRequest(req ai.StreamRequest) (*deepVRequest, err
 			}
 
 		case ai.ToolResultMessage:
-			// GenAI 的 functionResponse 放在 "user" role 下
-			content := deepVContent{Role: "user"}
+			// GenAI 的 functionResponse 放在 "user" role 下。
+			// 同一轮 tool call 的多个 functionResponse 必须合并到同一个 user message 中。
 			toolName := toolUseIDToName[m.ToolCallID]
 			if toolName == "" {
 				toolName = m.ToolCallID
@@ -336,7 +336,7 @@ func (p *DeepVProvider) convertRequest(req ai.StreamRequest) (*deepVRequest, err
 			if responseContent == "" {
 				responseContent = "(empty)"
 			}
-			content.Parts = append(content.Parts, deepVPart{
+			part := deepVPart{
 				FunctionResponse: &deepVFunctionResponse{
 					ID:   m.ToolCallID,
 					Name: toolName,
@@ -344,8 +344,22 @@ func (p *DeepVProvider) convertRequest(req ai.StreamRequest) (*deepVRequest, err
 						"result": responseContent,
 					},
 				},
+			}
+
+			// 如果上一个 content 已经是 user role 的 functionResponse 容器，追加到它
+			if n := len(result.Contents); n > 0 {
+				last := &result.Contents[n-1]
+				if last.Role == "user" && len(last.Parts) > 0 && last.Parts[0].FunctionResponse != nil {
+					last.Parts = append(last.Parts, part)
+					break
+				}
+			}
+
+			// 否则新建一个 user content
+			result.Contents = append(result.Contents, deepVContent{
+				Role:  "user",
+				Parts: []deepVPart{part},
 			})
-			result.Contents = append(result.Contents, content)
 		}
 	}
 

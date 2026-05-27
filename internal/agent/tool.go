@@ -45,3 +45,17 @@ type ToolWithPromptInfo interface {
 	PromptSnippet() string      // 一句话描述工具用途，用于 Available tools 摘要
 	PromptGuidelines() []string // 使用指南条目，追加到 Guidelines 区域
 }
+
+// ConcurrencySafeChecker 是一个可选接口（与 ToolWithMode 类似）。
+// 工具可实现此接口以声明其是否可安全并发执行。
+// 未实现此接口的工具默认视为不安全（保守策略）。
+//
+// 分区调度器 (partitionToolCalls) 在分批次时查询此接口。
+// 若工具同时实现了 ToolWithMode 且 ExecutionMode() == Sequential，
+// 即使 IsConcurrencySafe 返回 true，也会被保守地视为不安全。
+//
+// Extension 工具也可以实现此接口（Go duck typing 的自然结果，无需额外注册代码）。
+type ConcurrencySafeChecker interface {
+	Tool
+	IsConcurrencySafe(params json.RawMessage) bool
+}

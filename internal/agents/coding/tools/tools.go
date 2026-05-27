@@ -8,14 +8,15 @@ import (
 
 // ListOptions controls how the coding-agent toolset is assembled.
 type ListOptions struct {
-	Workspace      string
-	MaxOutputLen   int
-	EnableBash     bool
-	BashOps        operations.BashOperations
-	FileOps        operations.FileOperations
-	ExtensionTools []agent.Tool
-	AllowedTools   []string
-	BlockedTools   []string
+	Workspace         string
+	MaxOutputLen      int
+	EnableBash        bool
+	BashOps           operations.BashOperations
+	FileOps           operations.FileOperations
+	ExtensionTools    []agent.Tool
+	AllowedTools      []string
+	BlockedTools      []string
+	FileMutationQueue *FileMutationQueue // 可选：per-file 写操作串行化
 }
 
 // BaseToolNames returns the canonical coding-agent tool names before extension tools.
@@ -48,10 +49,12 @@ func BuildList(opts ListOptions) []agent.Tool {
 		basetools.NewWriteTool(
 			basetools.WithWriteWorkspace(opts.Workspace),
 			basetools.WithWriteOperations(opts.FileOps),
+			basetools.WithWriteMutationQueue(opts.FileMutationQueue),
 		),
 		basetools.NewEditTool(
 			basetools.WithEditWorkspace(opts.Workspace),
 			basetools.WithEditOperations(opts.FileOps),
+			basetools.WithEditMutationQueue(opts.FileMutationQueue),
 		),
 		basetools.NewGrepTool(
 			basetools.WithGrepWorkspace(opts.Workspace),
