@@ -37,13 +37,10 @@ docs/
 │   └── competitive-research.md        # (archived)
 │
 ├── dev/                               # 活跃开发主题（4-agent 流水线产出）
-│   ├── feishu/                        # 飞书 Bot 集成扩展
 │   ├── layering-refactor/             # 分层深度重构
 │   ├── second-agent-validation/       # 第二个 Agent 验证（暂缓预案）
+│   ├── skills-support/                # Skills 完整支持
 │   └── web-access/                    # 浏览器操控能力
-│
-├── shares/                            # 开发实践分享
-│   └── ai-driven-development-guide.md # AI 驱动开发实践
 │
 └── archive/                           # 已完成的开发主题
     ├── goal-driven-loop/              # Goal 驱动循环（已完成）
@@ -146,18 +143,10 @@ updated: YYYY-MM-DD
 
 | 主题 | 状态 | 文档 | 说明 |
 |------|------|------|------|
-| 飞书 Bot 集成扩展 | draft | [proposal.md](dev/feishu/proposal.md) [review.md](dev/feishu/review.md) | 基础桥接之上的完整飞书功能 |
 | 分层深度重构 | draft | [proposal.md](dev/layering-refactor/proposal.md) | 将 coding-agent 语义从 runtime 抽到 Application 层 |
+| Skills 完整支持 | draft | [proposal.md](dev/skills-support/proposal.md) | Skills 从展示列表变为可调用指令集 |
 | 浏览器操控 | draft | [spec.md](dev/web-access/spec.md) | 为 Agent 提供内置浏览器操控能力 |
 | 第二个 Agent 验证 | deferred | [execution-plan.md](dev/second-agent-validation/execution-plan.md) | 暂缓预案，非当前主线 |
-
-## 开发实践分享
-
-`shares/` 下是团队成员的开发实践经验分享，不属于正式的项目文档体系，但具有参考价值。
-
-| 文档 | 内容 |
-|------|------|
-| [ai-driven-development-guide.md](shares/ai-driven-development-guide.md) | 用 DVCode 做 AI 驱动开发的实践分享 |
 
 ## 归档
 
@@ -165,6 +154,7 @@ updated: YYYY-MM-DD
 
 | 归档主题 | 内容 |
 |---------|------|
+| [feishu-integration/](archive/feishu-integration/proposal.md) | 飞书完整集成：外部工具注册、CardKit 流式卡片、项目群管理（已完成） |
 | [goal-driven-loop/](archive/goal-driven-loop/proposal.md) | Goal 驱动 Agent 循环 + LLM 评估器（已完成） |
 | [coding-agent/](archive/coding-agent/spec.md) | Coding Agent 应用层规格（已完成） |
 | [coding-agent-slash-hardening/](archive/coding-agent-slash-hardening/execution-plan.md) | Slash 命令第二阶段补强（已完成） |
