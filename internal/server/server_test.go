@@ -25,7 +25,7 @@ func newTestApp(t *testing.T) *app.App {
 
 func TestServer_Health(t *testing.T) {
 	application := newTestApp(t)
-	srv := New(application)
+	srv := New(application, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/health", nil)
 	w := httptest.NewRecorder()
@@ -40,7 +40,7 @@ func TestServer_Health(t *testing.T) {
 
 func TestServer_Chat(t *testing.T) {
 	application := newTestApp(t)
-	srv := New(application)
+	srv := New(application, nil)
 
 	body := bytes.NewReader([]byte(`{"prompt":"hello"}`))
 	req := httptest.NewRequest(http.MethodPost, "/chat", body)
@@ -57,7 +57,7 @@ func TestServer_Chat(t *testing.T) {
 
 func TestServer_Chat_EmptyPrompt(t *testing.T) {
 	application := newTestApp(t)
-	srv := New(application)
+	srv := New(application, nil)
 
 	body := bytes.NewReader([]byte(`{"prompt":""}`))
 	req := httptest.NewRequest(http.MethodPost, "/chat", body)
@@ -71,7 +71,7 @@ func TestServer_Chat_EmptyPrompt(t *testing.T) {
 
 func TestServer_Chat_InvalidJSON(t *testing.T) {
 	application := newTestApp(t)
-	srv := New(application)
+	srv := New(application, nil)
 
 	body := bytes.NewReader([]byte(`invalid json`))
 	req := httptest.NewRequest(http.MethodPost, "/chat", body)
@@ -85,7 +85,7 @@ func TestServer_Chat_InvalidJSON(t *testing.T) {
 
 func TestServer_Tools(t *testing.T) {
 	application := newTestApp(t)
-	srv := New(application)
+	srv := New(application, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/tools", nil)
 	w := httptest.NewRecorder()
@@ -97,7 +97,7 @@ func TestServer_Tools(t *testing.T) {
 
 func TestServer_Sessions(t *testing.T) {
 	application := newTestApp(t)
-	srv := New(application)
+	srv := New(application, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/sessions", nil)
 	w := httptest.NewRecorder()
@@ -109,7 +109,7 @@ func TestServer_Sessions(t *testing.T) {
 
 func TestServer_CreateSession(t *testing.T) {
 	application := newTestApp(t)
-	srv := New(application)
+	srv := New(application, nil)
 
 	req := httptest.NewRequest(http.MethodPost, "/sessions", nil)
 	w := httptest.NewRecorder()
@@ -124,7 +124,7 @@ func TestServer_CreateSession(t *testing.T) {
 
 func TestServer_DeleteSession(t *testing.T) {
 	application := newTestApp(t)
-	srv := New(application)
+	srv := New(application, nil)
 
 	// Create first
 	req := httptest.NewRequest(http.MethodPost, "/sessions", nil)
@@ -143,7 +143,7 @@ func TestServer_DeleteSession(t *testing.T) {
 
 func TestServer_SessionMessages_NotFound(t *testing.T) {
 	application := newTestApp(t)
-	srv := New(application)
+	srv := New(application, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/sessions/nonexistent/messages", nil)
 	w := httptest.NewRecorder()

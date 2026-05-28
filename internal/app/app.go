@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 
+	"github.com/earendil-works/pi-go/internal/agent"
 	"github.com/earendil-works/pi-go/internal/agents/coding"
 	"github.com/earendil-works/pi-go/internal/ai/providers"
 	"github.com/earendil-works/pi-go/internal/config"
@@ -27,6 +28,7 @@ type App struct {
 	sessionStore *runtime.SessionRegistry
 	extRegistry  *extensions.Registry
 	application  runtime.Application
+	extraTools   []agent.ExternalToolDef
 }
 
 // AppOptions holds the options for creating a new App.
@@ -127,13 +129,19 @@ func (a *App) Close() error {
 	return a.sessionStore.CloseAll()
 }
 
+// SetExternalTools stores externally registered tool definitions (e.g. from bridge).
+func (a *App) SetExternalTools(tools []agent.ExternalToolDef) {
+	a.extraTools = tools
+}
+
 // deps constructs the Dependencies struct for AgentSession creation.
 func (a *App) deps() runtime.Dependencies {
 	return runtime.Dependencies{
-		Registry:    a.registry,
-		SessionMgr:  a.sessionMgr,
-		ExtRegistry: a.extRegistry,
-		Application: a.application,
+		Registry:       a.registry,
+		SessionMgr:     a.sessionMgr,
+		ExtRegistry:    a.extRegistry,
+		Application:    a.application,
+		ExternalTools:  a.extraTools,
 		BuildOperations: func(cfg config.Config, workspace string) *operations.Operations {
 			switch cfg.ExecutionMode {
 			case "ssh":
@@ -170,6 +178,11 @@ func (a *App) ToolNames() []string {
 		for _, t := range a.extRegistry.Tools() {
 			baseNames = append(baseNames, t.Name())
 		}
+	}
+
+	// External tools (registered via HTTP)
+	for _, def := range a.extraTools {
+		baseNames = append(baseNames, def.Name)
 	}
 
 	// Apply filtering

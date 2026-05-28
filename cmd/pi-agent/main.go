@@ -62,8 +62,9 @@ func main() {
 		must(mode.NewPrintMode(sess).Run(ctx, *input))
 
 	case "serve":
+		cmds := buildSlashRegistry()
 		slog.Info("starting pi-go server", "listen", *listen)
-		if err := mode.NewServeMode(application).Run(*listen); err != nil {
+		if err := mode.NewServeMode(application, cmds).Run(*listen); err != nil {
 			slog.Error("server failed", "error", err)
 			os.Exit(1)
 		}

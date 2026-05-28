@@ -29,6 +29,7 @@ type Dependencies struct {
 	SessionMgr       *sessionmgr.Manager
 	ExtRegistry      *extensions.Registry
 	Application      Application
+	ExternalTools    []agent.ExternalToolDef
 	BuildOperations  func(cfg config.Config, workspace string) *operations.Operations
 }
 
@@ -419,6 +420,15 @@ func (s *AgentSession) toolBuildOptions(cwd string) ToolBuildOptions {
 	var extTools []agent.Tool
 	if s.extRegistry != nil {
 		extTools = s.extRegistry.Tools()
+	}
+
+	// External tools (registered via HTTP callback)
+	for _, def := range s.deps.ExternalTools {
+		if t, err := agent.NewExternalTool(def); err == nil {
+			extTools = append(extTools, t)
+		} else {
+			slog.Warn("skip invalid external tool", "name", def.Name, "error", err)
+		}
 	}
 
 	return ToolBuildOptions{

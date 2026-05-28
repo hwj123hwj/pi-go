@@ -9,18 +9,23 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/earendil-works/pi-go/internal/agent"
 	"github.com/earendil-works/pi-go/internal/ai"
 	"github.com/earendil-works/pi-go/internal/app"
 	"github.com/earendil-works/pi-go/internal/runtime"
+	"github.com/earendil-works/pi-go/internal/slashcmd"
 )
 
 // Server provides HTTP REST + SSE endpoints for the agent.
 // It routes requests to AgentSessions via the App's SessionRegistry.
 type Server struct {
-	app *app.App
+	app           *app.App
+	slashCmds     *slashcmd.Registry
+	externalTools []agent.ExternalToolDef
+	toolMu        sync.Mutex
 }
 
 // ChatRequest is the request body for chat endpoints.
@@ -48,9 +53,9 @@ type ErrorResponse struct {
 	Error string `json:"error"`
 }
 
-// New creates a new Server backed by the given App.
-func New(application *app.App) *Server {
-	return &Server{app: application}
+// New creates a new Server backed by the given App and slash command registry.
+func New(application *app.App, slashCmds *slashcmd.Registry) *Server {
+	return &Server{app: application, slashCmds: slashCmds}
 }
 
 // Handler returns the HTTP handler with all routes and middleware.
@@ -69,6 +74,8 @@ func (s *Server) Handler() http.Handler {
 	restMux.HandleFunc("GET /models", s.listModels)
 	restMux.HandleFunc("GET /tools", s.listTools)
 	restMux.HandleFunc("POST /sessions/{id}/compact", s.compactSession)
+	restMux.HandleFunc("POST /sessions/{id}/command", s.executeCommand)
+	restMux.HandleFunc("POST /tools/register", s.registerTool)
 
 	var restHandler http.Handler = restMux
 	restHandler = corsMiddleware(restHandler)
@@ -457,6 +464,135 @@ func (s *Server) compactSession(w http.ResponseWriter, r *http.Request) {
 		TrimmedFrom: trimmedFrom,
 		TrimmedTo:   trimmedTo,
 	})
+}
+
+// ─── POST /sessions/{id}/command ──────────────────────────────────────────────
+
+// CommandRequest is the request body for executing a slash command.
+type CommandRequest struct {
+	Command string `json:"command"` // e.g. "/model claude-sonnet-4-6"
+}
+
+// CommandResponse is the response for slash command execution.
+type CommandResponse struct {
+	Output      string `json:"output"`
+	ShouldQuery bool   `json:"should_query"`
+	QueryPrompt string `json:"query_prompt,omitempty"`
+}
+
+func (s *Server) executeCommand(w http.ResponseWriter, r *http.Request) {
+	sessionID := r.PathValue("id")
+
+	var req CommandRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.Command == "" {
+		writeError(w, http.StatusBadRequest, "command is required")
+		return
+	}
+
+	if s.slashCmds == nil {
+		writeError(w, http.StatusNotImplemented, "slash commands not available in server mode")
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+
+	sess, err := s.app.LoadSession(ctx, sessionID)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "session not found")
+		return
+	}
+
+	cmdCtx := slashcmd.Context{
+		Ctx:     ctx,
+		Session: sess,
+		App:     s.app,
+	}
+
+	result, err := s.slashCmds.Execute(cmdCtx, req.Command)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	resp := CommandResponse{
+		Output: result.Output,
+	}
+	if result.ShouldQuery {
+		resp.ShouldQuery = true
+		resp.QueryPrompt = "Start working..."
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(resp)
+}
+
+// ─── POST /tools/register ────────────────────────────────────────────────────
+
+func (s *Server) registerTool(w http.ResponseWriter, r *http.Request) {
+	var def agent.ExternalToolDef
+	if err := json.NewDecoder(r.Body).Decode(&def); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body: "+err.Error())
+		return
+	}
+	if def.Name == "" {
+		writeError(w, http.StatusBadRequest, "tool name is required")
+		return
+	}
+	if def.CallbackURL == "" {
+		writeError(w, http.StatusBadRequest, "callback_url is required")
+		return
+	}
+
+	// Validate the tool can be constructed
+	if _, err := agent.NewExternalTool(def); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid tool: "+err.Error())
+		return
+	}
+
+	s.toolMu.Lock()
+	// Replace if same name exists
+	updated := false
+	for i, existing := range s.externalTools {
+		if existing.Name == def.Name {
+			s.externalTools[i] = def
+			updated = true
+			break
+		}
+	}
+	if !updated {
+		s.externalTools = append(s.externalTools, def)
+	}
+	s.syncToApp()
+	s.toolMu.Unlock()
+
+	if updated {
+		slog.Info("updated external tool", "name", def.Name, "callback", def.CallbackURL)
+	} else {
+		slog.Info("registered external tool", "name", def.Name, "callback", def.CallbackURL)
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok", "name": def.Name})
+}
+
+// ExternalTools returns all registered external tool definitions.
+func (s *Server) ExternalTools() []agent.ExternalToolDef {
+	s.toolMu.Lock()
+	defer s.toolMu.Unlock()
+	result := make([]agent.ExternalToolDef, len(s.externalTools))
+	copy(result, s.externalTools)
+	return result
+}
+
+// syncToApp pushes external tools to the App (must be called with toolMu held).
+func (s *Server) syncToApp() {
+	defs := make([]agent.ExternalToolDef, len(s.externalTools))
+	copy(defs, s.externalTools)
+	s.app.SetExternalTools(defs)
 }
 
 // ─── session resolution ──────────────────────────────────────────────────────
