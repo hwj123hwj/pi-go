@@ -384,6 +384,7 @@ func (s *AgentSession) buildAgent(ctx context.Context, registry *providers.Regis
 		System:             systemPrompt,
 		Tools:              toolList,
 		MaxTurns:           cfg.MaxTurns,
+		Goal:               goal,
 		Session:            s.session,
 		CompactionSettings: compactionSettings,
 		SummarizeFunc:      summarizeFunc,

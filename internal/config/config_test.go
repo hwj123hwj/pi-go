@@ -15,7 +15,7 @@ func TestDefault(t *testing.T) {
 	assert.Equal(t, "127.0.0.1", cfg.Host)
 	assert.Equal(t, 8080, cfg.Port)
 	assert.Equal(t, "mock", cfg.Provider)
-	assert.Equal(t, 8, cfg.MaxTurns)
+	assert.Equal(t, 200, cfg.MaxTurns)
 }
 
 func TestLoadFromEnv(t *testing.T) {

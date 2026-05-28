@@ -65,7 +65,7 @@ func Default() Config {
 		Port:        8080,
 		DataDir:     "./data",
 		SessionFile: "./data/session.jsonl",
-		MaxTurns:    8,
+		MaxTurns:    200,
 		Timeout:     5 * time.Minute,
 
 		Provider: "mock",

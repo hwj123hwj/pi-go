@@ -9,19 +9,16 @@ import (
 	"github.com/earendil-works/pi-go/internal/runtime"
 )
 
-// RebuildFunc is a callback to trigger agent rebuild after state change.
-type RebuildFunc func() error
-
 // CodingSessionExt implements runtime.SessionExt for the coding-agent.
 // It holds per-session application state (profile, goal).
 type CodingSessionExt struct {
 	profile string
 	goal    string
-	rebuild RebuildFunc
+	rebuild func() error
 }
 
 // NewCodingSessionExt creates a new CodingSessionExt with default profile "coding".
-func NewCodingSessionExt(rebuild RebuildFunc) *CodingSessionExt {
+func NewCodingSessionExt(rebuild func() error) *CodingSessionExt {
 	return &CodingSessionExt{
 		profile: string(profile.ProfileCoding),
 		rebuild: rebuild,
@@ -30,7 +27,10 @@ func NewCodingSessionExt(rebuild RebuildFunc) *CodingSessionExt {
 
 // SetRebuild sets the rebuild callback. Called by AgentSession after creation
 // to inject the rebuild function (avoids circular dependency in constructor).
-func (e *CodingSessionExt) SetRebuild(fn RebuildFunc) {
+// NOTE: Parameter must be `func() error` (not a named type) so that the
+// interface assertion in AgentSession (`interface{ SetRebuild(func() error) }`)
+// succeeds. Go treats named types as distinct from their underlying types.
+func (e *CodingSessionExt) SetRebuild(fn func() error) {
 	e.rebuild = fn
 }
 
@@ -53,10 +53,15 @@ func (e *CodingSessionExt) Goal() string { return e.goal }
 
 func (e *CodingSessionExt) SetGoal(goal string) {
 	e.goal = goal
+	slog.Info("CodingSessionExt.SetGoal called", "goal", goal, "rebuildIsNil", e.rebuild == nil)
 	if e.rebuild != nil {
+		slog.Info("CodingSessionExt.SetGoal: calling rebuild")
 		if err := e.rebuild(); err != nil {
 			slog.Error("failed to rebuild agent after goal set", "error", err)
 		}
+		slog.Info("CodingSessionExt.SetGoal: rebuild done")
+	} else {
+		slog.Warn("CodingSessionExt.SetGoal: rebuild is nil, agent NOT rebuilt with goal!")
 	}
 }
 

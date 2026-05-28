@@ -294,9 +294,12 @@ func RegisterBuiltins(registry *slashcmd.Registry) {
 				ctx.Session.ClearGoal()
 				return slashcmd.CommandResult{Output: "Goal cleared."}, nil
 			default:
-				// Set the goal
+				// Set the goal and auto-trigger agent execution
 				ctx.Session.SetGoal(args)
-				return slashcmd.CommandResult{Output: fmt.Sprintf("Goal set:\n  %s", args)}, nil
+				return slashcmd.CommandResult{
+					Output:      fmt.Sprintf("Goal set:\n  %s\n\nStarting to work on this goal...", args),
+					ShouldQuery: true,
+				}, nil
 			}
 		},
 	})
