@@ -9,6 +9,7 @@
 Pi-Go 是一个 AI Coding Agent，由 **Go 后端** + **Electron/React 桌面前端** 组成。
 
 - **Go 后端**（`cmd/pi-agent`）：Agent 循环、LLM 调用、工具执行、会话管理、HTTP/WebSocket API
+- **飞书桥接**（`cmd/pi-feishu-bridge`）：将 Agent 接入飞书群聊的独立服务
 - **桌面客户端**（`desktop/`）：Electron 壳 + React UI，内嵌 Go 二进制，开箱即用
 
 项目目前处于 **v0.1 阶段**——核心功能可用，正在持续迭代产品和体验。
@@ -41,24 +42,30 @@ Pi-Go 是一个 AI Coding Agent，由 **Go 后端** + **Electron/React 桌面前
 ```
 pi-go/
 ├── cmd/
-│   └── pi-agent/           # CLI 入口，main.go
+│   ├── pi-agent/           # Agent CLI 入口
+│   └── pi-feishu-bridge/   # 飞书桥接入口
 ├── internal/                # Go 内部包（不对外暴露）
-│   ├── agent/              #   Agent 循环（双层：外层 follow-up + 内层 tool call）
+│   ├── agent/              #   Agent 循环（双层：外层 follow-up + 内层 tool call + goal-driven）
+│   ├── agents/             #   Agent 应用层
+│   │   └── coding/         #     Coding Agent（CLI、命令、SessionExt、Profile）
 │   ├── ai/                 #   统一 LLM 流式 API
 │   │   └── providers/      #     Provider 实现（anthropic / openai / deepv / mock）
 │   ├── app/                #   应用组装（依赖注入、Provider 注册）
 │   ├── compaction/         #   上下文压缩（长对话摘要）
 │   ├── config/             #   配置管理（.env + 环境变量）
 │   ├── extensions/         #   扩展系统
+│   ├── feishu/             #   飞书集成（gateway、handler、markdown 渲染）
 │   ├── mode/               #   运行模式（run / chat / serve）
+│   ├── operations/         #   工具操作抽象（本地/SSH 远程执行）
 │   ├── prompt/             #   系统提示构建
-│   ├── runtime/            #   会话注册表
+│   ├── runtime/            #   会话运行时（AgentSession、Application 接口）
 │   ├── server/             #   HTTP + WebSocket 服务
 │   ├── session/            #   JSONL 会话持久化
 │   ├── sessionmgr/         #   会话管理器
 │   ├── skill/              #   技能系统（.claude/skills/）
 │   ├── slashcmd/           #   斜杠命令注册
 │   ├── tools/              #   内置工具（bash/read/write/edit/grep/find/ls）
+│   ├── ui/                 #   UI 抽象层
 │   └── util/               #   工具函数（git、shell）
 ├── desktop/                 # Electron + React 桌面客户端
 │   ├── electron/           #   Electron 主进程（窗口管理、Go 进程管理）
@@ -107,16 +114,28 @@ cd pi-go
 | 分支 | 用途 | 命名示例 |
 |------|------|----------|
 | `main` | 稳定版本 | — |
-| `feat/xxx` | 新功能 | `feat/desktop-client` |
+| `feat/xxx` | 新功能 | `feat/goal-driven-loop` |
 | `fix/xxx` | Bug 修复 | `fix/websocket-reconnect` |
 | `refactor/xxx` | 重构 | `refactor/agent-loop` |
 | `docs/xxx` | 文档 | `docs/api-reference` |
+| `chore/xxx` | 构建/工具 | `chore/update-deps` |
+
+**最佳实践**：一个分支只做一件事。完成 → PR → 合并 → 拉新分支。避免在同一个分支上堆积不相关的功能。
 
 ```bash
-# 从 main 创建功能分支
+# 正确流程：从最新 main 创建功能分支
 git checkout main
 git pull origin main
 git checkout -b feat/your-feature
+
+# 开发完成后推送到远程并发 PR
+git push -u origin feat/your-feature
+gh pr create --title "feat(scope): what changed" --base main
+
+# PR 合并后，拉取新 main 再开下一个分支
+git checkout main
+git pull origin main
+git checkout -b feat/next-feature
 ```
 
 ### 4.3 后端开发（Go）
@@ -258,20 +277,30 @@ background: #3B4A54;
 
 | scope | 说明 |
 |-------|------|
-| `agent` | Agent 循环 |
+| `agent` | Agent 循环（loop、goal evaluator、tool 执行） |
+| `ai` | LLM Provider 抽象层 |
+| `config` | 配置管理 |
 | `deepv` | DeepV Provider |
 | `desktop` | 桌面客户端 |
+| `feishu` | 飞书桥接 |
+| `runtime` | 会话运行时（AgentSession、Application 接口） |
 | `server` | HTTP/WebSocket 服务 |
+| `session` | 会话持久化 |
+| `slashcmd` | 斜杠命令 |
 | `tools` | 内置工具 |
-| `session` | 会话管理 |
+| `compaction` | 上下文压缩 |
 
 **示例**：
 
 ```
 feat(tools): add image reading support to read tool
+feat(agent): implement goal-driven loop with LLM evaluator
 fix(deepv): auto-fake gitlab remote when work dir has no git remote
+refactor(runtime): extract SessionExt to decouple from coding-agent
+feat(feishu): add markdown renderer for agent responses
 style(desktop): apply 青夜 theme from OpenHanako
 docs: add contributing guide
+chore: update Go dependencies
 ```
 
 ### 6.2 Pull Request
@@ -326,6 +355,16 @@ docs: add contributing guide
 | `PI_GO_ENV_FILE` | `.env` | .env 文件路径 |
 | `PI_GO_ENABLE_BASH` | `false` | 启用 Bash 工具 |
 | `PI_GO_BASH_TIMEOUT_SECONDS` | `30` | Bash 命令超时 |
+| `PI_GO_MAX_OUTPUT_LEN` | `30000` | 工具输出最大字符数 |
+| `PI_GO_WORKSPACE` | 当前目录 | 工作目录（工具文件操作的根目录） |
+| `PI_GO_EXECUTION_MODE` | `local` | 执行后端：`local` 或 `ssh` |
+| `PI_GO_SSH_HOST` | — | SSH 模式目标主机（`user@host`） |
+| `PI_GO_SSH_PORT` | `22` | SSH 端口 |
+| `PI_GO_SSH_WORKDIR` | — | SSH 模式远程工作目录 |
+| `PI_GO_ALLOWED_TOOLS` | — | 工具白名单（逗号分隔，为空表示允许所有） |
+| `PI_GO_BLOCKED_TOOLS` | — | 工具黑名单（逗号分隔） |
+| `PI_GO_HISTORY_FILE` | — | 交互模式历史记录文件路径 |
+| `PI_GO_PROMPT_TEMPLATE` | — | 自定义提示模板文件路径 |
 
 ---
 
