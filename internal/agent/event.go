@@ -80,3 +80,11 @@ type EventToolBatchStart struct {
 }
 
 func (EventToolBatchStart) agentEventMarker() {}
+
+// EventGoalCompleted is emitted when the agent signals that the current goal
+// has been fully achieved. UI layers can use this to display completion status.
+type EventGoalCompleted struct {
+	Goal string // the goal text that was completed
+}
+
+func (EventGoalCompleted) agentEventMarker() {}

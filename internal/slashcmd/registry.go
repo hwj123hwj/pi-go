@@ -10,10 +10,12 @@ import (
 // If SessionSwitchTo is non-nil, the caller (interactive mode) should switch
 // to the returned session.
 // If ClearScreen is true, the caller should clear the terminal display.
+// If ShouldQuery is true, the caller should automatically trigger an agent query.
 type CommandResult struct {
 	Output          string         // command output text
 	SessionSwitchTo SessionContext // non-nil means the caller should switch session
 	ClearScreen     bool           // true means clear the terminal display
+	ShouldQuery     bool           // true means auto-trigger an agent query after command
 }
 
 // Command defines a slash command.

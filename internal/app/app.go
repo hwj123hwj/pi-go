@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
 
@@ -41,7 +42,9 @@ func New(opts AppOptions) (*App, error) {
 
 	// Provider registry
 	reg := providers.NewRegistry()
-	registerProviders(reg, cfg)
+	if err := registerProviders(reg, cfg); err != nil {
+		return nil, fmt.Errorf("provider setup: %w", err)
+	}
 
 	// Session manager
 	mgr := sessionmgr.NewManager(cfg.DataDir)
@@ -197,7 +200,9 @@ func (a *App) ToolNames() []string {
 }
 
 // registerProviders registers AI providers based on config.
-func registerProviders(registry *providers.Registry, cfg config.Config) {
+// Returns an error if the configured provider is selected but cannot be initialized
+// (e.g. missing API key), rather than silently falling back to mock.
+func registerProviders(registry *providers.Registry, cfg config.Config) error {
 	// Mock provider is always available
 	registry.Register(providers.NewMockProvider())
 
@@ -206,16 +211,16 @@ func registerProviders(registry *providers.Registry, cfg config.Config) {
 		if cfg.AnthropicAPIKey != "" {
 			registry.Register(providers.NewAnthropicProvider(cfg.AnthropicAPIKey, cfg.AnthropicBaseURL))
 			slog.Info("registered anthropic provider", "model", cfg.AnthropicModel, "base_url", cfg.AnthropicBaseURL)
-		} else {
-			slog.Warn("anthropic provider selected but ANTHROPIC_API_KEY is empty, falling back to mock")
+			return nil
 		}
+		return fmt.Errorf("PI_GO_PROVIDER=anthropic but ANTHROPIC_API_KEY is empty")
 	case "openai":
 		if cfg.OpenAIAPIKey != "" {
 			registry.Register(providers.NewOpenAIProvider(cfg.OpenAIAPIKey, cfg.OpenAIBaseURL))
 			slog.Info("registered openai provider", "model", cfg.OpenAIModel, "base_url", cfg.OpenAIBaseURL)
-		} else {
-			slog.Warn("openai provider selected but OPENAI_API_KEY is empty, falling back to mock")
+			return nil
 		}
+		return fmt.Errorf("PI_GO_PROVIDER=openai but OPENAI_API_KEY is empty")
 	case "deepv":
 		if cfg.DeepVEnabled {
 			workDir := cfg.DeepVWorkDir
@@ -224,11 +229,14 @@ func registerProviders(registry *providers.Registry, cfg config.Config) {
 			}
 			registry.Register(providers.NewDeepVProvider(cfg.DeepVServerURL, coding.NewDeepVHeaderProvider(workDir)))
 			slog.Info("registered deepv provider", "model", cfg.DeepVModel, "server", cfg.DeepVServerURL)
-		} else {
-			slog.Warn("deepv provider selected but DEEPV_ENABLED is not true, falling back to mock")
+			return nil
 		}
+		return fmt.Errorf("PI_GO_PROVIDER=deepv but DEEPV_ENABLED is not true")
+	case "mock":
+		slog.Info("using mock provider")
+		return nil
 	default:
-		slog.Info("using mock provider (set PI_GO_PROVIDER=anthropic, openai, or deepv for real LLM)")
+		return fmt.Errorf("unknown PI_GO_PROVIDER %q (valid values: mock, anthropic, openai, deepv)", cfg.Provider)
 	}
 }
 

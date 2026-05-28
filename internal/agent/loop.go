@@ -32,9 +32,10 @@ const (
 
 // turnResult 表示一轮处理的结果。
 type turnResult struct {
-	assistant  ai.AssistantMessage
-	action     turnAction
-	followUp   []ai.Message // action == actionFollowUp 时有值
+	assistant ai.AssistantMessage
+	action    turnAction
+	followUp  []ai.Message // action == actionFollowUp 时有值
+	goalDone  bool         // true = Agent 明确表示目标已完成
 }
 
 // RunLoop 实现双层 Agent 循环。
@@ -76,6 +77,17 @@ func runAgentLoop(ctx context.Context, a *Agent, provider interface {
 	turns := 0
 	var lastAssistant ai.AssistantMessage
 
+	goalLog("[goal-debug] runAgentLoop started: goal=%q maxTurns=%d\n", a.goal, a.maxTurns)
+
+	// 确定有效 maxTurns：如果有 active goal，取消轮次上限
+	// 由 LLM 评估器决定何时停止，而不是硬性 maxTurns
+	effectiveMaxTurns := a.maxTurns
+	if a.goal != "" {
+		effectiveMaxTurns = 0 // 0 = 无限制
+		slog.Info("goal-driven loop active", "goal", a.goal, "originalMaxTurns", a.maxTurns)
+		goalLog("[goal-debug] goal-driven mode: effectiveMaxTurns=0 (unlimited)\n")
+	}
+
 	history := make([]ai.Message, 0, 32)
 
 	// 如果有 session storage，从 session 恢复历史
@@ -87,7 +99,7 @@ func runAgentLoop(ctx context.Context, a *Agent, provider interface {
 	}
 
 	for {
-		if a.maxTurns > 0 && turns >= a.maxTurns {
+		if effectiveMaxTurns > 0 && turns >= effectiveMaxTurns {
 			return lastAssistant, nil
 		}
 		turns++
@@ -108,8 +120,23 @@ func runAgentLoop(ctx context.Context, a *Agent, provider interface {
 		case actionFollowUp:
 			pending = result.followUp
 			// 外层循环继续
-		case actionDone:
-			return lastAssistant, nil
+			case actionDone:
+				// Goal-driven loop：如果有活跃目标且未被标记完成，注入 follow-up 继续
+				goalLog("[goal-debug] actionDone: goal=%q goalDone=%v turns=%d\n", a.goal, result.goalDone, turns)
+				if a.goal != "" && !result.goalDone {
+					slog.Info("goal-driven: injecting follow-up", "goal", a.goal, "turns", turns)
+					goalLog("[goal-debug] Injecting follow-up, continuing loop\n")
+					pending = []ai.Message{ai.NewTextUserMessage(
+						fmt.Sprintf("Reminder: your current goal is \"%s\". Continue working on it.", a.goal),
+					)}
+					// 继续外层循环（不走 return）
+				} else {
+					if result.goalDone {
+						slog.Info("goal-driven: goal completed, stopping", "turns", turns)
+					}
+				goalLog("[goal-debug] Loop ending: goalDone=%v goal=%q\n", result.goalDone, a.goal)
+					return lastAssistant, nil
+				}
 		}
 	}
 }
@@ -192,7 +219,25 @@ func processTurn(ctx context.Context, a *Agent, provider interface {
 		return turnResult{assistant: message, action: actionFollowUp, followUp: next}, history, nil
 	}
 
-	return turnResult{assistant: message, action: actionDone}, history, nil
+	// Goal-driven：用 LLM 评估目标是否已完成
+	isGoalDone := false
+	if a.goal != "" && message.StopReason == ai.StopReasonStop {
+			goalLog("[goal-debug] Evaluating goal completion (responseLen=%d, stopReason=%s)\n", len(message.Text), message.StopReason)
+		done, reason := evaluateGoalCompletion(ctx, a.registry, a.model, message.Text, a.goal)
+			goalLog("[goal-debug] Evaluator result: done=%v reason=%q\n", done, reason)
+		if done {
+			isGoalDone = true
+			clearedGoal := a.goal
+			a.goal = "" // 清除 goal，下一轮正常停止
+			a.emit(ctx, EventGoalCompleted{Goal: clearedGoal})
+			slog.Info("goal evaluated as completed", "goal", clearedGoal, "reason", reason)
+		}
+	}
+
+		if a.goal != "" && message.StopReason != ai.StopReasonStop {
+			goalLog("[goal-debug] Goal active but StopReason=%s, NOT evaluating (textLen=%d)\n", message.StopReason, len(message.Text))
+		}
+	return turnResult{assistant: message, action: actionDone, goalDone: isGoalDone}, history, nil
 }
 
 // maybeCompact 检查是否需要压缩上下文，如果需要则执行压缩并返回新的历史。

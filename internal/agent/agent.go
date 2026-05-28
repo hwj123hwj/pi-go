@@ -29,6 +29,7 @@ type Options struct {
 	System             string
 	Tools              []Tool
 	MaxTurns           int
+	Goal               string                   // 可选：当前会话目标（goal-driven loop，非空时取消 maxTurns 限制）
 	Session            *session.Session        // 可选：会话持久化
 	CompactionSettings compaction.Settings      // 上下文压缩设置
 	SummarizeFunc      compaction.SummarizeFunc // 可选：摘要生成函数
@@ -46,6 +47,7 @@ type Agent struct {
 	steeringQueue      *MessageQueue
 	followUpQueue      *MessageQueue
 	maxTurns           int
+	goal               string // 当前会话目标（非空时启用 goal-driven loop，取消 maxTurns 限制）
 	session            *session.Session
 	compactionSettings compaction.Settings
 	summarizeFunc      compaction.SummarizeFunc
@@ -57,6 +59,7 @@ func New(opts Options) *Agent {
 	for _, tool := range opts.Tools {
 		tools[tool.Name()] = tool
 	}
+	goalLog("[goal-debug] Agent.New called with goal=%q\n", opts.Goal)
 	return &Agent{
 		state:              StateIdle,
 		registry:           opts.Registry,
@@ -67,6 +70,7 @@ func New(opts Options) *Agent {
 		steeringQueue:      NewMessageQueue(),
 		followUpQueue:      NewMessageQueue(),
 		maxTurns:           opts.MaxTurns,
+		goal:               opts.Goal,
 		session:            opts.Session,
 		compactionSettings: opts.CompactionSettings,
 		summarizeFunc:      opts.SummarizeFunc,
@@ -112,6 +116,27 @@ func (a *Agent) ToolNames() []string {
 		names = append(names, name)
 	}
 	return names
+}
+
+// Goal returns the current session goal, if any.
+func (a *Agent) Goal() string {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	return a.goal
+}
+
+// SetGoal sets the current session goal and activates goal-driven looping.
+func (a *Agent) SetGoal(goal string) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.goal = goal
+}
+
+// ClearGoal clears the current session goal.
+func (a *Agent) ClearGoal() {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.goal = ""
 }
 
 // Prompt 发起一次 Agent 对话，等待完成后返回最终 assistant message。

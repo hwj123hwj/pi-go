@@ -90,6 +90,11 @@ func (m *InteractiveMode) Run(ctx context.Context) error {
 					fmt.Println(result.Output)
 				}
 			}
+				// Handle ShouldQuery: auto-trigger agent execution
+				if result.ShouldQuery {
+					m.runPrompt(ctx, "Start working on the goal.")
+					continue
+				}
 			continue
 		}
 
@@ -98,7 +103,12 @@ func (m *InteractiveMode) Run(ctx context.Context) error {
 }
 
 func (m *InteractiveMode) runPrompt(ctx context.Context, input string) {
-	promptCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+	// Goal-driven prompts need much more time: use 30 minutes instead of 5.
+	timeout := 5 * time.Minute
+	if m.session != nil && m.session.Goal() != "" {
+		timeout = 30 * time.Minute
+	}
+	promptCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	stream, err := m.session.PromptStream(promptCtx, input)
