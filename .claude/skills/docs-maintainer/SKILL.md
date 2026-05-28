@@ -102,11 +102,18 @@ grep -r "^func New" {pi-go}/internal --include="*.go" | head -30
 find {pi-go}/docs -name "*.md" -type f | sort
 ```
 
+同时扫描根目录 README：
+
+```bash
+head -50 {pi-go}/README.md
+```
+
 对每个文件：
 - 读取内容（至少前 50 行 + 关键章节），判断文档类型和状态
 - `dev/` 下的文档：检查元信息头是否完整、状态是否合理
 - `docs/README.md`：检查索引是否覆盖所有文件
 - `docs/PROJECT_CONTEXT.md`：检查与源码一致性
+- `{pi-go}/README.md`：检查与源码一致性（见下方专项检查）
 - `archive/` 下的文件：只读头部，判断归档是否合理
 
 ### 阶段二：差异分析
@@ -123,7 +130,7 @@ find {pi-go}/docs -name "*.md" -type f | sort
 | **归属错误** | 文档放在错误的目录（如参考资料放在根目录） |
 | **决策/调研混放** | 带明确采纳建议与路线图的文档放在 `research/` 或 `references/` |
 | **PROJECT_CONTEXT** | 架构、能力表、文件索引与实际代码不匹配 |
-| **learning 索引** | `learning/README.md` 中引用的 docs/ 路径已失效 |
+| **根 README 过时** | `README.md` 中的 API 路由、工具/命令列表、环境变量、代码统计与实际代码不一致 |
 | **已完成未归档** | `dev/` 下描述的改动已出现在 main 分支代码中，但目录仍在 `dev/` |
 
 #### 归档判断规则（按优先级）
@@ -153,6 +160,18 @@ find {pi-go}/docs -name "*.md" -type f | sort
 - **关键文件速查**：文件存在性和职责准确性
 - **状态标记**：✅ 已完成 / 🔲 规划中 / 🔄 进行中
 
+#### 根 README.md 更新
+
+根目录 `README.md` 是项目的门面，需要与代码保持同步。检查以下内容：
+
+- **HTTP API 路由表**：与 `internal/server/server.go` 中注册的路由对比
+- **斜杠命令列表**：与 `internal/agents/coding/commands/builtins.go` 中注册的命令对比
+- **内置工具数量**：与 `internal/tools/` 下的工具文件对比
+- **环境变量表**：与 `internal/config/config.go` 中的环境变量对比
+- **功能清单**：与 `internal/` 下的包结构对比，新增能力需补充
+- **代码统计**：文件数和行数（可按需更新，非每次必须）
+- **Go 版本**：与 `go.mod` 中的版本一致
+
 #### 归档操作
 
 满足以下条件时，将 `dev/{topic}/` 整个目录移入 `archive/`：
@@ -177,10 +196,6 @@ mv {pi-go}/docs/dev/{topic} {pi-go}/docs/archive/{topic}
 
 `dev/` 下缺少 YAML 头的文档，根据内容推断并补全。
 
-#### learning/README.md 路径校验
-
-`learning/` 属于 pi（TypeScript 版）项目，不属于 pi-go docs 维护范围。但其中引用了 `docs/research/` 和 `docs/dev/` 的路径，维护时只检查这些路径是否仍然有效，失效则列入"需人工确认"，不主动修改 `learning/README.md` 的内容。
-
 ### 阶段四：输出维护报告
 
 ```
@@ -190,6 +205,7 @@ mv {pi-go}/docs/dev/{topic} {pi-go}/docs/archive/{topic}
 - [更新] docs/README.md：补充了 X 的索引
 - [归档] dev/zzz/ → archive/zzz/
 - [更新] PROJECT_CONTEXT.md：核心能力表新增 W
+- [更新] README.md：API 路由表新增 /models 等端点
 - [归属] feishu-ref.md → references/
 
 ### 无需修正

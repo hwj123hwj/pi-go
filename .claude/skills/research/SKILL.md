@@ -179,7 +179,7 @@ description: "对外部项目进行深度调研分析，产出结构化报告。
 2. **代码为王**：关键设计点附带代码片段（原项目代码 + pi-go 等价实现的对比）。
 3. **有态度**：给出明确的优先级和建议，不做"都可以"的骑墙结论。
 4. **承认局限**：如果因为源码不可见、语言障碍等原因无法深入某部分，明确标注。
-5. **更新 learning/README.md**：报告完成后，在 learning/README.md 的文档索引中添加条目。
+5. **更新 docs/README.md**：报告完成后，在 docs/README.md 的调研报告索引中添加条目。
 
 ## research vs decisions 边界
 
@@ -199,9 +199,9 @@ description: "对外部项目进行深度调研分析，产出结构化报告。
 
 如果发现该文档内容与实际代码不一致（架构变更后未更新），调研结束后顺手更新它。
 
-报告和 learning/README.md 的更新路径也是基于 pi-go 项目路径：
+报告和 docs/README.md 的更新路径也是基于 pi-go 项目路径：
 - 调研报告：`{pi-go路径}/docs/research/{项目名}-{侧重点}.md`
-- 文档索引：`{pi-go路径}/learning/README.md`
+- 文档索引：`{pi-go路径}/docs/README.md`
 
 ## 调研结束检查清单
 
@@ -211,5 +211,5 @@ description: "对外部项目进行深度调研分析，产出结构化报告。
 - [ ] 与 pi-go 的对比章节完整
 - [ ] 迁移建议有优先级排序
 - [ ] 关键文件索引已填写
-- [ ] learning/README.md 已更新
+- [ ] docs/README.md 调研报告索引已更新
 - [ ] 文件已保存到 docs/research/
