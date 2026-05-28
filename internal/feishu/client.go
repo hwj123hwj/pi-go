@@ -11,6 +11,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
+	"time"
 
 	lark "github.com/larksuite/oapi-sdk-go/v3"
 	larkim "github.com/larksuite/oapi-sdk-go/v3/service/im/v1"
@@ -21,6 +23,11 @@ type Client struct {
 	sdk       *lark.Client
 	appID     string
 	appSecret string
+
+	// Token cache
+	cachedToken    string
+	tokenExpiresAt time.Time
+	tokenMu        sync.RWMutex
 }
 
 // NewClient creates a new Feishu REST client.
@@ -278,6 +285,51 @@ func (c *Client) SendFile(ctx context.Context, chatID, fileKey string) (string, 
 	return *resp.Data.MessageId, nil
 }
 
+// CreateGroupChat creates a new Feishu group chat and invites the specified users.
+// Returns the new chat_id. Requires im:chat scope.
+func (c *Client) CreateGroupChat(ctx context.Context, name, description string, userOpenIDs []string) (string, error) {
+	token, err := c.getTenantToken(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	idsJSON, _ := json.Marshal(userOpenIDs)
+	body := fmt.Sprintf(`{"name":%s,"description":%s,"user_id_list":%s}`,
+		jsonString(name), jsonString(description), string(idsJSON))
+
+	req, err := http.NewRequestWithContext(ctx, "POST",
+		"https://open.feishu.cn/open-apis/im/v1/chats",
+		strings.NewReader(body))
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("create group chat: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var result struct {
+		Code int    `json:"code"`
+		Msg  string `json:"msg"`
+		Data struct {
+			ChatID string `json:"chat_id"`
+		} `json:"data"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return "", fmt.Errorf("decode create chat response: %w", err)
+	}
+	if result.Code != 0 {
+		return "", fmt.Errorf("create group chat failed (code %d): %s", result.Code, result.Msg)
+	}
+
+	slog.Info("created group chat", "chatID", result.Data.ChatID, "name", name)
+	return result.Data.ChatID, nil
+}
+
 // doUpload performs an authenticated multipart upload to the Feishu API.
 func (c *Client) doUpload(ctx context.Context, url string, body io.Reader, contentType string) ([]byte, error) {
 	req, err := http.NewRequestWithContext(ctx, "POST", url, body)
@@ -307,8 +359,26 @@ func (c *Client) doUpload(ctx context.Context, url string, body io.Reader, conte
 	return data, nil
 }
 
-// getTenantToken obtains a tenant access token directly from the Feishu API.
+// getTenantToken obtains a tenant access token with caching (TTL - 60s refresh).
 func (c *Client) getTenantToken(ctx context.Context) (string, error) {
+	// Check cache first (read lock)
+	c.tokenMu.RLock()
+	if c.cachedToken != "" && time.Now().Before(c.tokenExpiresAt) {
+		token := c.cachedToken
+		c.tokenMu.RUnlock()
+		return token, nil
+	}
+	c.tokenMu.RUnlock()
+
+	// Cache miss or expired — fetch new token (write lock)
+	c.tokenMu.Lock()
+	defer c.tokenMu.Unlock()
+
+	// Double-check after acquiring write lock
+	if c.cachedToken != "" && time.Now().Before(c.tokenExpiresAt) {
+		return c.cachedToken, nil
+	}
+
 	body := fmt.Sprintf(`{"app_id":"%s","app_secret":"%s"}`, c.appID, c.appSecret)
 	req, err := http.NewRequestWithContext(ctx, "POST",
 		"https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal",
@@ -336,6 +406,11 @@ func (c *Client) getTenantToken(ctx context.Context) (string, error) {
 	if result.TenantAccessToken == "" {
 		return "", fmt.Errorf("get token failed (code %d): %s", result.Code, result.Msg)
 	}
+
+	// Cache the token (expire - 60 seconds for safety margin)
+	c.cachedToken = result.TenantAccessToken
+	c.tokenExpiresAt = time.Now().Add(time.Duration(result.Expire-60) * time.Second)
+
 	return result.TenantAccessToken, nil
 }
 

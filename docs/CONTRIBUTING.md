@@ -80,7 +80,6 @@ pi-go/
 ├── scripts/
 │   └── build-desktop.sh    # 一键构建 macOS DMG
 ├── docs/                    # 项目文档
-├── learning/                # 学习笔记（Agent 开发学习项目）
 ├── .env.example             # 环境变量模板
 └── go.mod                   # Go 模块定义
 ```

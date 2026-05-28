@@ -11,6 +11,9 @@ depends-on:
 
 # 飞书 Bot 完整对接提案 — Review
 
+> **2026-05-28 更新**：提案已更新为 v2，新增凭证安全、CardKit 2.0、入站图片等模块。
+> 配套 execution-plan.md 已创建。本 review 保留原始分析，部分问题已在 v2 中解决。
+
 ## 1. 总体评价：approve（附建议）
 
 提案整体质量高，目标清晰，技术方案可行，与已批准的 feishu-bridge execution-plan 衔接合理。5 个能力模块的优先级和取舍判断得当。"不改已有代码"的约束贯穿全文，scope 控制好。
@@ -58,16 +61,10 @@ depends-on:
 - 方案 B：如果执意要做，需要在 pi-agent 侧新增一个交互工具——但这违反"不改已有代码"约束
 - 推荐方案 A
 
-#### B2. `/compact` 通过 prompt 触发的方案存在实际障碍
+#### ~~B2. `/compact` 通过 prompt 触发的方案存在实际障碍~~ ✅ 已解决
 
-提案说 `/compact` 通过发送特殊 prompt（如"请总结当前对话"）触发。但查看 agent 循环 (`agent/loop.go`) 和 `AgentSession.Compact()` (agent_session.go:215)，compaction 是一个**独立的方法调用**，不是通过 prompt 触发的。发送 "请总结当前对话" 只会让 LLM 生成一段总结文本，**不会执行 compaction**（截断历史、持久化 compaction entry）。
-
-**影响**：`/compact` 命令无法按提案描述工作。用户执行后只能得到一段 LLM 回复，上下文窗口不会被压缩。
-
-**建议**：
-- 在 server.go 新增 `POST /sessions/{id}/compact` 端点（调用 `AgentSession.Compact()`），但这违反"不改已有代码"约束
-- 或在第一版中将 `/compact` 移出 scope，标注为"需 pi-agent server 支持新端点后实现"
-- 或放开约束，仅新增这一个端点（改动量很小，约 20 行）
+> **2026-05-28 更新**：`POST /sessions/{id}/compact` 端点已在 `server.go:73` 实现，
+> handler.go 的 `cmdCompact` 已正确调用该端点。此 blocker 不再有效。
 
 ### 🟡 Strong Suggestions（强烈建议修复）
 
