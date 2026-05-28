@@ -16,7 +16,9 @@ docs/
 │
 ├── references/                        # 稳定查阅资料（接口/集成/项目快照）
 │   ├── feishu-integration-ref.md      # 飞书接入参考
-│   └── pi-go-analysis.md              # pi-go 当前结构/问题快照
+│   ├── pi-go-analysis.md              # pi-go 当前结构/问题快照
+│   ├── original-pi-built-in-prompts.md # 原始 Pi 内置提示词
+│   └── code-review-suggestions.md     # 项目代码审查与改进建议
 │
 ├── decisions/                         # 当前采纳判断（会演进，但比 research 更接近团队共识）
 │   ├── skills-vs-application.md
@@ -34,20 +36,31 @@ docs/
 │   ├── deepv-code-full-analysis.md
 │   └── competitive-research.md        # (archived)
 │
-├── dev/                               # 开发文档（4-agent 流水线产出）
-│   ├── layering-refactor/             # 分层重构
-│   ├── coding-agent/                  # Coding Agent 规格
-│   ├── coding-agent-cli-control-plane/# Coding Agent CLI 控制面
-│   ├── coding-agent-slash-hardening/  # Coding Agent Slash 第二阶段补强
-│   └── second-agent-validation/       # 第二个 Agent 验证（暂缓预案）
+├── dev/                               # 活跃开发主题（4-agent 流水线产出）
+│   ├── feishu/                        # 飞书 Bot 集成扩展
+│   ├── layering-refactor/             # 分层深度重构
+│   ├── second-agent-validation/       # 第二个 Agent 验证（暂缓预案）
+│   └── web-access/                    # 浏览器操控能力
+│
+├── shares/                            # 开发实践分享
+│   └── ai-driven-development-guide.md # AI 驱动开发实践
 │
 └── archive/                           # 已完成的开发主题
-    ├── cli-tui/
-    ├── ssh-operations/
-    ├── tool-lifecycle/
-    ├── desktop-golang/
-    ├── project-overview.md
-    └── code-review-issues.md
+    ├── goal-driven-loop/              # Goal 驱动循环（已完成）
+    ├── coding-agent/                  # Coding Agent 规格（已完成）
+    ├── coding-agent-slash-hardening/  # Slash 命令补强（已完成）
+    ├── coding-agent-cli-control-plane/ # CLI 控制面（已完成）
+    ├── feishu-bridge/                 # 飞书桥接基础版（已完成）
+    ├── layering/                      # 分层架构提案（已完成）
+    ├── parallel/                      # 并行工具执行（已完成）
+    ├── cli-tui/                       # CLI/TUI（已完成）
+    ├── runtime-decoupling/            # Runtime 解耦（已完成）
+    ├── ssh-operations/                # SSH 远程执行（已完成）
+    ├── tool-lifecycle/                # Tool Lifecycle（已完成）
+    ├── desktop-golang/                # Desktop Go 实现
+    ├── learning-notes/                # 早期学习笔记
+    ├── project-overview.md            # 项目概览（历史快照）
+    └── code-review-issues.md          # 代码评审问题清单
 ```
 
 ---
@@ -65,16 +78,18 @@ docs/
 
 ## 参考资料
 
-`references/` 下放的是相对稳定的查阅资料。它们可以过时，但定位不是“当前决策”，而是“查这个主题时先看什么”。
+`references/` 下放的是相对稳定的查阅资料。它们可以过时，但定位不是"当前决策"，而是"查这个主题时先看什么"。
 
 | 文档 | 用途 |
 |------|------|
 | [feishu-integration-ref.md](references/feishu-integration-ref.md) | 飞书 Bot 接入参考 |
 | [pi-go-analysis.md](references/pi-go-analysis.md) | pi-go 项目深度分析报告（架构评估、Bug 清单、功能差距） |
+| [original-pi-built-in-prompts.md](references/original-pi-built-in-prompts.md) | 原始 Pi 项目内置提示词完整整理 |
+| [code-review-suggestions.md](references/code-review-suggestions.md) | 项目全面代码审查与改进建议 |
 
 ## 决策文档
 
-`decisions/` 下放的是“基于调研 + 当前项目状态”得出的阶段性结论。它们会随着代码演进而更新，角色上介于 `research/` 和 `dev/` 之间：
+`decisions/` 下放的是"基于调研 + 当前项目状态"得出的阶段性结论。它们会随着代码演进而更新，角色上介于 `research/` 和 `dev/` 之间：
 
 - 比 `research/` 更偏当前项目判断
 - 比 `dev/` 更偏方向与原则，不直接充当执行计划
@@ -103,7 +118,9 @@ docs/
 
 ## 开发文档
 
-`dev/` 下按主题分目录，每个目录对应一个开发主题，包含该主题的全生命周期文档：
+`dev/` 下按主题分目录，每个目录对应一个**活跃的**开发主题。已完成的主题移入 `archive/`。
+
+每个目录包含该主题的全生命周期文档：
 
 ```
 dev/{topic}/
@@ -125,13 +142,22 @@ updated: YYYY-MM-DD
 
 **状态流转**：`draft → reviewed → approved → done`（rejected 回到 draft）
 
-| 主题 | 状态 | 文档 |
-|------|------|------|
-| 分层重构 | approved | [proposal.md](dev/layering-refactor/proposal.md) |
-| Coding Agent | approved | [spec.md](dev/coding-agent/spec.md) |
-| Coding Agent Slash Hardening | approved | [execution-plan.md](dev/coding-agent-slash-hardening/execution-plan.md) |
-| 飞书 Bot Bridge | approved | [execution-plan.md](dev/feishu-bridge/execution-plan.md) |
-| 第二个 Agent 验证 | deferred | [execution-plan.md](dev/second-agent-validation/execution-plan.md) |
+### 当前活跃主题
+
+| 主题 | 状态 | 文档 | 说明 |
+|------|------|------|------|
+| 飞书 Bot 集成扩展 | draft | [proposal.md](dev/feishu/proposal.md) [review.md](dev/feishu/review.md) | 基础桥接之上的完整飞书功能 |
+| 分层深度重构 | draft | [proposal.md](dev/layering-refactor/proposal.md) | 将 coding-agent 语义从 runtime 抽到 Application 层 |
+| 浏览器操控 | draft | [spec.md](dev/web-access/spec.md) | 为 Agent 提供内置浏览器操控能力 |
+| 第二个 Agent 验证 | deferred | [execution-plan.md](dev/second-agent-validation/execution-plan.md) | 暂缓预案，非当前主线 |
+
+## 开发实践分享
+
+`shares/` 下是团队成员的开发实践经验分享，不属于正式的项目文档体系，但具有参考价值。
+
+| 文档 | 内容 |
+|------|------|
+| [ai-driven-development-guide.md](shares/ai-driven-development-guide.md) | 用 DVCode 做 AI 驱动开发的实践分享 |
 
 ## 归档
 
@@ -139,11 +165,17 @@ updated: YYYY-MM-DD
 
 | 归档主题 | 内容 |
 |---------|------|
-| [cli-tui/](archive/cli-tui/execution-plan.md) | CLI/TUI 执行计划（已完成，产品方向已明确为 CLI） |
+| [goal-driven-loop/](archive/goal-driven-loop/proposal.md) | Goal 驱动 Agent 循环 + LLM 评估器（已完成） |
+| [coding-agent/](archive/coding-agent/spec.md) | Coding Agent 应用层规格（已完成） |
+| [coding-agent-slash-hardening/](archive/coding-agent-slash-hardening/execution-plan.md) | Slash 命令第二阶段补强（已完成） |
+| [coding-agent-cli-control-plane/](archive/coding-agent-cli-control-plane/execution-plan.md) | Coding Agent CLI 控制面（已完成） |
+| [feishu-bridge/](archive/feishu-bridge/execution-plan.md) | 飞书桥接基础版（已完成） |
+| [layering/](archive/layering/proposal.md) | 分层架构提案（已完成，演进为 layering-refactor） |
+| [parallel/](archive/parallel/execution-plan.md) | 并行工具执行（已完成） |
+| [cli-tui/](archive/cli-tui/execution-plan.md) | CLI/TUI 执行计划（已完成，方向已明确为 CLI） |
 | [runtime-decoupling/](archive/runtime-decoupling/execution-plan.md) | Runtime 解耦执行计划（已完成） |
 | [ssh-operations/](archive/ssh-operations/execution-plan.md) | SSH 远程执行计划（已完成） |
 | [tool-lifecycle/](archive/tool-lifecycle/execution-plan.md) | Tool Lifecycle 执行计划（已完成） |
-| [coding-agent-cli-control-plane/](archive/coding-agent-cli-control-plane/execution-plan.md) | Coding Agent CLI 控制面执行计划（已完成） |
 | [desktop-golang/](archive/desktop-golang/changes.md) | Desktop Go 实现变更说明 |
 | [learning-notes/](archive/learning-notes/01-agent-framework-extensibility.md) | 早期学习笔记归档 |
 | [project-overview.md](archive/project-overview.md) | 项目概览（历史快照） |
@@ -155,6 +187,7 @@ updated: YYYY-MM-DD
 
 - **docs-maintainer skill** 负责定期同步文档与代码的一致性
 - **research skill** 负责生成 `research/` 下的调研报告
-- 跨项目调研得出的“当前采纳判断”优先放入 `decisions/`
+- 跨项目调研得出的"当前采纳判断"优先放入 `decisions/`
 - 新开发主题由 plan-agent 在 `dev/` 下创建目录
 - 完成的主题整体移入 `archive/`
+- 功能已合并到 main 的主题应及时归档，不要留在 `dev/`
