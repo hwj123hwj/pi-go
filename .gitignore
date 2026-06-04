@@ -16,5 +16,8 @@ Thumbs.db
 /pi-agent
 /pi-feishu-bridge
 
+# Reviews (local only)
+docs/reviews/
+
 # Runtime data
 data/
