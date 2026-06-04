@@ -2,6 +2,7 @@ package session
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -317,4 +318,123 @@ func TestSession_Compaction_LastOperation_PersistenceAcrossReload(t *testing.T) 
 	// 确保旧消息不在
 	assert.NotContains(t, userMsg.Content[0].Text, "old msg 1")
 	assert.NotContains(t, userMsg.Content[0].Text, "old resp")
+}
+
+// TestJSONLStorage_Fork 验证 Fork 创建了独立的分支存储，
+// 可以独立追加消息而不影响父分支。
+func TestJSONLStorage_Fork(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "test.jsonl")
+	ctx := context.Background()
+
+	// 创建原始存储并写入消息
+	storage := NewJSONLStorage(path)
+	require.NoError(t, storage.Init())
+	defer storage.Close()
+
+	userMsg := ai.NewTextUserMessage("hello")
+	require.NoError(t, storage.Append(ctx, Entry{Type: EntryTypeMessage, User: &userMsg}))
+	var entry1ID string
+	for id := range storage.byID {
+		entry1ID = id
+	}
+
+	assistantMsg := ai.AssistantMessage{Text: "world"}
+	require.NoError(t, storage.Append(ctx, Entry{Type: EntryTypeMessage, Assistant: &assistantMsg, ParentID: entry1ID}))
+	var entry2ID string
+	for id, e := range storage.byID {
+		if e.Assistant != nil {
+			entry2ID = id
+		}
+	}
+	require.NoError(t, storage.SetLeaf(ctx, entry2ID))
+
+	// Fork 到 entry1（在 user message 处分叉）
+	forked, err := storage.Fork(ctx, entry1ID)
+	require.NoError(t, err)
+	defer forked.Close()
+
+	// forked 存储应该能看到分叉点的 entry
+	pathOnFork, err := forked.GetPathToRoot(ctx, "")
+	require.NoError(t, err)
+	assert.Len(t, pathOnFork, 1)
+	assert.Equal(t, "hello", pathOnFork[0].User.Content[0].Text)
+
+	// 在 fork 上追加一条不同的消息
+	forkAssistantMsg := ai.AssistantMessage{Text: "forked world"}
+	require.NoError(t, forked.Append(ctx, Entry{Type: EntryTypeMessage, Assistant: &forkAssistantMsg, ParentID: entry1ID}))
+	var forkedEntryID string
+	for id, e := range forked.(*JSONLStorage).byID {
+		if e.Assistant != nil && e.Assistant.Text == "forked world" {
+			forkedEntryID = id
+		}
+	}
+	require.NoError(t, forked.SetLeaf(ctx, forkedEntryID))
+
+	// fork 的路径应该包含自己的消息
+	forkPath, err := forked.GetPathToRoot(ctx, "")
+	require.NoError(t, err)
+	assert.Len(t, forkPath, 2)
+	assert.Equal(t, "forked world", forkPath[1].Assistant.Text)
+
+	// 父存储不受影响
+	parentPath, err := storage.GetPathToRoot(ctx, "")
+	require.NoError(t, err)
+	assert.Len(t, parentPath, 2)
+	assert.Equal(t, "world", parentPath[1].Assistant.Text)
+}
+
+// TestJSONLStorage_SetMaxEntries 验证内存上限限制：
+// 当超过 maxEntries 时，不在路径上的最旧 entry 被驱逐。
+func TestJSONLStorage_SetMaxEntries(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "test.jsonl")
+	ctx := context.Background()
+
+	storage := NewJSONLStorage(path)
+	storage.SetMaxEntries(3) // 限制 3 条
+	require.NoError(t, storage.Init())
+	defer storage.Close()
+
+	// 写入一条 user message（entry1）
+	userMsg1 := ai.NewTextUserMessage("msg 1")
+	require.NoError(t, storage.Append(ctx, Entry{Type: EntryTypeMessage, User: &userMsg1}))
+	var entry1ID string
+	for id, e := range storage.byID {
+		if e.User != nil && e.User.Content[0].Text == "msg 1" {
+			entry1ID = id
+		}
+	}
+
+	// 写入 3 条 tool result（不在当前路径上，因为 leaf 还没指向它们）
+	for i := 0; i < 3; i++ {
+		toolMsg := ai.ToolResultMessage{ToolCallID: "tc", Content: fmt.Sprintf("tool result %d", i)}
+		require.NoError(t, storage.Append(ctx, Entry{Type: EntryTypeMessage, Tool: &toolMsg, ParentID: entry1ID}))
+	}
+
+	// 写入第二条 user message（entry2）
+	userMsg2 := ai.NewTextUserMessage("msg 2")
+	require.NoError(t, storage.Append(ctx, Entry{Type: EntryTypeMessage, User: &userMsg2, ParentID: entry1ID}))
+	var entry2ID string
+	for id, e := range storage.byID {
+		if e.User != nil && e.User.Content[0].Text == "msg 2" {
+			entry2ID = id
+		}
+	}
+
+	// 设置 leaf 指向 entry2，路径为 entry1 → entry2
+	require.NoError(t, storage.SetLeaf(ctx, entry2ID))
+
+	// byID 不应超过 3 条（路径上的 entry1 + entry2 + 最多 1 个非路径 entry）
+	assert.LessOrEqual(t, len(storage.byID), 4, "byID should not exceed maxEntries + path length")
+
+	// 路径上应该有 2 条
+	pathEntries, err := storage.GetPathToRoot(ctx, "")
+	require.NoError(t, err)
+	assert.Len(t, pathEntries, 2)
+
+	// 最后一条消息应该还在
+	assert.Equal(t, "msg 2", pathEntries[1].User.Content[0].Text)
+	// entry1 也应该还在（在路径上）
+	assert.Equal(t, "msg 1", pathEntries[0].User.Content[0].Text)
 }

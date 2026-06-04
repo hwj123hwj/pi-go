@@ -12,11 +12,13 @@ import (
 )
 
 type JSONLStorage struct {
-	path   string
-	file   *os.File
-	mu     sync.Mutex
-	byID   map[string]Entry
-	leafID string
+	path       string
+	file       *os.File
+	mu         sync.Mutex
+	byID       map[string]Entry
+	leafID     string
+	parent     *JSONLStorage // nil for root, set when forked
+	maxEntries int           // 0 = unlimited
 }
 
 func NewJSONLStorage(path string) *JSONLStorage {
@@ -38,9 +40,63 @@ func (s *JSONLStorage) Init() error {
 	return nil
 }
 
-// load 将所有 entry 加载到内存中的 byID map。
-// 注意：长会话的内存占用会线性增长。MVP 阶段可接受，
-// 后续优化可考虑：分页加载、LRU 缓存、或按需加载。
+// SetMaxEntries caps the in-memory entry cache.
+// When exceeded, the oldest entries not on the path-to-root are evicted.
+// 0 means unlimited (default, backward-compatible).
+func (s *JSONLStorage) SetMaxEntries(n int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.maxEntries = n
+	if n > 0 {
+		s.evictExcess()
+	}
+}
+
+// evictExcess removes the oldest entries not on the path-to-root
+// until len(byID) <= maxEntries. Caller must hold mu.
+func (s *JSONLStorage) evictExcess() {
+	if s.maxEntries <= 0 || len(s.byID) <= s.maxEntries {
+		return
+	}
+	// Determine entries on the path to root — these must be kept.
+	keep := make(map[string]bool, len(s.byID))
+	keep[s.leafID] = true
+	cur := s.leafID
+	for cur != "" {
+		entry, ok := s.byID[cur]
+		if !ok {
+			break
+		}
+		keep[cur] = true
+		cur = entry.ParentID
+	}
+
+	// Collect evictable entries, sorted by timestamp (oldest first).
+	type timedEntry struct {
+		id string
+		ts int64
+	}
+	var evictable []timedEntry
+	for id, e := range s.byID {
+		if !keep[id] {
+			evictable = append(evictable, timedEntry{id, e.Timestamp})
+		}
+	}
+	// Sort oldest first for stable eviction order.
+	for i := 1; i < len(evictable); i++ {
+		if evictable[i].ts < evictable[i-1].ts {
+			evictable[i], evictable[i-1] = evictable[i-1], evictable[i]
+		}
+	}
+
+	// Evict until we're under the limit.
+	toRemove := len(s.byID) - s.maxEntries
+	for i := 0; i < toRemove && i < len(evictable); i++ {
+		delete(s.byID, evictable[i].id)
+	}
+}
+
+// load reads entries from the JSONL file into byID.
 func (s *JSONLStorage) load() error {
 	file, err := os.Open(s.path)
 	if os.IsNotExist(err) {
@@ -99,6 +155,10 @@ func (s *JSONLStorage) Append(ctx context.Context, entry Entry) error {
 	case EntryTypeMessage, EntryTypeCompaction:
 		s.leafID = entry.ID
 	}
+	// Enforce maxEntries cap.
+	if s.maxEntries > 0 {
+		s.evictExcess()
+	}
 	return nil
 }
 
@@ -115,7 +175,7 @@ func (s *JSONLStorage) GetPathToRoot(ctx context.Context, leafID string) ([]Entr
 			return nil, ctx.Err()
 		default:
 		}
-		entry, ok := s.byID[leafID]
+		entry, ok := s.lookupEntry(leafID)
 		if !ok {
 			return nil, fmt.Errorf("entry %q not found", leafID)
 		}
@@ -123,6 +183,17 @@ func (s *JSONLStorage) GetPathToRoot(ctx context.Context, leafID string) ([]Entr
 		leafID = entry.ParentID
 	}
 	return path, nil
+}
+
+// lookupEntry checks the local byID map first, then the parent (for forked storage).
+func (s *JSONLStorage) lookupEntry(id string) (Entry, bool) {
+	if entry, ok := s.byID[id]; ok {
+		return entry, true
+	}
+	if s.parent != nil {
+		return s.parent.lookupEntry(id)
+	}
+	return Entry{}, false
 }
 
 func (s *JSONLStorage) SetLeaf(ctx context.Context, targetID string) error {
@@ -135,8 +206,28 @@ func (s *JSONLStorage) GetLeaf(ctx context.Context) (string, error) {
 	return s.leafID, nil
 }
 
+// Fork creates a new storage that shares the same underlying file
+// but has an independent in-memory view. The forked storage starts
+// with a copy of the parent's entries and can diverge via Append/SetLeaf.
 func (s *JSONLStorage) Fork(ctx context.Context, targetID string) (SessionStorage, error) {
-	return nil, fmt.Errorf("fork not implemented in MVP")
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	// Build a copy of the current byID map.
+	copied := make(map[string]Entry, len(s.byID))
+	for k, v := range s.byID {
+		copied[k] = v
+	}
+
+	forked := &JSONLStorage{
+		path:       s.path,
+		file:       s.file,
+		byID:       copied,
+		leafID:     targetID,
+		parent:     nil, // fork gets its own full copy, no parent delegation needed
+		maxEntries: s.maxEntries,
+	}
+	return forked, nil
 }
 
 func newID(prefix string) string {

@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -47,15 +48,22 @@ func (p *AnthropicProvider) StreamSimple(ctx context.Context, req ai.SimpleStrea
 
 // ─── Anthropic API 请求/响应结构 ──────────────────────────────────────────────────
 
+type anthropicImageSource struct {
+	Type      string `json:"type"` // "base64"
+	MediaType string `json:"media_type"`
+	Data      string `json:"data"`
+}
+
 type anthropicContentBlock struct {
-	Type      string          `json:"type"`
-	Text      string          `json:"text,omitempty"`
-	ID        string          `json:"id,omitempty"`               // tool_use 的 id
-	ToolUseID string          `json:"tool_use_id,omitempty"`      // tool_result 引用的 tool_use id
-	Name      string          `json:"name,omitempty"`
-	Input     json.RawMessage `json:"input,omitempty"`
-	Content   any             `json:"content,omitempty"` // tool_result 的嵌套内容
-	IsError   bool            `json:"is_error,omitempty"` // tool_result 是否为错误
+	Type      string               `json:"type"`
+	Text      string               `json:"text,omitempty"`
+	Source    *anthropicImageSource `json:"source,omitempty"` // image content source
+	ID        string               `json:"id,omitempty"`               // tool_use 的 id
+	ToolUseID string               `json:"tool_use_id,omitempty"`      // tool_result 引用的 tool_use id
+	Name      string               `json:"name,omitempty"`
+	Input     json.RawMessage      `json:"input,omitempty"`
+	Content   any                  `json:"content,omitempty"` // tool_result 的嵌套内容
+	IsError   bool                 `json:"is_error,omitempty"` // tool_result 是否为错误
 }
 
 type anthropicMessage struct {
@@ -367,7 +375,25 @@ func convertToAnthropicMessages(msgs []ai.Message) []anthropicMessage {
 				case "text":
 					blocks = append(blocks, anthropicContentBlock{Type: "text", Text: block.Text})
 				case "image":
-					blocks = append(blocks, anthropicContentBlock{Type: "text", Text: "[Image]"})
+					if block.Image != nil {
+						blocks = append(blocks, anthropicContentBlock{
+							Type: "image",
+							Source: &anthropicImageSource{
+								Type:      "base64",
+								MediaType: block.Image.MediaType,
+								Data:      base64.StdEncoding.EncodeToString(block.Image.Data),
+							},
+						})
+					} else if block.Image != nil && block.Image.URL != "" {
+						// URL-based image (Anthropic supports this directly)
+						blocks = append(blocks, anthropicContentBlock{
+							Type: "image",
+							Source: &anthropicImageSource{
+								Type: "url",
+								Data: block.Image.URL,
+							},
+						})
+					}
 				}
 			}
 			if len(blocks) == 0 {
