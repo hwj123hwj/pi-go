@@ -6,7 +6,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 )
 
@@ -36,6 +39,54 @@ type ExternalTool struct {
 	httpClient *http.Client
 }
 
+// validateCallbackURL checks that the callback URL is safe for SSRF:
+// - scheme must be http or https
+// - host must not resolve to a private, loopback, or link-local address
+func validateCallbackURL(rawURL string) error {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return fmt.Errorf("invalid URL: %w", err)
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return fmt.Errorf("callback URL must use http or https scheme, got %q", u.Scheme)
+	}
+	host := u.Hostname()
+
+	// Reject obvious local/loopback hostnames
+	switch strings.ToLower(host) {
+	case "localhost", "127.0.0.1", "::1", "0.0.0.0":
+		return fmt.Errorf("callback URL %q points to localhost", rawURL)
+	}
+
+	// If host is already an IP, check directly
+	if ip := net.ParseIP(host); ip != nil {
+		if isPrivateIP(ip) {
+			return fmt.Errorf("callback URL %q resolves to private address", rawURL)
+		}
+		return nil
+	}
+
+	// Resolve the hostname and check all IPs
+	ips, err := net.LookupIP(host)
+	if err != nil {
+		return fmt.Errorf("cannot resolve callback URL host %q: %w", host, err)
+	}
+	for _, ip := range ips {
+		if isPrivateIP(ip) {
+			return fmt.Errorf("callback URL %q resolves to private address %s", rawURL, ip)
+		}
+	}
+	return nil
+}
+
+// isPrivateIP checks if an IP address is private, loopback, link-local, or multicast.
+func isPrivateIP(ip net.IP) bool {
+	if ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsInterfaceLocalMulticast() {
+		return true
+	}
+	return false
+}
+
 // NewExternalTool creates an ExternalTool from a registration definition.
 func NewExternalTool(def ExternalToolDef) (*ExternalTool, error) {
 	if def.Name == "" {
@@ -43,6 +94,9 @@ func NewExternalTool(def ExternalToolDef) (*ExternalTool, error) {
 	}
 	if def.CallbackURL == "" {
 		return nil, fmt.Errorf("callback URL is required")
+	}
+	if err := validateCallbackURL(def.CallbackURL); err != nil {
+		return nil, err
 	}
 	return &ExternalTool{
 		def:        def,

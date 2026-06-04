@@ -32,15 +32,50 @@ func ResolvePath(workspace, path string) string {
 
 // IsPathSafe checks whether the resolved path stays within the workspace.
 // If workspace is empty, it always returns true (no restriction).
+// Symlinks are resolved via filepath.EvalSymlinks to prevent sandbox escape.
 func IsPathSafe(workspace, path string) bool {
 	if workspace == "" {
 		return true
 	}
 	resolved := ResolvePath(workspace, path)
-	absWorkspace := filepath.Clean(workspace)
-	if !strings.HasSuffix(absWorkspace, string(filepath.Separator)) {
-		absWorkspace += string(filepath.Separator)
+
+	absWorkspace, err := filepath.EvalSymlinks(filepath.Clean(workspace))
+	if err != nil {
+		// workspace doesn't exist — no symlink can exist inside it.
+		// Fall back to string-based check.
+		return stringCheck(resolved, workspace)
 	}
+
+	resolvedReal, err := filepath.EvalSymlinks(resolved)
+	if err != nil {
+		// resolved doesn't exist. Walk up to the nearest existing ancestor.
+		parent := resolved
+		for parent != "/" && parent != "." {
+			parent = filepath.Dir(parent)
+			if _, err := os.Stat(parent); err == nil {
+				resolvedReal, err = filepath.EvalSymlinks(parent)
+				if err != nil {
+					// parent exists but is itself a broken symlink — unsafe
+					return false
+				}
+				break
+			}
+		}
+		if resolvedReal == "" {
+			// No ancestor exists at all (e.g. /workspace doesn't exist on this
+			// machine). Fall back to string check — nothing can be a symlink.
+			return stringCheck(resolved, workspace)
+		}
+	}
+
+	absWorkspace += string(filepath.Separator)
+	return strings.HasPrefix(resolvedReal, absWorkspace) || resolvedReal == filepath.Clean(workspace)
+}
+
+// stringCheck is the fallback: pure string prefix comparison, no symlink resolution.
+func stringCheck(resolved, workspace string) bool {
+	absWorkspace := filepath.Clean(workspace)
+	absWorkspace += string(filepath.Separator)
 	return strings.HasPrefix(resolved, absWorkspace) || resolved == filepath.Clean(workspace)
 }
 
