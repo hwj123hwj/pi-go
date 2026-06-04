@@ -48,12 +48,14 @@ func (p *AnthropicProvider) StreamSimple(ctx context.Context, req ai.SimpleStrea
 // ─── Anthropic API 请求/响应结构 ──────────────────────────────────────────────────
 
 type anthropicContentBlock struct {
-	Type    string          `json:"type"`
-	Text    string          `json:"text,omitempty"`
-	ID      string          `json:"id,omitempty"`
-	Name    string          `json:"name,omitempty"`
-	Input   json.RawMessage `json:"input,omitempty"`
-	Content any             `json:"content,omitempty"` // tool_result 的嵌套内容
+	Type      string          `json:"type"`
+	Text      string          `json:"text,omitempty"`
+	ID        string          `json:"id,omitempty"`               // tool_use 的 id
+	ToolUseID string          `json:"tool_use_id,omitempty"`      // tool_result 引用的 tool_use id
+	Name      string          `json:"name,omitempty"`
+	Input     json.RawMessage `json:"input,omitempty"`
+	Content   any             `json:"content,omitempty"` // tool_result 的嵌套内容
+	IsError   bool            `json:"is_error,omitempty"` // tool_result 是否为错误
 }
 
 type anthropicMessage struct {
@@ -396,14 +398,21 @@ func convertToAnthropicMessages(msgs []ai.Message) []anthropicMessage {
 			result = append(result, anthropicMessage{Role: "assistant", Content: blocks})
 
 		case ai.ToolResultMessage:
-			result = append(result, anthropicMessage{
-				Role: "user",
-				Content: []anthropicContentBlock{{
-					Type:    "tool_result",
-					ID:      m.ToolCallID,
-					Content: []anthropicContentBlock{{Type: "text", Text: m.Content}},
-				}},
-			})
+			block := anthropicContentBlock{
+				Type:      "tool_result",
+				ToolUseID: m.ToolCallID,
+				Content:   []anthropicContentBlock{{Type: "text", Text: m.Content}},
+				IsError:   m.IsError,
+			}
+			// Merge consecutive tool results into a single user message
+			if len(result) > 0 && result[len(result)-1].Role == "user" {
+				result[len(result)-1].Content = append(result[len(result)-1].Content, block)
+			} else {
+				result = append(result, anthropicMessage{
+					Role:    "user",
+					Content: []anthropicContentBlock{block},
+				})
+			}
 		}
 	}
 
