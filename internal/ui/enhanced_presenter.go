@@ -104,6 +104,8 @@ func (p *EnhancedPresenter) handleTextDelta(delta string) {
 		p.streamBuf.Reset()
 	}
 	p.streamBuf.WriteString(delta)
+
+	// Just output the delta directly (markdown rendering happens on final output)
 	fmt.Fprint(p.w, delta)
 }
 
@@ -195,6 +197,12 @@ func (p *EnhancedPresenter) handleDone() {
 	elapsed := time.Since(p.turnStartTime)
 	fmt.Fprintf(p.w, "\n%s%s%s\n", ColorDim, formatDuration(elapsed), ColorReset)
 	p.turnStartTime = time.Time{}
+
+	// Render the final accumulated text with markdown formatting
+	if p.streamBuf.Len() > 0 {
+		rendered := RenderMarkdown(p.streamBuf.String())
+		fmt.Fprint(p.w, rendered)
+	}
 }
 
 func (p *EnhancedPresenter) handleError(err string) {
