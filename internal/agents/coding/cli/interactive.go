@@ -47,7 +47,7 @@ func (m *InteractiveMode) Run(ctx context.Context) error {
 	ui.PrintBanner(os.Stdout)
 
 	// Print session status
-	fmt.Println(m.presenter.FormatSessionStatus(m.session.SessionID(), provider, modelID, m.session.Profile(), cwd))
+	fmt.Println(ui.FormatSessionStatus(m.session.SessionID(), provider, modelID, m.session.Profile(), cwd))
 	fmt.Println()
 	ui.PrintHelp(os.Stdout)
 
@@ -87,7 +87,7 @@ func (m *InteractiveMode) Run(ctx context.Context) error {
 					m.session = result.SessionSwitchTo.(*runtime.AgentSession)
 					provider, modelID := m.session.ModelInfo()
 					fmt.Printf("%sSession switched: %s → %s%s\n", ui.ColorYellow, oldID, m.session.SessionID(), ui.ColorReset)
-					fmt.Println(m.presenter.FormatSessionStatus(m.session.SessionID(), provider, modelID, m.session.Profile(), cwd))
+					fmt.Println(ui.FormatSessionStatus(m.session.SessionID(), provider, modelID, m.session.Profile(), cwd))
 					fmt.Println()
 				}
 				if result.Output != "" {

@@ -157,9 +157,26 @@ func (p *EnhancedPresenter) handleToolEnd(toolCallID, toolName string, result an
 	} else {
 		fmt.Fprintf(p.w, "  %s✓ %s%s%s (%s)%s",
 			ColorGreen, ColorBold, toolName, ColorReset, formatDuration(elapsed), ColorReset)
+
+		// Format output based on tool type
 		if tool.Result != "" {
-			resultStr := truncate(tool.Result, 100)
-			fmt.Fprintf(p.w, "\n    %s→ %s%s", ColorGray, resultStr, ColorReset)
+			if toolName == "bash" {
+				// For bash, show output in a box
+				output := tool.Result
+				if len(output) > 300 {
+					output = output[:300] + "\n... (truncated)"
+				}
+				fmt.Fprintf(p.w, "\n%s%s┌─%s\n", ColorGray, ColorDim, ColorReset)
+				lines := strings.Split(output, "\n")
+				for _, line := range lines {
+					fmt.Fprintf(p.w, "%s%s│ %s%s\n", ColorGray, ColorDim, line, ColorReset)
+				}
+				fmt.Fprintf(p.w, "%s%s└─%s", ColorGray, ColorDim, ColorReset)
+			} else {
+				// For other tools, show result inline
+				resultStr := truncate(tool.Result, 100)
+				fmt.Fprintf(p.w, "\n    %s→ %s%s", ColorGray, resultStr, ColorReset)
+			}
 		}
 	}
 	fmt.Fprintln(p.w)
@@ -250,8 +267,146 @@ func truncate(s string, maxLen int) string {
 	return s[:maxLen] + "..."
 }
 
+// FormatTable renders a markdown table with box-drawing characters
+func (p *EnhancedPresenter) FormatTable(header []string, rows [][]string) string {
+	if len(header) == 0 {
+		return ""
+	}
+
+	// Calculate column widths
+	colWidths := make([]int, len(header))
+	for i, h := range header {
+		colWidths[i] = len(h)
+	}
+	for _, row := range rows {
+		for i, cell := range row {
+			if i < len(colWidths) && len(cell) > colWidths[i] {
+				colWidths[i] = len(cell)
+			}
+		}
+	}
+
+	var sb strings.Builder
+
+	// Top border
+	sb.WriteString(ColorGray)
+	sb.WriteString("┌")
+	for i, w := range colWidths {
+		sb.WriteString(strings.Repeat("─", w+2))
+		if i < len(colWidths)-1 {
+			sb.WriteString("┬")
+		}
+	}
+	sb.WriteString("┐")
+	sb.WriteString(ColorReset)
+	sb.WriteString("\n")
+
+	// Header
+	sb.WriteString(ColorGray)
+	sb.WriteString("│")
+	sb.WriteString(ColorReset)
+	for i, h := range header {
+		sb.WriteString(ColorBold)
+		sb.WriteString(fmt.Sprintf(" %-*s ", colWidths[i], h))
+		sb.WriteString(ColorReset)
+		sb.WriteString(ColorGray)
+		sb.WriteString("│")
+		sb.WriteString(ColorReset)
+	}
+	sb.WriteString("\n")
+
+	// Header separator
+	sb.WriteString(ColorGray)
+	sb.WriteString("├")
+	for i, w := range colWidths {
+		sb.WriteString(strings.Repeat("─", w+2))
+		if i < len(colWidths)-1 {
+			sb.WriteString("┼")
+		}
+	}
+	sb.WriteString("┤")
+	sb.WriteString(ColorReset)
+	sb.WriteString("\n")
+
+	// Rows
+	for _, row := range rows {
+		sb.WriteString(ColorGray)
+		sb.WriteString("│")
+		sb.WriteString(ColorReset)
+		for i, cell := range row {
+			if i < len(colWidths) {
+				sb.WriteString(fmt.Sprintf(" %-*s ", colWidths[i], cell))
+			}
+			sb.WriteString(ColorGray)
+			sb.WriteString("│")
+			sb.WriteString(ColorReset)
+		}
+		sb.WriteString("\n")
+	}
+
+	// Bottom border
+	sb.WriteString(ColorGray)
+	sb.WriteString("└")
+	for i, w := range colWidths {
+		sb.WriteString(strings.Repeat("─", w+2))
+		if i < len(colWidths)-1 {
+			sb.WriteString("┴")
+		}
+	}
+	sb.WriteString("┘")
+	sb.WriteString(ColorReset)
+
+	return sb.String()
+}
+
+// FormatBashOutput formats bash command output with better styling
+func (p *EnhancedPresenter) FormatBashOutput(command string, output string, exitCode int, elapsed time.Duration) string {
+	var sb strings.Builder
+
+	// Command header
+	sb.WriteString(fmt.Sprintf("\n%s%s$ %s%s\n", ColorDim, ColorBold, command, ColorReset))
+
+	// Output with subtle border
+	if output != "" {
+		lines := strings.Split(output, "\n")
+		sb.WriteString(ColorGray)
+		sb.WriteString("┌─")
+		sb.WriteString(ColorReset)
+		sb.WriteString("\n")
+		for _, line := range lines {
+			sb.WriteString(ColorGray)
+			sb.WriteString("│ ")
+			sb.WriteString(ColorReset)
+			sb.WriteString(line)
+			sb.WriteString("\n")
+		}
+		sb.WriteString(ColorGray)
+		sb.WriteString("└─")
+		sb.WriteString(ColorReset)
+	}
+
+	// Status line
+	if exitCode == 0 {
+		sb.WriteString(fmt.Sprintf("  %s✓ %s%s\n", ColorGreen, formatDuration(elapsed), ColorReset))
+	} else {
+		sb.WriteString(fmt.Sprintf("  %s✗ exit %d%s %s%s\n", ColorRed, exitCode, ColorReset, formatDuration(elapsed), ColorReset))
+	}
+
+	return sb.String()
+}
+
+// FormatSection formats a section with a title and content
+func (p *EnhancedPresenter) FormatSection(title string, content string) string {
+	return fmt.Sprintf("\n%s%s── %s ──%s\n%s\n", ColorCyan, ColorBold, title, ColorReset, content)
+}
+
+// FormatKeyValue formats a key-value pair
+func (p *EnhancedPresenter) FormatKeyValue(key string, value string) string {
+	return fmt.Sprintf("  %s%-15s%s %s", ColorBold, key+":", ColorReset, value)
+}
+
 // FormatSessionStatus returns a rich formatted status line
-func (p *EnhancedPresenter) FormatSessionStatus(sessionID, provider, modelID, profile, cwd string) string {
+func FormatSessionStatus(sessionID, provider, modelID, profile, cwd string) string {
 	dir := cwd
 	if dir != "" {
 		parts := strings.Split(dir, "/")
@@ -259,8 +414,15 @@ func (p *EnhancedPresenter) FormatSessionStatus(sessionID, provider, modelID, pr
 			dir = parts[len(parts)-1]
 		}
 	}
+
+	// Truncate session ID if longer than 12 chars
+	displayID := sessionID
+	if len(sessionID) > 12 {
+		displayID = sessionID[:12] + "..."
+	}
+
 	return fmt.Sprintf("%s%sSession:%s %s %s│%s %sModel:%s %s/%s %s│%s %sProfile:%s %s %s│%s %sCWD:%s %s%s",
-		ColorDim, ColorBold, ColorReset, sessionID[:12]+"...",
+		ColorDim, ColorBold, ColorReset, displayID,
 		ColorDim, ColorReset,
 		ColorBold, ColorReset, provider, modelID,
 		ColorDim, ColorReset,
