@@ -24,16 +24,17 @@ type InteractiveMode struct {
 	session   *runtime.AgentSession
 	slashCmds *slashcmd.Registry
 	app       *app.App
-	presenter *ui.EnhancedPresenter
+	presenter ui.TUIRenderer
 }
 
 // NewInteractiveMode creates a coding-agent interactive CLI.
+// Uses the lightweight TUI by default; -tags fancy enables Bubble Tea.
 func NewInteractiveMode(session *runtime.AgentSession, cmds *slashcmd.Registry, application *app.App) *InteractiveMode {
 	return &InteractiveMode{
 		session:   session,
 		slashCmds: cmds,
 		app:       application,
-		presenter: ui.NewEnhancedPresenter(os.Stdout),
+		presenter: ui.NewTUI(os.Stdout),
 	}
 }
 
@@ -48,6 +49,9 @@ func (m *InteractiveMode) Run(ctx context.Context) error {
 
 	// Print session status with cleaner formatting
 	fmt.Println(ui.FormatSessionStatus(m.session.SessionID(), provider, modelID, m.session.Profile(), cwd))
+	if ui.IsFancyMode() {
+		fmt.Printf("%s  ✨ Fancy TUI mode (Bubble Tea + Lipgloss)%s\n", ui.ColorMagenta, ui.ColorReset)
+	}
 	fmt.Println()
 	ui.PrintHelp(os.Stdout, true)
 
