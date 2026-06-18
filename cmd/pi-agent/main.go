@@ -35,6 +35,15 @@ func main() {
 	skillDir := flag.String("skill-dir", "", "directory containing skills (SKILL.md files)")
 	flag.Parse()
 
+	// Set log level based on mode
+	switch *modeFlag {
+	case "interactive", "chat":
+		// Suppress INFO logs in TUI mode for cleaner output
+		slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelWarn})))
+	default:
+		// Keep default INFO level for other modes
+	}
+
 	// Create App (thin assembly layer)
 	application, err := app.New(app.AppOptions{
 		Config:      cfg,
