@@ -105,8 +105,8 @@ func (p *EnhancedPresenter) handleTextDelta(delta string) {
 	}
 	p.streamBuf.WriteString(delta)
 
-	// Output raw delta for real-time feedback
-	fmt.Fprint(p.w, delta)
+	// Don't output during streaming - we'll render at the end
+	// This avoids duplication and ensures clean markdown rendering
 }
 
 func (p *EnhancedPresenter) handleToolStart(toolCallID, toolName string) {
@@ -196,17 +196,9 @@ func (p *EnhancedPresenter) handleDone() {
 	}
 	elapsed := time.Since(p.turnStartTime)
 
-	// Re-render the accumulated text with markdown formatting
+	// Render the accumulated text with markdown formatting
 	if p.streamBuf.Len() > 0 {
-		// Clear the raw output by moving cursor up
-		rawText := p.streamBuf.String()
-		lines := strings.Count(rawText, "\n")
-		for i := 0; i < lines+1; i++ {
-			fmt.Fprint(p.w, "\033[A\033[K") // Move up and clear line
-		}
-
-		// Render with markdown formatting
-		rendered := RenderMarkdown(rawText)
+		rendered := RenderMarkdown(p.streamBuf.String())
 		fmt.Fprint(p.w, rendered)
 	}
 
