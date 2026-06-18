@@ -328,16 +328,26 @@ func renderTerminalTable(rows []string) string {
 		}
 	}
 
-	// Calculate column widths
+	// Calculate column widths (considering Chinese characters as double-width)
 	colWidths := make([]int, len(header))
 	for i, h := range header {
-		colWidths[i] = len(h)
+		colWidths[i] = getStringWidth(h)
 	}
 	for _, row := range dataRows {
 		for i, cell := range row {
-			if i < len(colWidths) && len(cell) > colWidths[i] {
-				colWidths[i] = len(cell)
+			if i < len(colWidths) {
+				w := getStringWidth(cell)
+				if w > colWidths[i] {
+					colWidths[i] = w
+				}
 			}
+		}
+	}
+
+	// Ensure minimum width
+	for i := range colWidths {
+		if colWidths[i] < 4 {
+			colWidths[i] = 4
 		}
 	}
 
@@ -362,7 +372,10 @@ func renderTerminalTable(rows []string) string {
 	result.WriteString(ColorReset)
 	for i, h := range header {
 		result.WriteString(ColorBold)
-		result.WriteString(fmt.Sprintf(" %-*s ", colWidths[i], h))
+		result.WriteString(" ")
+		result.WriteString(h)
+		result.WriteString(strings.Repeat(" ", colWidths[i]-getStringWidth(h)))
+		result.WriteString(" ")
 		result.WriteString(ColorReset)
 		result.WriteString(ColorGray)
 		result.WriteString("│")
@@ -396,19 +409,25 @@ func renderTerminalTable(rows []string) string {
 					align = alignments[i]
 				}
 
-				var formatted string
+				cellWidth := getStringWidth(cell)
+				padding := colWidths[i] - cellWidth
+
+				result.WriteString(" ")
 				switch align {
 				case "right":
-					formatted = fmt.Sprintf(" %*s ", colWidths[i], cell)
+					result.WriteString(strings.Repeat(" ", padding))
+					result.WriteString(cell)
 				case "center":
-					padding := colWidths[i] - len(cell)
 					leftPad := padding / 2
 					rightPad := padding - leftPad
-					formatted = fmt.Sprintf(" %s%s%s ", strings.Repeat(" ", leftPad), cell, strings.Repeat(" ", rightPad))
+					result.WriteString(strings.Repeat(" ", leftPad))
+					result.WriteString(cell)
+					result.WriteString(strings.Repeat(" ", rightPad))
 				default:
-					formatted = fmt.Sprintf(" %-*s ", colWidths[i], cell)
+					result.WriteString(cell)
+					result.WriteString(strings.Repeat(" ", padding))
 				}
-				result.WriteString(formatted)
+				result.WriteString(" ")
 			}
 			result.WriteString(ColorGray)
 			result.WriteString("│")
@@ -430,4 +449,30 @@ func renderTerminalTable(rows []string) string {
 	result.WriteString(ColorReset)
 
 	return result.String()
+}
+
+// getStringWidth returns the display width of a string, counting CJK characters as 2
+func getStringWidth(s string) int {
+	width := 0
+	for _, r := range s {
+		if isCJK(r) {
+			width += 2
+		} else {
+			width++
+		}
+	}
+	return width
+}
+
+// isCJK checks if a rune is a CJK character (Chinese, Japanese, Korean)
+func isCJK(r rune) bool {
+	return (r >= 0x4E00 && r <= 0x9FFF) || // CJK Unified Ideographs
+		(r >= 0x3400 && r <= 0x4DBF) || // CJK Unified Ideographs Extension A
+		(r >= 0x20000 && r <= 0x2A6DF) || // CJK Unified Ideographs Extension B
+		(r >= 0x2A700 && r <= 0x2B73F) || // CJK Unified Ideographs Extension C
+		(r >= 0x2B740 && r <= 0x2B81F) || // CJK Unified Ideographs Extension D
+		(r >= 0xF900 && r <= 0xFAFF) || // CJK Compatibility Ideographs
+		(r >= 0x2F800 && r <= 0x2FA1F) || // CJK Compatibility Ideographs Supplement
+		(r >= 0x3000 && r <= 0x303F) || // CJK Symbols and Punctuation
+		(r >= 0xFF00 && r <= 0xFFEF) // Fullwidth Forms
 }

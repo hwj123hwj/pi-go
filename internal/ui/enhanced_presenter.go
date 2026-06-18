@@ -283,16 +283,26 @@ func (p *EnhancedPresenter) FormatTable(header []string, rows [][]string) string
 		return ""
 	}
 
-	// Calculate column widths
+	// Calculate column widths (considering Chinese characters as double-width)
 	colWidths := make([]int, len(header))
 	for i, h := range header {
-		colWidths[i] = len(h)
+		colWidths[i] = getStringWidth(h)
 	}
 	for _, row := range rows {
 		for i, cell := range row {
-			if i < len(colWidths) && len(cell) > colWidths[i] {
-				colWidths[i] = len(cell)
+			if i < len(colWidths) {
+				w := getStringWidth(cell)
+				if w > colWidths[i] {
+					colWidths[i] = w
+				}
 			}
+		}
+	}
+
+	// Ensure minimum width
+	for i := range colWidths {
+		if colWidths[i] < 4 {
+			colWidths[i] = 4
 		}
 	}
 
@@ -317,7 +327,10 @@ func (p *EnhancedPresenter) FormatTable(header []string, rows [][]string) string
 	sb.WriteString(ColorReset)
 	for i, h := range header {
 		sb.WriteString(ColorBold)
-		sb.WriteString(fmt.Sprintf(" %-*s ", colWidths[i], h))
+		sb.WriteString(" ")
+		sb.WriteString(h)
+		sb.WriteString(strings.Repeat(" ", colWidths[i]-getStringWidth(h)))
+		sb.WriteString(" ")
 		sb.WriteString(ColorReset)
 		sb.WriteString(ColorGray)
 		sb.WriteString("│")
@@ -345,7 +358,13 @@ func (p *EnhancedPresenter) FormatTable(header []string, rows [][]string) string
 		sb.WriteString(ColorReset)
 		for i, cell := range row {
 			if i < len(colWidths) {
-				sb.WriteString(fmt.Sprintf(" %-*s ", colWidths[i], cell))
+				cellWidth := getStringWidth(cell)
+				padding := colWidths[i] - cellWidth
+
+				sb.WriteString(" ")
+				sb.WriteString(cell)
+				sb.WriteString(strings.Repeat(" ", padding))
+				sb.WriteString(" ")
 			}
 			sb.WriteString(ColorGray)
 			sb.WriteString("│")
