@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pi-Go</title>
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Sidebar -->
+    <aside id="sidebar" class="sidebar">
+      <div class="sidebar-header">
+        <div class="logo">
+          <span class="logo-icon">⚡</span>
+          <span class="logo-text">Pi-Go</span>
+        </div>
+        <div class="connection-status" id="connection-status">
+          <span class="status-dot offline"></span>
+          <span class="status-text">Connecting...</span>
+        </div>
+      </div>
+
+      <button id="new-session-btn" class="new-session-btn">
+        <span>+</span> New Session
+      </button>
+
+      <div id="session-list" class="session-list">
+        <!-- Sessions will be rendered here -->
+      </div>
+
+      <div class="sidebar-footer">
+        <div class="model-selector">
+          <label class="model-label">Model</label>
+          <select id="model-select" class="model-select">
+            <option value="">Loading...</option>
+          </select>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Chat Panel -->
+    <main id="chat-panel" class="chat-panel">
+      <!-- Empty State -->
+      <div id="empty-state" class="empty-state">
+        <div class="empty-icon">💬</div>
+        <h2 class="empty-title">Welcome to Pi-Go</h2>
+        <p class="empty-subtitle">Create a new session or select an existing one to start chatting.</p>
+      </div>
+
+      <!-- Chat View (hidden initially) -->
+      <div id="chat-view" class="chat-view" style="display: none;">
+        <div id="message-list" class="message-list">
+          <!-- Messages will be rendered here -->
+        </div>
+
+        <div class="input-area">
+          <div class="input-container">
+            <textarea id="message-input" placeholder="Send a message..." rows="1"></textarea>
+            <button id="send-btn" class="send-btn" title="Send">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M8 1.5l-6.5 6.5h4v6.5h5v-6.5h4L8 1.5z"/>
+              </svg>
+            </button>
+            <button id="stop-btn" class="stop-btn" style="display: none;" title="Stop">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                <rect x="3" y="3" width="10" height="10" rx="1"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>

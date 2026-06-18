@@ -17,6 +17,7 @@ import (
 	"github.com/earendil-works/pi-go/internal/app"
 	"github.com/earendil-works/pi-go/internal/runtime"
 	"github.com/earendil-works/pi-go/internal/slashcmd"
+	"github.com/earendil-works/pi-go/internal/web"
 )
 
 // Server provides HTTP REST + SSE endpoints for the agent.
@@ -85,10 +86,21 @@ func (s *Server) Handler() http.Handler {
 	// WebSocket route — bypasses all middleware to avoid Hijack issues
 	wsHandler := corsMiddleware(http.HandlerFunc(s.handleWebSocket))
 
-	// Top-level mux: route /ws directly, everything else through middleware chain
+	// Top-level mux: combines REST API + Web UI + WebSocket
 	topMux := http.NewServeMux()
 	topMux.Handle("GET /ws", wsHandler)
-	topMux.Handle("/", restHandler)
+
+	// Register REST API routes (these take precedence over "/" catch-all)
+	topMux.Handle("/health", restHandler)
+	topMux.Handle("/chat", restHandler)
+	topMux.Handle("/sessions", restHandler)
+	topMux.Handle("/sessions/", restHandler)
+	topMux.Handle("/models", restHandler)
+	topMux.Handle("/tools", restHandler)
+
+	// Register web UI routes (serves embedded static files at /)
+	web.RegisterRoutes(topMux)
+
 	return topMux
 }
 
