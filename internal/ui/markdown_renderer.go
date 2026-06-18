@@ -451,11 +451,11 @@ func renderTerminalTable(rows []string) string {
 	return result.String()
 }
 
-// getStringWidth returns the display width of a string, counting CJK characters as 2
+// getStringWidth returns the display width of a string, counting CJK characters and emoji as 2
 func getStringWidth(s string) int {
 	width := 0
 	for _, r := range s {
-		if isCJK(r) {
+		if isWideChar(r) {
 			width += 2
 		} else {
 			width++
@@ -464,15 +464,55 @@ func getStringWidth(s string) int {
 	return width
 }
 
-// isCJK checks if a rune is a CJK character (Chinese, Japanese, Korean)
+// isWideChar checks if a rune occupies 2 columns in the terminal (CJK + emoji + symbols)
+func isWideChar(r rune) bool {
+	// Common emoji and symbols (East Asian Wide / Fullwidth / Emoji)
+	switch {
+	case r >= 0x1F300 && r <= 0x1F6FF: // Emoji & pictographs
+		return true
+	case r >= 0x1F900 && r <= 0x1F9FF: // Supplemental Symbols and Pictographs
+		return true
+	case r >= 0x2600 && r <= 0x27BF: // Miscellaneous Symbols and Dingbats (✅🔄 etc)
+		return true
+	case r >= 0x2300 && r <= 0x23FF: // Miscellaneous Technical (⚡)
+		return true
+	case r >= 0x4E00 && r <= 0x9FFF: // CJK Unified Ideographs
+		return true
+	case r >= 0x3400 && r <= 0x4DBF: // CJK Extension A
+		return true
+	case r >= 0x20000 && r <= 0x2A6DF: // CJK Extension B
+		return true
+	case r >= 0x2A700 && r <= 0x2B73F: // CJK Extension C
+		return true
+	case r >= 0x2B740 && r <= 0x2B81F: // CJK Extension D
+		return true
+	case r >= 0xF900 && r <= 0xFAFF: // CJK Compatibility Ideographs
+		return true
+	case r >= 0x2F800 && r <= 0x2FA1F: // CJK Compatibility Ideographs Supplement
+		return true
+	case r >= 0x3000 && r <= 0x303F: // CJK Symbols and Punctuation
+		return true
+	case r >= 0xFF00 && r <= 0xFFEF: // Fullwidth Forms
+		return true
+	case r >= 0x1100 && r <= 0x115F: // Hangul Jamo
+		return true
+	case r >= 0xAC00 && r <= 0xD7A3: // Hangul Syllables
+		return true
+	case r >= 0x3040 && r <= 0x309F: // Hiragana
+		return true
+	case r >= 0x30A0 && r <= 0x30FF: // Katakana
+		return true
+	}
+
+	// Variation selectors and zero-width joiners shouldn't count
+	if r == 0xFE0F || r == 0x200D || (r >= 0xFE00 && r <= 0xFE0F) {
+		return false
+	}
+
+	return false
+}
+
+// isCJK kept for backwards compatibility
 func isCJK(r rune) bool {
-	return (r >= 0x4E00 && r <= 0x9FFF) || // CJK Unified Ideographs
-		(r >= 0x3400 && r <= 0x4DBF) || // CJK Unified Ideographs Extension A
-		(r >= 0x20000 && r <= 0x2A6DF) || // CJK Unified Ideographs Extension B
-		(r >= 0x2A700 && r <= 0x2B73F) || // CJK Unified Ideographs Extension C
-		(r >= 0x2B740 && r <= 0x2B81F) || // CJK Unified Ideographs Extension D
-		(r >= 0xF900 && r <= 0xFAFF) || // CJK Compatibility Ideographs
-		(r >= 0x2F800 && r <= 0x2FA1F) || // CJK Compatibility Ideographs Supplement
-		(r >= 0x3000 && r <= 0x303F) || // CJK Symbols and Punctuation
-		(r >= 0xFF00 && r <= 0xFFEF) // Fullwidth Forms
+	return isWideChar(r)
 }

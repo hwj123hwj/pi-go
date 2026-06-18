@@ -481,14 +481,28 @@ func FormatAssistantPrompt() string {
 
 // PrintBanner prints the startup banner with a cleaner design
 func PrintBanner(w io.Writer) {
+	width := 60 // Inner width of the banner
+
+	// Helper to render a centered line with a fixed width
+	centerLine := func(text string) string {
+		textWidth := getStringWidth(text)
+		if textWidth >= width {
+			return text
+		}
+		leftPad := (width - textWidth) / 2
+		rightPad := width - textWidth - leftPad
+		return strings.Repeat(" ", leftPad) + text + strings.Repeat(" ", rightPad)
+	}
+
+	border := strings.Repeat("═", width)
+
 	fmt.Fprintf(w, "\n")
-	fmt.Fprintf(w, "%s%s  ╔═══════════════════════════════════════════════════════════╗%s\n", ColorCyan, ColorBold, ColorReset)
-	fmt.Fprintf(w, "%s%s  ║                                                           ║%s\n", ColorCyan, ColorBold, ColorReset)
-	fmt.Fprintf(w, "%s%s  ║            ⚡  Pi-Go Agent  ⚡                            ║%s\n", ColorCyan, ColorBold, ColorReset)
-	fmt.Fprintf(w, "%s%s  ║                                                           ║%s\n", ColorCyan, ColorBold, ColorReset)
-	fmt.Fprintf(w, "%s%s  ║    %sGo-powered AI coding assistant%s                      %s║%s\n", ColorCyan, ColorBold, ColorWhite, ColorCyan, ColorBold, ColorReset)
-	fmt.Fprintf(w, "%s%s  ║                                                           ║%s\n", ColorCyan, ColorBold, ColorReset)
-	fmt.Fprintf(w, "%s%s  ╚═══════════════════════════════════════════════════════════╝%s\n\n", ColorCyan, ColorBold, ColorReset)
+	fmt.Fprintf(w, "  %s%s╔%s╗%s\n", ColorCyan, ColorBold, border, ColorReset)
+	fmt.Fprintf(w, "  %s%s║%s║%s\n", ColorCyan, ColorBold, strings.Repeat(" ", width), ColorReset)
+	fmt.Fprintf(w, "  %s%s║%s║%s\n", ColorCyan, ColorBold, centerLine("⚡  Pi-Go Agent  ⚡"), ColorReset)
+	fmt.Fprintf(w, "  %s%s║%s║%s\n", ColorCyan, ColorBold, centerLine("Go-powered AI coding assistant"), ColorReset)
+	fmt.Fprintf(w, "  %s%s║%s║%s\n", ColorCyan, ColorBold, strings.Repeat(" ", width), ColorReset)
+	fmt.Fprintf(w, "  %s%s╚%s╝%s\n\n", ColorCyan, ColorBold, border, ColorReset)
 }
 
 // PrintHelp prints a cleaner help message
