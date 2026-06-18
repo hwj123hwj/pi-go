@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"strings"
@@ -56,14 +57,16 @@ type EnhancedPresenter struct {
 	streaming     bool
 	streamBuf     strings.Builder
 	turnStartTime time.Time
+	diffRenderer  *DiffRenderer
 }
 
 // NewEnhancedPresenter creates a presenter with rich formatting
 func NewEnhancedPresenter(w io.Writer) *EnhancedPresenter {
 	return &EnhancedPresenter{
-		w:           w,
-		activeTools: make(map[string]*ToolCall),
-		spinnerDone: make(chan struct{}),
+		w:            w,
+		activeTools:  make(map[string]*ToolCall),
+		spinnerDone:  make(chan struct{}),
+		diffRenderer: NewDiffRenderer(),
 	}
 }
 
@@ -77,7 +80,7 @@ func (p *EnhancedPresenter) Present(event agent.AgentStreamEvent) {
 		p.handleTextDelta(event.TextDelta)
 
 	case agent.StreamEventToolStart:
-		p.handleToolStart(event.ToolCallID, event.ToolName)
+		p.handleToolStart(event.ToolCallID, event.ToolName, event.ToolArgs)
 
 	case agent.StreamEventToolUpdate:
 		// Tool updates are handled by spinner
@@ -109,7 +112,7 @@ func (p *EnhancedPresenter) handleTextDelta(delta string) {
 	// This avoids duplication and ensures clean markdown rendering
 }
 
-func (p *EnhancedPresenter) handleToolStart(toolCallID, toolName string) {
+func (p *EnhancedPresenter) handleToolStart(toolCallID, toolName string, args any) {
 	// Flush any pending text
 	if p.streaming {
 		p.streaming = false
@@ -126,8 +129,109 @@ func (p *EnhancedPresenter) handleToolStart(toolCallID, toolName string) {
 	fmt.Fprintf(p.w, "\n%s  ▶ %s%s %s%s",
 		ColorCyan, icon, ColorBold, toolName, ColorReset)
 
+	// Render diff preview for edit/write tools
+	if args != nil {
+		preview := p.renderToolPreview(toolName, args)
+		if preview != "" {
+			fmt.Fprintf(p.w, "\n%s\n", preview)
+		}
+	}
+
 	// Start spinner in background
 	go p.runSpinner(toolCallID)
+}
+
+// renderToolPreview shows a diff preview for edit/write tools.
+// Returns empty string for tools that don't need preview.
+func (p *EnhancedPresenter) renderToolPreview(toolName string, args any) string {
+	if p.diffRenderer == nil {
+		return ""
+	}
+
+	// Convert args to JSON bytes for parsing
+	var argsBytes []byte
+	switch v := args.(type) {
+	case []byte:
+		argsBytes = v
+	case string:
+		argsBytes = []byte(v)
+	case json.RawMessage:
+		argsBytes = v
+	default:
+		// Try to marshal
+		b, err := json.Marshal(args)
+		if err != nil {
+			return ""
+		}
+		argsBytes = b
+	}
+
+	switch toolName {
+	case "edit":
+		return p.renderEditPreview(argsBytes)
+	case "write":
+		return p.renderWritePreview(argsBytes)
+	}
+	return ""
+}
+
+func (p *EnhancedPresenter) renderEditPreview(argsBytes []byte) string {
+	var params struct {
+		Path       string `json:"path"`
+		OldString  string `json:"old_string"`
+		NewString  string `json:"new_string"`
+		ReplaceAll bool   `json:"replace_all,omitempty"`
+		Edits      []struct {
+			OldString string `json:"old_string"`
+			NewString string `json:"new_string"`
+		} `json:"edits,omitempty"`
+	}
+	if err := json.Unmarshal(argsBytes, &params); err != nil {
+		return ""
+	}
+
+	// Multi-edit mode
+	if len(params.Edits) > 0 {
+		var sb strings.Builder
+		sb.WriteString(fmt.Sprintf("%s%s┌─ %s (%d edits) ─%s\n",
+			ColorCyan, ColorBold, params.Path, len(params.Edits), ColorReset))
+		for i, e := range params.Edits {
+			sb.WriteString(fmt.Sprintf("%s%s│ Edit %d:%s\n", ColorGray, ColorDim, i+1, ColorReset))
+			renderEditLines(&sb, e.OldString, e.NewString)
+		}
+		sb.WriteString(fmt.Sprintf("%s%s└─%s", ColorGray, ColorDim, ColorReset))
+		return sb.String()
+	}
+
+	// Single edit
+	return p.diffRenderer.RenderEdit(params.Path, params.OldString, params.NewString)
+}
+
+func (p *EnhancedPresenter) renderWritePreview(argsBytes []byte) string {
+	var params struct {
+		Path    string `json:"path"`
+		Content string `json:"content"`
+	}
+	if err := json.Unmarshal(argsBytes, &params); err != nil {
+		return ""
+	}
+	return p.diffRenderer.RenderWrite(params.Path, params.Content)
+}
+
+// renderEditLines is a helper for multi-edit preview
+func renderEditLines(sb *strings.Builder, oldStr, newStr string) {
+	if oldStr != "" {
+		for _, line := range strings.Split(oldStr, "\n") {
+			sb.WriteString(fmt.Sprintf("%s%s│ %s- %s%s\n",
+				ColorGray, ColorDim, ColorRed, line, ColorReset))
+		}
+	}
+	if newStr != "" {
+		for _, line := range strings.Split(newStr, "\n") {
+			sb.WriteString(fmt.Sprintf("%s%s│ %s+ %s%s\n",
+				ColorGray, ColorDim, ColorGreen, line, ColorReset))
+		}
+	}
 }
 
 func (p *EnhancedPresenter) handleToolEnd(toolCallID, toolName string, result any, isError bool) {
