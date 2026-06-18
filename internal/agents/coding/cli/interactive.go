@@ -46,10 +46,10 @@ func (m *InteractiveMode) Run(ctx context.Context) error {
 	// Print banner
 	ui.PrintBanner(os.Stdout)
 
-	// Print session status
+	// Print session status with cleaner formatting
 	fmt.Println(ui.FormatSessionStatus(m.session.SessionID(), provider, modelID, m.session.Profile(), cwd))
 	fmt.Println()
-	ui.PrintHelp(os.Stdout)
+	ui.PrintHelp(os.Stdout, true)
 
 	for {
 		fmt.Print(ui.FormatInputPrompt())

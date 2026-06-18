@@ -163,20 +163,30 @@ func (p *EnhancedPresenter) handleToolEnd(toolCallID, toolName string, result an
 		// Format output based on tool type
 		if tool.Result != "" {
 			if toolName == "bash" {
-				// For bash, show output in a box
+				// For bash, show output in a compact box
 				output := tool.Result
-				if len(output) > 300 {
-					output = output[:300] + "\n... (truncated)"
+				lines := strings.Split(output, "\n")
+				// Remove empty trailing lines
+				for len(lines) > 0 && strings.TrimSpace(lines[len(lines)-1]) == "" {
+					lines = lines[:len(lines)-1]
+				}
+				// Limit to 5 lines for compact display
+				if len(lines) > 5 {
+					lines = lines[:5]
+					lines = append(lines, ColorDim+"... (truncated)"+ColorReset)
 				}
 				fmt.Fprintf(p.w, "\n%s%s┌─%s\n", ColorGray, ColorDim, ColorReset)
-				lines := strings.Split(output, "\n")
 				for _, line := range lines {
+					// Truncate long lines
+					if len(line) > 100 {
+						line = line[:100] + "..."
+					}
 					fmt.Fprintf(p.w, "%s%s│ %s%s\n", ColorGray, ColorDim, line, ColorReset)
 				}
 				fmt.Fprintf(p.w, "%s%s└─%s", ColorGray, ColorDim, ColorReset)
 			} else {
-				// For other tools, show result inline
-				resultStr := truncate(tool.Result, 100)
+				// For other tools, show result inline with truncation
+				resultStr := truncate(tool.Result, 80)
 				fmt.Fprintf(p.w, "\n    %s→ %s%s", ColorGray, resultStr, ColorReset)
 			}
 		}
@@ -434,7 +444,7 @@ func (p *EnhancedPresenter) FormatKeyValue(key string, value string) string {
 	return fmt.Sprintf("  %s%-15s%s %s", ColorBold, key+":", ColorReset, value)
 }
 
-// FormatSessionStatus returns a rich formatted status line
+// FormatSessionStatus returns a compact, clean status line
 func FormatSessionStatus(sessionID, provider, modelID, profile, cwd string) string {
 	dir := cwd
 	if dir != "" {
@@ -450,14 +460,12 @@ func FormatSessionStatus(sessionID, provider, modelID, profile, cwd string) stri
 		displayID = sessionID[:12] + "..."
 	}
 
-	return fmt.Sprintf("%s%sSession:%s %s %s│%s %sModel:%s %s/%s %s│%s %sProfile:%s %s %s│%s %sCWD:%s %s%s",
-		ColorDim, ColorBold, ColorReset, displayID,
-		ColorDim, ColorReset,
-		ColorBold, ColorReset, provider, modelID,
-		ColorDim, ColorReset,
-		ColorBold, ColorReset, profile,
-		ColorDim, ColorReset,
-		ColorBold, ColorReset, dir,
+	return fmt.Sprintf("%s  Session: %s%s%s │ Model: %s%s%s │ Profile: %s%s%s │ CWD: %s%s%s%s",
+		ColorDim,
+		ColorReset, displayID, ColorDim,
+		ColorReset, modelID, ColorDim,
+		ColorReset, profile, ColorDim,
+		ColorReset, dir, ColorDim,
 		ColorReset)
 }
 
@@ -471,25 +479,41 @@ func FormatAssistantPrompt() string {
 	return fmt.Sprintf("%s%sPi>%s ", ColorGreen, ColorBold, ColorReset)
 }
 
-// PrintBanner prints the startup banner
+// PrintBanner prints the startup banner with a cleaner design
 func PrintBanner(w io.Writer) {
-	fmt.Fprintf(w, "\n%s%s╔════════════════════════════════════════════════════════════╗%s\n", ColorCyan, ColorBold, ColorReset)
-	fmt.Fprintf(w, "%s%s║                    ⚡ Pi-Go Agent                        ║%s\n", ColorCyan, ColorBold, ColorReset)
-	fmt.Fprintf(w, "%s%s╚════════════════════════════════════════════════════════════╝%s\n\n", ColorCyan, ColorBold, ColorReset)
+	fmt.Fprintf(w, "\n")
+	fmt.Fprintf(w, "%s%s  ╔═══════════════════════════════════════════════════════════╗%s\n", ColorCyan, ColorBold, ColorReset)
+	fmt.Fprintf(w, "%s%s  ║                                                           ║%s\n", ColorCyan, ColorBold, ColorReset)
+	fmt.Fprintf(w, "%s%s  ║            ⚡  Pi-Go Agent  ⚡                            ║%s\n", ColorCyan, ColorBold, ColorReset)
+	fmt.Fprintf(w, "%s%s  ║                                                           ║%s\n", ColorCyan, ColorBold, ColorReset)
+	fmt.Fprintf(w, "%s%s  ║    %sGo-powered AI coding assistant%s                      %s║%s\n", ColorCyan, ColorBold, ColorWhite, ColorCyan, ColorBold, ColorReset)
+	fmt.Fprintf(w, "%s%s  ║                                                           ║%s\n", ColorCyan, ColorBold, ColorReset)
+	fmt.Fprintf(w, "%s%s  ╚═══════════════════════════════════════════════════════════╝%s\n\n", ColorCyan, ColorBold, ColorReset)
 }
 
-// PrintHelp prints the help message
-func PrintHelp(w io.Writer) {
-	fmt.Fprintf(w, "%sCommands:%s\n", ColorBold, ColorReset)
-	fmt.Fprintf(w, "  %s/new%s          New session\n", ColorCyan, ColorReset)
-	fmt.Fprintf(w, "  %s/compact%s      Compact context\n", ColorCyan, ColorReset)
-	fmt.Fprintf(w, "  %s/sessions%s     List sessions\n", ColorCyan, ColorReset)
-	fmt.Fprintf(w, "  %s/switch%s       Switch session\n", ColorCyan, ColorReset)
-	fmt.Fprintf(w, "  %s/model%s        Switch model\n", ColorCyan, ColorReset)
-	fmt.Fprintf(w, "  %s/profile%s      Switch profile\n", ColorCyan, ColorReset)
-	fmt.Fprintf(w, "  %s/goal%s         Set goal\n", ColorCyan, ColorReset)
-	fmt.Fprintf(w, "  %s/tools%s        List tools\n", ColorCyan, ColorReset)
-	fmt.Fprintf(w, "  %s/clear%s        Clear screen\n", ColorCyan, ColorReset)
-	fmt.Fprintf(w, "  %s/help%s         Show this help\n", ColorCyan, ColorReset)
-	fmt.Fprintf(w, "  %s/exit%s         Exit\n\n", ColorCyan, ColorReset)
+// PrintHelp prints a cleaner help message
+func PrintHelp(w io.Writer, hasActiveSession bool) {
+	fmt.Fprintf(w, "%s  Available commands:%s\n\n", ColorDim, ColorReset)
+
+	commands := []struct {
+		cmd  string
+		desc string
+	}{
+		{"/new", "Create a new session"},
+		{"/sessions", "List all sessions"},
+		{"/switch <id>", "Switch to a session"},
+		{"/model <name>", "Switch model"},
+		{"/profile <name>", "Switch profile (coding/review)"},
+		{"/goal <text>", "Set a goal for the agent"},
+		{"/tools", "List available tools"},
+		{"/compact", "Compact conversation history"},
+		{"/clear", "Clear screen"},
+		{"/help", "Show this help"},
+		{"/exit", "Exit (or Ctrl+D)"},
+	}
+
+	for _, cmd := range commands {
+		fmt.Fprintf(w, "  %s%-16s%s %s\n", ColorCyan, cmd.cmd, ColorReset, cmd.desc)
+	}
+	fmt.Fprintln(w)
 }
