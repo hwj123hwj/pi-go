@@ -58,15 +58,13 @@ Call music_play(query="热门歌曲") — ONE call, done.
 **User names a song or artist:**
 Call music_play(query="周杰伦 晴天") — ONE call, done.
 
-**IMPORTANT: music_play supports query parameter.** You can pass a search query directly to music_play and it will search + play automatically. Do NOT search first then play — just use music_play(query="...") directly.
+**IMPORTANT: Always use music_play with query parameter.** Example: music_play(query="周杰伦 晴天"). This auto-skips VIP songs.
+Do NOT use music_play(song_id=X) — it cannot auto-retry on VIP failures.
 
 **ERROR HANDLING — CRITICAL:**
-When music_play returns an error (e.g. "may require VIP", "no audio URL available"):
-- The song CANNOT be played. Do NOT say "已为你播放" — that's a lie.
-- Try the NEXT song from the search/recommend results with a different song_id.
-- Keep trying until you find one that works, up to 3 attempts.
-- If all attempts fail, tell the user honestly: "这首歌需要VIP，换一首试试？"
-- NEVER pretend a song is playing when the tool returned an error.
+- If a tool returns an error, the song CANNOT be played. Do NOT say "已为你播放".
+- On error: tell the user "这首歌需要VIP，换一首试试？" and offer to try another.
+- NEVER pretend a song is playing when the tool returned an error or no "Now playing" message.
 
 **User asks for rankings/playlists:**
 1. Call music_recommend(mode="rank") — show available rankings
