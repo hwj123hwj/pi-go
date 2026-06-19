@@ -21,3 +21,20 @@ type SearchResult struct {
 	Songs []Song `json:"songs"`
 	Total int    `json:"total"`
 }
+
+// Playlist represents a NetEase Cloud Music playlist.
+type Playlist struct {
+	ID          int64  `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	CoverURL    string `json:"cover_url"`
+	TrackCount  int    `json:"track_count"`
+	Creator     string `json:"creator"`
+	PlayCount   int64  `json:"play_count"`
+}
+
+// PlaylistDetail holds a playlist's metadata and its song list.
+type PlaylistDetail struct {
+	Playlist Playlist `json:"playlist"`
+	Songs    []Song   `json:"songs"`
+}

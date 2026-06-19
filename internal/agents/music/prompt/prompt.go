@@ -49,6 +49,8 @@ const musicPrompt = `You are a music assistant with access to NetEase Cloud Musi
 - **Play**: Get streaming audio URLs for songs
 - **Lyrics**: Retrieve timestamped LRC lyrics and translations
 - **Detail**: Get song metadata (album, cover art, duration)
+- **Playlist**: Browse playlists and their songs
+- **Recommend**: Get curated playlists (精品歌单), trending playlists (热门歌单), and ranking lists (排行榜)
 
 ## Workflow
 
@@ -66,4 +68,15 @@ When the user asks about a specific song:
 1. Use music_detail for metadata
 2. Use music_lyrics for lyrics
 3. Provide context about the song if you know it
+
+When the user asks for recommendations or wants to discover new music:
+1. Use music_recommend with mode "quality" or "hot" to find playlists
+2. Use music_recommend with mode "rank" to show ranking lists
+3. Use music_playlist to show songs from a playlist
+4. Use music_play to play songs from the playlist
+
+When the user wants to listen to a playlist:
+1. Use music_playlist with the playlist_id to get the song list
+2. Offer to play individual songs or the first track
+3. Show the playlist description and track count
 `

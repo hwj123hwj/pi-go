@@ -71,6 +71,18 @@ func (t *WriteTool) Validate(raw json.RawMessage) (json.RawMessage, error) {
 	}
 	return json.Marshal(params)
 }
+
+// RequiresConfirmation 实现 agent.ToolWithConfirmation。
+// 写文件会覆盖目标路径已有内容，无条件要求用户确认。
+func (t *WriteTool) RequiresConfirmation(raw json.RawMessage) (string, bool) {
+	var params WriteParams
+	if err := json.Unmarshal(raw, &params); err != nil {
+		return "即将写入文件（参数解析失败，仍需确认）", true
+	}
+	cleanPath := ResolvePath(t.workspace, params.Path)
+	return fmt.Sprintf("即将写入文件（可能覆盖已有内容）:\n  %s (%s)",
+		cleanPath, FormatByteCount(len(params.Content))), true
+}
 func (t *WriteTool) Execute(ctx context.Context, raw json.RawMessage, onUpdate func(agent.PartialResult)) (agent.ToolResult, error) {
 	if t.mutationQueue != nil {
 		var params WriteParams

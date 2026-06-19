@@ -3111,3 +3111,171 @@ select {
 .tool-summary-status.in_progress,
 .tool-summary-status.pending { color: var(--text-faint); }
 
+/* ── Music Player ───────────────────────────────────────────────────────── */
+
+.music-player {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  margin: 4px 0;
+}
+.music-player-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.music-player-icon {
+  font-size: 24px;
+  line-height: 1;
+}
+.music-player-meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.music-player-song {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.music-player-artist {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.music-player-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.music-player-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: var(--accent);
+  color: var(--accent-text);
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+.music-player-btn:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+.music-player-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.music-player-time {
+  font-size: 11px;
+  font-family: var(--mono);
+  color: var(--text-faint);
+  min-width: 32px;
+  text-align: center;
+  flex-shrink: 0;
+}
+.music-player-progress {
+  flex: 1;
+  height: 4px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: var(--border);
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+.music-player-progress::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+}
+.music-player-volume {
+  width: 60px;
+  height: 4px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: var(--border);
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+.music-player-volume::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--text-dim);
+  cursor: pointer;
+}
+.music-player-vol-icon {
+  font-size: 12px;
+  flex-shrink: 0;
+}
+.music-player-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-dim);
+  font-size: 13px;
+}
+.music-player-err-msg {
+  color: var(--red);
+  font-size: 12px;
+}
+.music-player-error-bar {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--red);
+  text-align: center;
+}
+
+/* ── Lyrics Viewer ──────────────────────────────────────────────────────── */
+
+.lyrics-viewer {
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 12px 16px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin: 4px 0;
+}
+.lyrics-line {
+  padding: 4px 8px;
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--text-faint);
+  transition: color 0.2s, font-size 0.2s;
+  text-align: center;
+}
+.lyrics-line.active {
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 15px;
+}
+.lyrics-line.past {
+  color: var(--text-dim);
+}
+.lyrics-empty {
+  max-height: 200px;
+}
+.lyrics-raw {
+  font-size: 12px;
+  font-family: var(--mono);
+  color: var(--text-dim);
+  white-space: pre-wrap;
+  word-break: break-all;
+  margin: 0;
+}
+

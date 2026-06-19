@@ -25,12 +25,12 @@ import (
 // Dependencies holds the shared dependencies needed to create an AgentSession.
 // These are provided by the App layer and shared across sessions.
 type Dependencies struct {
-	Registry         *providers.Registry
-	SessionMgr       *sessionmgr.Manager
-	ExtRegistry      *extensions.Registry
-	Application      Application
-	ExternalTools    []agent.ExternalToolDef
-	BuildOperations  func(cfg config.Config, workspace string) *operations.Operations
+	Registry        *providers.Registry
+	SessionMgr      *sessionmgr.Manager
+	ExtRegistry     *extensions.Registry
+	Application     Application
+	ExternalTools   []agent.ExternalToolDef
+	BuildOperations func(cfg config.Config, workspace string) *operations.Operations
 }
 
 // AgentSessionOptions holds the options for creating a new AgentSession.
@@ -55,6 +55,7 @@ type AgentSession struct {
 	deps        Dependencies
 	skillDirs   []string
 	application Application
+	confirmFunc agent.ConfirmFunc // 可选：危险工具执行前的确认回调（interactive 注入，serve/feishu 留空=放行）
 	ext         SessionExt
 }
 
@@ -78,9 +79,9 @@ func NewAgentSession(ctx context.Context, opts AgentSessionOptions, deps Depende
 		if cse, ok := s.ext.(interface{ SetRebuild(func() error) }); ok {
 			cse.SetRebuild(func() error {
 				// Use Background instead of the creation context: profile/goal
-					// changes can happen long after the request that created this
-					// session has completed and its context been canceled.
-					_, err := s.rebuildAgent(context.Background(), s.deps.Registry, s.skillDirs)
+				// changes can happen long after the request that created this
+				// session has completed and its context been canceled.
+				_, err := s.rebuildAgent(context.Background(), s.deps.Registry, s.skillDirs)
 				return err
 			})
 		}
@@ -395,7 +396,15 @@ func (s *AgentSession) buildAgent(ctx context.Context, registry *providers.Regis
 		CompactionSettings: compactionSettings,
 		SummarizeFunc:      summarizeFunc,
 		LifecycleHooks:     lifecycleHooks,
+		ConfirmFunc:        s.confirmFunc,
 	}), nil
+}
+
+// SetConfirmFunc 注入危险工具执行前的确认回调。
+// 供交互式入口（chat TUI）调用以启用确认；serve/feishu 等单向流入口不调用，保持默认放行。
+// 在首次 PromptStream 之前调用即可生效；若 agent 已构建则会触发重建。
+func (s *AgentSession) SetConfirmFunc(fn agent.ConfirmFunc) {
+	s.confirmFunc = fn
 }
 
 // toolBuildOptions constructs ToolBuildOptions from the current config and session state.

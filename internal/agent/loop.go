@@ -119,24 +119,24 @@ func runAgentLoop(ctx context.Context, a *Agent, provider interface {
 			// 内层循环继续（tool call 后继续）
 		case actionFollowUp:
 			pending = result.followUp
-			// 外层循环继续
-			case actionDone:
-				// Goal-driven loop：如果有活跃目标且未被标记完成，注入 follow-up 继续
-				goalLog("[goal-debug] actionDone: goal=%q goalDone=%v turns=%d\n", a.goal, result.goalDone, turns)
-				if a.goal != "" && !result.goalDone {
-					slog.Info("goal-driven: injecting follow-up", "goal", a.goal, "turns", turns)
-					goalLog("[goal-debug] Injecting follow-up, continuing loop\n")
-					pending = []ai.Message{ai.NewTextUserMessage(
-						fmt.Sprintf("Reminder: your current goal is \"%s\". Continue working on it.", a.goal),
-					)}
-					// 继续外层循环（不走 return）
-				} else {
-					if result.goalDone {
-						slog.Info("goal-driven: goal completed, stopping", "turns", turns)
-					}
-				goalLog("[goal-debug] Loop ending: goalDone=%v goal=%q\n", result.goalDone, a.goal)
-					return lastAssistant, nil
+		// 外层循环继续
+		case actionDone:
+			// Goal-driven loop：如果有活跃目标且未被标记完成，注入 follow-up 继续
+			goalLog("[goal-debug] actionDone: goal=%q goalDone=%v turns=%d\n", a.goal, result.goalDone, turns)
+			if a.goal != "" && !result.goalDone {
+				slog.Info("goal-driven: injecting follow-up", "goal", a.goal, "turns", turns)
+				goalLog("[goal-debug] Injecting follow-up, continuing loop\n")
+				pending = []ai.Message{ai.NewTextUserMessage(
+					fmt.Sprintf("Reminder: your current goal is \"%s\". Continue working on it.", a.goal),
+				)}
+				// 继续外层循环（不走 return）
+			} else {
+				if result.goalDone {
+					slog.Info("goal-driven: goal completed, stopping", "turns", turns)
 				}
+				goalLog("[goal-debug] Loop ending: goalDone=%v goal=%q\n", result.goalDone, a.goal)
+				return lastAssistant, nil
+			}
 		}
 	}
 }
@@ -222,9 +222,9 @@ func processTurn(ctx context.Context, a *Agent, provider interface {
 	// Goal-driven：用 LLM 评估目标是否已完成
 	isGoalDone := false
 	if a.goal != "" && message.StopReason == ai.StopReasonStop {
-			goalLog("[goal-debug] Evaluating goal completion (responseLen=%d, stopReason=%s)\n", len(message.Text), message.StopReason)
+		goalLog("[goal-debug] Evaluating goal completion (responseLen=%d, stopReason=%s)\n", len(message.Text), message.StopReason)
 		done, reason := evaluateGoalCompletion(ctx, a.registry, a.model, message.Text, a.goal)
-			goalLog("[goal-debug] Evaluator result: done=%v reason=%q\n", done, reason)
+		goalLog("[goal-debug] Evaluator result: done=%v reason=%q\n", done, reason)
 		if done {
 			isGoalDone = true
 			clearedGoal := a.goal
@@ -234,9 +234,9 @@ func processTurn(ctx context.Context, a *Agent, provider interface {
 		}
 	}
 
-		if a.goal != "" && message.StopReason != ai.StopReasonStop {
-			goalLog("[goal-debug] Goal active but StopReason=%s, NOT evaluating (textLen=%d)\n", message.StopReason, len(message.Text))
-		}
+	if a.goal != "" && message.StopReason != ai.StopReasonStop {
+		goalLog("[goal-debug] Goal active but StopReason=%s, NOT evaluating (textLen=%d)\n", message.StopReason, len(message.Text))
+	}
 	return turnResult{assistant: message, action: actionDone, goalDone: isGoalDone}, history, nil
 }
 
@@ -477,6 +477,47 @@ func executeOneTool(ctx context.Context, a *Agent, call ai.ToolCall) ai.Message 
 	}
 	args = callCtx.Args
 
+	// 5.5 Confirmation gate: 危险工具执行前向用户确认（若工具声明需要且注入了 ConfirmFunc）
+	if confirmer, ok := tool.(ToolWithConfirmation); ok {
+		if desc, needConfirm := confirmer.RequiresConfirmation(args); needConfirm {
+			a.emit(ctx, EventConfirmationRequest{
+				ToolCallID:  call.ID,
+				ToolName:    call.Name,
+				Description: desc,
+			})
+
+			// 未注入 ConfirmFunc（serve/feishu 单向流）→ 默认放行。
+			approved := true
+			reason := ""
+			if a.confirmFunc != nil {
+				decision := a.confirmFunc(ctx, ConfirmationRequest{
+					ToolCallID:  call.ID,
+					ToolName:    call.Name,
+					Args:        args,
+					Description: desc,
+				})
+				approved = decision.Approved
+				reason = decision.Reason
+			}
+			a.emit(ctx, EventConfirmationResult{
+				ToolCallID: call.ID,
+				Approved:   approved,
+				Reason:     reason,
+			})
+
+			if !approved {
+				// 用户拒绝：阻断执行，把"用户拒绝"回告 LLM。
+				// IsError=false——避免 Agent 误判为系统错误而重试；内容明确告知被拒。
+				msg := "user declined this action"
+				if reason != "" {
+					msg = fmt.Sprintf("user declined this action: %s", reason)
+				}
+				a.emit(ctx, EventToolExecutionEnd{ToolCallID: call.ID, ToolName: call.Name, Result: msg, IsError: false})
+				return ai.ToolResultMessage{ToolCallID: call.ID, Content: msg, IsError: false}
+			}
+		}
+	}
+
 	// 6. Build onUpdate callback
 	onUpdate := func(pr PartialResult) {
 		a.emit(ctx, EventToolExecutionUpdate{
@@ -516,7 +557,8 @@ func executeOneTool(ctx context.Context, a *Agent, call ai.ToolCall) ai.Message 
 	}
 
 	// 9. Emit end
-	a.emit(ctx, EventToolExecutionEnd{ToolCallID: call.ID, ToolName: call.Name, Result: rawResult.Content, IsError: rawResult.IsError})
+	// Result 给 UI 展示，优先 UserFacing（给用户看的更详细内容）；回填 LLM 用 Content（见 appendToolResult）。
+	a.emit(ctx, EventToolExecutionEnd{ToolCallID: call.ID, ToolName: call.Name, Result: rawResult.DisplayText(), IsError: rawResult.IsError})
 	return a.appendToolResult(call, rawResult)
 }
 

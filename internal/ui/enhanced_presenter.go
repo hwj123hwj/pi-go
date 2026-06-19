@@ -92,6 +92,22 @@ func (p *EnhancedPresenter) Present(event agent.AgentStreamEvent) {
 	case agent.StreamEventCompacted:
 		p.handleCompacted(event.TrimmedFrom, event.TrimmedTo)
 
+	case agent.StreamEventConfirmationReq:
+		// 确认请求：打印操作描述。实际 y/n 输入由 ConfirmFunc 在交互层读取，
+		// 这里只负责把"即将做什么"展示给用户。
+		fmt.Fprintf(p.w, "\n%s⚠ 需要确认%s\n%s\n", ColorYellow, ColorReset, event.Description)
+
+	case agent.StreamEventConfirmationRes:
+		if event.Approved {
+			fmt.Fprintf(p.w, "%s✓ 已确认，继续执行%s\n", ColorGreen, ColorReset)
+		} else {
+			msg := "用户拒绝"
+			if event.Description != "" {
+				msg = event.Description
+			}
+			fmt.Fprintf(p.w, "%s✗ 已拒绝：%s%s\n", ColorRed, msg, ColorReset)
+		}
+
 	case agent.StreamEventDone:
 		p.handleDone()
 

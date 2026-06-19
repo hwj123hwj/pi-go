@@ -128,6 +128,20 @@ func (t *EditTool) Validate(raw json.RawMessage) (json.RawMessage, error) {
 	return json.Marshal(params)
 }
 
+// RequiresConfirmation 实现 agent.ToolWithConfirmation。
+// 编辑文件会修改已有内容，无条件要求用户确认。
+func (t *EditTool) RequiresConfirmation(raw json.RawMessage) (string, bool) {
+	var params EditParams
+	if err := json.Unmarshal(raw, &params); err != nil {
+		return "即将编辑文件（参数解析失败，仍需确认）", true
+	}
+	cleanPath := ResolvePath(t.workspace, params.Path)
+	if len(params.Edits) > 0 {
+		return fmt.Sprintf("即将编辑文件（%d 处替换）:\n  %s", len(params.Edits), cleanPath), true
+	}
+	return fmt.Sprintf("即将编辑文件:\n  %s", cleanPath), true
+}
+
 func (t *EditTool) Execute(ctx context.Context, raw json.RawMessage, onUpdate func(agent.PartialResult)) (agent.ToolResult, error) {
 	// 若有 mutation queue，先解析 path 以确定 queue key
 	if t.mutationQueue != nil {

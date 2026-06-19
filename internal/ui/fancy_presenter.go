@@ -31,6 +31,10 @@ var (
 			Foreground(lipgloss.AdaptiveColor{Light: "#CF222E", Dark: "#F85149"}).
 			Bold(true)
 
+	fancyStyleWarn = lipgloss.NewStyle().
+			Foreground(lipgloss.AdaptiveColor{Light: "#9A6700", Dark: "#D29922"}).
+			Bold(true)
+
 	fancyStyleDim = lipgloss.NewStyle().
 			Foreground(lipgloss.AdaptiveColor{Light: "#656D76", Dark: "#8B949E"})
 
@@ -124,6 +128,21 @@ func (p *FancyPresenter) Present(event agent.AgentStreamEvent) {
 	case agent.StreamEventCompacted:
 		fmt.Fprintln(p.w, fancyStyleDim.Render(
 			fmt.Sprintf("\n  [context compacted: %d → %d messages]", event.TrimmedFrom, event.TrimmedTo)))
+
+	case agent.StreamEventConfirmationReq:
+		fmt.Fprintln(p.w)
+		fmt.Fprintln(p.w, fancyStyleWarn.Render(fmt.Sprintf("  ⚠ 需要确认: %s", event.Description)))
+
+	case agent.StreamEventConfirmationRes:
+		if event.Approved {
+			fmt.Fprintln(p.w, fancyStyleSuccess.Render("  ✓ 已确认，继续执行"))
+		} else {
+			msg := "用户拒绝"
+			if event.Description != "" {
+				msg = event.Description
+			}
+			fmt.Fprintln(p.w, fancyStyleError.Render("  ✗ 已拒绝："+msg))
+		}
 
 	case agent.StreamEventDone:
 		if p.streamBuf.Len() > 0 {
