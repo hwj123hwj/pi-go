@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
@@ -243,11 +244,14 @@ func (p *OpenAIProvider) handleSSE(ctx context.Context, stream *ai.EventStream, 
 	}
 
 	// 输出拼装完整的 tool_calls（按 index 顺序）
-	for i := 0; i < len(toolCalls); i++ {
-		acc, ok := toolCalls[i]
-		if !ok {
-			continue
-		}
+	// 收集并排序 index，兼容 0-based 和 1-based indexing
+	indices := make([]int, 0, len(toolCalls))
+	for idx := range toolCalls {
+		indices = append(indices, idx)
+	}
+	sort.Ints(indices)
+	for _, i := range indices {
+		acc := toolCalls[i]
 		tc := ai.ToolCall{
 			ID:   acc.id,
 			Name: acc.name,
