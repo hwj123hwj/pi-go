@@ -12,6 +12,7 @@ import (
 
 // PlayTool gets a playable audio URL for a song.
 // Supports two modes: by song_id, or by query (searches first, then plays the top result).
+// When query mode fails (e.g. VIP-only), it automatically retries with the next search result.
 type PlayTool struct {
 	client       *netease.Client
 	cache        *music.Cache
@@ -24,7 +25,7 @@ func NewPlayTool(client *netease.Client, cache *music.Cache, audioBaseURL string
 
 func (t *PlayTool) Name() string { return "music_play" }
 func (t *PlayTool) Description() string {
-	return "Play a song. Provide either song_id (from search/recommend results) or query to search and play the top result directly. Returns the streaming URL, song name, and artist."
+	return "Play a song. Provide either song_id (from search/recommend results) or query to search and play the top result directly. If the top result requires VIP, automatically tries the next one. Returns the streaming URL, song name, and artist."
 }
 
 func (t *PlayTool) Parameters() map[string]any {
@@ -37,7 +38,7 @@ func (t *PlayTool) Parameters() map[string]any {
 			},
 			"query": map[string]any{
 				"type":        "string",
-				"description": "Search query to find and play a song directly (e.g. '周杰伦 晴天'). Use this OR song_id.",
+				"description": "Search query to find and play a song directly (e.g. '周杰伦 晴天'). Use this OR song_id. Will auto-retry if top result requires VIP.",
 			},
 		},
 	}
@@ -64,44 +65,70 @@ func (t *PlayTool) Execute(_ context.Context, params json.RawMessage, _ func(age
 	}
 	_ = json.Unmarshal(params, &p)
 
-	songID := p.SongID
+	// Mode 1: Direct song_id — no retry possible
+	if p.SongID != 0 && p.Query == "" {
+		return t.playByID(p.SongID)
+	}
+
+	// Mode 2: Query — search and auto-retry on VIP failure
+	songs, err := t.client.SearchSongs(p.Query, 10)
+	if err != nil {
+		return agent.ToolResult{Content: fmt.Sprintf("Search failed: %v", err), IsError: true}, nil
+	}
+	if len(songs.Songs) == 0 {
+		return agent.ToolResult{Content: "No songs found for: " + p.Query, IsError: true}, nil
+	}
+
+	var lastErr string
+	for i, song := range songs.Songs {
+		if i >= 5 {
+			break // max 5 attempts
+		}
+		audioURL, err := t.getAudioURL(song.ID)
+		if err != nil {
+			lastErr = err.Error()
+			continue // VIP or unavailable, try next
+		}
+
+		proxyURL := audioURL
+		if t.audioBaseURL != "" {
+			proxyURL = fmt.Sprintf("%s/%d", t.audioBaseURL, song.ID)
+		}
+
+		output := fmt.Sprintf(
+			"🎵 Now playing: %s — %s\n\n"+
+				"Direct URL: %s\n"+
+				"Proxy URL: %s\n\n"+
+				"Use the proxy URL for playback in browsers (avoids CORS issues).",
+			song.Name, song.Artist, audioURL, proxyURL,
+		)
+		if i > 0 {
+			output = fmt.Sprintf("Top %d results require VIP, playing #%d instead.\n\n", i, i+1) + output
+		}
+		return agent.ToolResult{Content: output}, nil
+	}
+
+	return agent.ToolResult{Content: fmt.Sprintf("None of the top 5 results can be played (last error: %s). Try a different query.", lastErr), IsError: true}, nil
+}
+
+func (t *PlayTool) playByID(songID int64) (agent.ToolResult, error) {
 	songName := fmt.Sprintf("Song #%d", songID)
 	artist := ""
 
-	// If query is provided, search first
-	if songID == 0 && p.Query != "" {
-		result, err := t.client.SearchSongs(p.Query, 5)
-		if err != nil {
-			return agent.ToolResult{Content: fmt.Sprintf("Search failed: %v", err), IsError: true}, nil
-		}
-		if len(result.Songs) == 0 {
-			return agent.ToolResult{Content: "No songs found for: " + p.Query, IsError: true}, nil
-		}
-		// Pick the first result
-		song := result.Songs[0]
-		songID = song.ID
-		songName = song.Name
-		artist = song.Artist
-	} else if songID != 0 {
-		// Get song detail for display name
-		detail, _ := t.client.GetSongDetail([]int64{songID})
-		if len(detail) > 0 {
-			songName = detail[0].Name
-			artist = detail[0].Artist
-		}
+	detail, _ := t.client.GetSongDetail([]int64{songID})
+	if len(detail) > 0 {
+		songName = detail[0].Name
+		artist = detail[0].Artist
 	}
 
-	if songID == 0 {
-		return agent.ToolResult{Content: "No song to play", IsError: true}, nil
-	}
-
-	// Get audio URL (cached)
 	audioURL, err := t.getAudioURL(songID)
 	if err != nil {
-		return agent.ToolResult{Content: fmt.Sprintf("Failed to get audio URL: %v", err), IsError: true}, nil
+		return agent.ToolResult{
+			Content: fmt.Sprintf("Cannot play \"%s — %s\": %v\nThis song may require VIP. Try a different song_id.", songName, artist, err),
+			IsError: true,
+		}, nil
 	}
 
-	// Build proxy URL (avoids CORS/Referer issues for the frontend)
 	proxyURL := audioURL
 	if t.audioBaseURL != "" {
 		proxyURL = fmt.Sprintf("%s/%d", t.audioBaseURL, songID)
