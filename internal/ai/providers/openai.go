@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -146,7 +147,7 @@ func (p *OpenAIProvider) Stream(ctx context.Context, req ai.StreamRequest) (*ai.
 			partial.StopReason = ai.StopReasonError
 			partial.ErrorMsg = errMsg
 			_ = stream.Push(ctx, ai.EventError{Reason: "error", Error: errMsg})
-			stream.SetResult(partial, fmt.Errorf(errMsg))
+			stream.SetResult(partial, errors.New(errMsg))
 			return
 		}
 

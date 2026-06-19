@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -170,7 +171,7 @@ func (p *DeepVProvider) Stream(ctx context.Context, req ai.StreamRequest) (*ai.E
 			partial.StopReason = ai.StopReasonError
 			partial.ErrorMsg = errMsg
 			_ = stream.Push(ctx, ai.EventError{Reason: "error", Error: errMsg})
-			stream.SetResult(partial, fmt.Errorf(errMsg))
+			stream.SetResult(partial, errors.New(errMsg))
 			return
 		}
 
