@@ -78,6 +78,20 @@ func (t *BashTool) Validate(raw json.RawMessage) (json.RawMessage, error) {
 	}
 	return json.Marshal(params)
 }
+
+// RequiresConfirmation 实现 agent.ToolWithConfirmation。
+// 对破坏性命令（rm -rf、覆盖重定向、sudo、远程脚本执行、磁盘操作等）要求用户确认；
+// 普通命令（ls、echo、grep 等）直接放行，避免过度打扰。
+func (t *BashTool) RequiresConfirmation(raw json.RawMessage) (string, bool) {
+	var params BashParams
+	if err := json.Unmarshal(raw, &params); err != nil {
+		return "", false // 解析失败交给 Validate 报错，不在此阻断
+	}
+	if reason := whyDangerous(params.Command); reason != "" {
+		return fmt.Sprintf("即将执行 shell 命令（%s）:\n  %s", reason, params.Command), true
+	}
+	return "", false
+}
 func (t *BashTool) Execute(ctx context.Context, raw json.RawMessage, onUpdate func(agent.PartialResult)) (agent.ToolResult, error) {
 	var params BashParams
 	if err := json.Unmarshal(raw, &params); err != nil {

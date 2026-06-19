@@ -30,10 +30,11 @@ type Options struct {
 	Tools              []Tool
 	MaxTurns           int
 	Goal               string                   // 可选：当前会话目标（goal-driven loop，非空时取消 maxTurns 限制）
-	Session            *session.Session        // 可选：会话持久化
+	Session            *session.Session         // 可选：会话持久化
 	CompactionSettings compaction.Settings      // 上下文压缩设置
 	SummarizeFunc      compaction.SummarizeFunc // 可选：摘要生成函数
 	LifecycleHooks     LifecycleHooks           // 可选：工具执行生命周期钩子
+	ConfirmFunc        ConfirmFunc              // 可选：危险工具执行前向用户确认（未注入则默认放行）
 }
 
 type Agent struct {
@@ -52,6 +53,7 @@ type Agent struct {
 	compactionSettings compaction.Settings
 	summarizeFunc      compaction.SummarizeFunc
 	lifecycleHooks     LifecycleHooks
+	confirmFunc        ConfirmFunc
 }
 
 func New(opts Options) *Agent {
@@ -75,6 +77,7 @@ func New(opts Options) *Agent {
 		compactionSettings: opts.CompactionSettings,
 		summarizeFunc:      opts.SummarizeFunc,
 		lifecycleHooks:     opts.LifecycleHooks,
+		confirmFunc:        opts.ConfirmFunc,
 	}
 }
 
@@ -178,13 +181,17 @@ func (a *Agent) PromptStream(ctx context.Context, msg ai.Message) (<-chan AgentS
 		case EventToolExecutionStart:
 			ev = AgentStreamEvent{Type: StreamEventToolStart, ToolName: e.ToolName, ToolCallID: e.ToolCallID, ToolArgs: e.Args}
 		case EventToolExecutionUpdate:
-				ev = AgentStreamEvent{Type: StreamEventToolUpdate, ToolName: e.ToolName, ToolCallID: e.ToolCallID, PartialResult: e.PartialResult}
-			case EventToolExecutionEnd:
+			ev = AgentStreamEvent{Type: StreamEventToolUpdate, ToolName: e.ToolName, ToolCallID: e.ToolCallID, PartialResult: e.PartialResult}
+		case EventToolExecutionEnd:
 			ev = AgentStreamEvent{Type: StreamEventToolEnd, ToolName: e.ToolName, ToolCallID: e.ToolCallID, ToolResult: e.Result, IsError: e.IsError}
 		case EventCompacted:
 			ev = AgentStreamEvent{Type: StreamEventCompacted, Summary: e.Summary, TrimmedFrom: e.TrimmedFrom, TrimmedTo: e.TrimmedTo}
 		case EventCompactionFailed:
 			ev = AgentStreamEvent{Type: StreamEventError, Error: "compaction failed: " + e.Error}
+		case EventConfirmationRequest:
+			ev = AgentStreamEvent{Type: StreamEventConfirmationReq, ToolCallID: e.ToolCallID, ToolName: e.ToolName, Description: e.Description}
+		case EventConfirmationResult:
+			ev = AgentStreamEvent{Type: StreamEventConfirmationRes, ToolCallID: e.ToolCallID, Approved: e.Approved, Description: e.Reason}
 		default:
 			return
 		}
@@ -388,29 +395,33 @@ func (a *Agent) decodeToolArgs(raw string, tool Tool) (json.RawMessage, error) {
 type StreamEventType string
 
 const (
-	StreamEventTextDelta  StreamEventType = "text_delta"
-	StreamEventTurnEnd    StreamEventType = "turn_end"
-	StreamEventToolStart  StreamEventType = "tool_start"
-	StreamEventToolUpdate StreamEventType = "tool_update"
-	StreamEventToolEnd    StreamEventType = "tool_end"
-	StreamEventDone       StreamEventType = "done"
-	StreamEventError      StreamEventType = "error"
-	StreamEventCompacted  StreamEventType = "compacted"
+	StreamEventTextDelta       StreamEventType = "text_delta"
+	StreamEventTurnEnd         StreamEventType = "turn_end"
+	StreamEventToolStart       StreamEventType = "tool_start"
+	StreamEventToolUpdate      StreamEventType = "tool_update"
+	StreamEventToolEnd         StreamEventType = "tool_end"
+	StreamEventDone            StreamEventType = "done"
+	StreamEventError           StreamEventType = "error"
+	StreamEventCompacted       StreamEventType = "compacted"
+	StreamEventConfirmationReq StreamEventType = "confirmation_request"
+	StreamEventConfirmationRes StreamEventType = "confirmation_result"
 )
 
 type AgentStreamEvent struct {
-	Type         StreamEventType     `json:"type"`
-	TextDelta    string              `json:"text_delta,omitempty"`
-	Message      ai.Message          `json:"message,omitempty"`
-	ToolName     string              `json:"tool_name,omitempty"`
-	ToolCallID   string              `json:"tool_call_id,omitempty"`
-	ToolArgs     any                 `json:"tool_args,omitempty"` // raw arguments for diff preview
-	ToolResult   any                 `json:"tool_result,omitempty"`
-	PartialResult any                `json:"partial_result,omitempty"`
-	IsError      bool                `json:"is_error,omitempty"`
-	FinalMessage ai.AssistantMessage `json:"final_message,omitempty"`
-	Error        string              `json:"error,omitempty"`
-	Summary      string              `json:"summary,omitempty"`
-	TrimmedFrom  int                 `json:"trimmed_from,omitempty"`
-	TrimmedTo    int                 `json:"trimmed_to,omitempty"`
+	Type          StreamEventType     `json:"type"`
+	TextDelta     string              `json:"text_delta,omitempty"`
+	Message       ai.Message          `json:"message,omitempty"`
+	ToolName      string              `json:"tool_name,omitempty"`
+	ToolCallID    string              `json:"tool_call_id,omitempty"`
+	ToolArgs      any                 `json:"tool_args,omitempty"` // raw arguments for diff preview
+	ToolResult    any                 `json:"tool_result,omitempty"`
+	PartialResult any                 `json:"partial_result,omitempty"`
+	IsError       bool                `json:"is_error,omitempty"`
+	FinalMessage  ai.AssistantMessage `json:"final_message,omitempty"`
+	Error         string              `json:"error,omitempty"`
+	Summary       string              `json:"summary,omitempty"`
+	TrimmedFrom   int                 `json:"trimmed_from,omitempty"`
+	TrimmedTo     int                 `json:"trimmed_to,omitempty"`
+	Description   string              `json:"description,omitempty"` // 确认请求：工具给出的操作描述
+	Approved      bool                `json:"approved,omitempty"`    // 确认结果：是否放行
 }

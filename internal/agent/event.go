@@ -88,3 +88,22 @@ type EventGoalCompleted struct {
 }
 
 func (EventGoalCompleted) agentEventMarker() {}
+
+// EventConfirmationRequest 在危险工具执行前、需要用户确认时发出。
+// UI（chat TUI）据此弹出确认对话框；单向流入口（serve/feishu）可忽略。
+type EventConfirmationRequest struct {
+	ToolCallID  string
+	ToolName    string
+	Description string // 工具给出的操作描述
+}
+
+func (EventConfirmationRequest) agentEventMarker() {}
+
+// EventConfirmationResult 携带用户对确认请求的裁决。
+type EventConfirmationResult struct {
+	ToolCallID string
+	Approved   bool
+	Reason     string // 拒绝理由（Approved=false 时）
+}
+
+func (EventConfirmationResult) agentEventMarker() {}

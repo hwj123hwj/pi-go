@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/earendil-works/pi-go/internal/agent"
 	"github.com/earendil-works/pi-go/internal/app"
 	"github.com/earendil-works/pi-go/internal/runtime"
 	"github.com/earendil-works/pi-go/internal/slashcmd"
@@ -43,6 +44,14 @@ func (m *InteractiveMode) Run(ctx context.Context) error {
 	scanner := bufio.NewScanner(os.Stdin)
 	provider, modelID := m.session.ModelInfo()
 	cwd, _ := os.Getwd()
+
+	// 注入危险工具确认回调：交互模式下弹 y/n 确认。
+	// 仅在交互式入口注入；serve/feishu 不注入（默认放行）。
+	// 时机安全：ConfirmFunc 仅在 Agent 等待确认时被调，此时主循环阻塞在
+	// range stream 上、不在读 stdin，故此处独立读 os.Stdin 不会与主 scanner 抢占。
+	m.session.SetConfirmFunc(func(ctx context.Context, req agent.ConfirmationRequest) agent.ConfirmDecision {
+		return promptConfirm(os.Stdout, os.Stdin, req.Description)
+	})
 
 	// Print banner
 	ui.PrintBanner(os.Stdout)
@@ -98,11 +107,11 @@ func (m *InteractiveMode) Run(ctx context.Context) error {
 					fmt.Println(result.Output)
 				}
 			}
-				// Handle ShouldQuery: auto-trigger agent execution
-				if result.ShouldQuery {
-					m.runPrompt(ctx, "Start working on the goal.")
-					continue
-				}
+			// Handle ShouldQuery: auto-trigger agent execution
+			if result.ShouldQuery {
+				m.runPrompt(ctx, "Start working on the goal.")
+				continue
+			}
 			continue
 		}
 

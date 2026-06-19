@@ -29,6 +29,8 @@ const (
 	DisplayCompacted
 	DisplayDone
 	DisplayError
+	DisplayConfirmationReq
+	DisplayConfirmationRes
 )
 
 // Presenter converts agent stream events into display events.
@@ -82,6 +84,12 @@ func convertEvent(event agent.AgentStreamEvent) DisplayEvent {
 		}
 		return DisplayEvent{Type: DisplayCompacted, Content: "context compacted"}
 
+	case agent.StreamEventConfirmationReq:
+		return DisplayEvent{Type: DisplayConfirmationReq, Content: event.Description}
+
+	case agent.StreamEventConfirmationRes:
+		return DisplayEvent{Type: DisplayConfirmationRes, Content: event.Description, IsError: !event.Approved}
+
 	case agent.StreamEventDone:
 		return DisplayEvent{Type: DisplayDone}
 
@@ -122,6 +130,20 @@ func (p *Presenter) render(de DisplayEvent) {
 
 	case DisplayCompacted:
 		fmt.Fprintf(p.w, "\n  [%s]\n", de.Content)
+
+	case DisplayConfirmationReq:
+		fmt.Fprintf(p.w, "\n  ⚠ 需要确认: %s\n", de.Content)
+
+	case DisplayConfirmationRes:
+		if de.IsError { // IsError 复用为"是否拒绝"
+			msg := "用户拒绝"
+			if de.Content != "" {
+				msg = de.Content
+			}
+			fmt.Fprintf(p.w, "  ✗ 已拒绝：%s\n", msg)
+		} else {
+			fmt.Fprint(p.w, "  ✓ 已确认，继续执行\n")
+		}
 
 	case DisplayDone:
 		fmt.Fprintln(p.w)
