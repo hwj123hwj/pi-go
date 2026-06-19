@@ -32,7 +32,9 @@ func NewMusicApplication(cfg config.Config, client *netease.Client, cache *music
 
 // BuildTools assembles the music-agent toolset.
 func (a MusicApplication) BuildTools(opts runtime.ToolBuildOptions) []agent.Tool {
-	audioBaseURL := fmt.Sprintf("http://%s:%d/music/audio", a.Cfg.Host, a.Cfg.MusicPort)
+	// Use the main server port (MusicApplication is now embedded in pi-agent,
+	// audio proxy is served on the same port as the main server).
+	audioBaseURL := fmt.Sprintf("http://%s:%d/music/audio", a.Cfg.Host, a.Cfg.Port)
 	return musictools.BuildList(musictools.ListOptions{
 		NetEaseClient: a.Client,
 		Cache:         a.Cache,

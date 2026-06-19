@@ -5,12 +5,17 @@ import (
 	"flag"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"os"
 
 	"github.com/earendil-works/pi-go/internal/agents/coding"
+	musicapp "github.com/earendil-works/pi-go/internal/agents/music"
 	"github.com/earendil-works/pi-go/internal/app"
 	"github.com/earendil-works/pi-go/internal/config"
 	"github.com/earendil-works/pi-go/internal/mode"
+	music "github.com/earendil-works/pi-go/internal/music"
+	"github.com/earendil-works/pi-go/internal/music/netease"
+	"github.com/earendil-works/pi-go/internal/runtime"
 	"github.com/earendil-works/pi-go/internal/slashcmd"
 )
 
@@ -44,11 +49,19 @@ func main() {
 		// Keep default INFO level for other modes
 	}
 
-	// Create App (thin assembly layer)
+	// Create music dependencies
+	neClient := netease.NewClient()
+	musicCache := music.NewCache()
+
+	// Create App (thin assembly layer) with both coding and music applications
 	application, err := app.New(app.AppOptions{
 		Config:      cfg,
 		SkillDirs:   skillDirs(*skillDir),
 		Application: coding.NewCodingApplication(cfg),
+		Applications: map[string]runtime.Application{
+			"coding": coding.NewCodingApplication(cfg),
+			"music":  musicapp.NewMusicApplication(cfg, neClient, musicCache),
+		},
 	})
 	if err != nil {
 		slog.Error("failed to create app", "error", err)
@@ -72,8 +85,14 @@ func main() {
 
 	case "serve":
 		cmds := buildSlashRegistry()
+		// Music audio proxy routes
+		musicHandler := music.NewHandler(neClient, musicCache)
+		extraMux := http.NewServeMux()
+		musicHandler.RegisterRoutes(extraMux)
+		srv := mode.NewServeMode(application, cmds)
+		srv.SetExtraRoutes(extraMux)
 		slog.Info("starting pi-go server", "listen", *listen)
-		if err := mode.NewServeMode(application, cmds).Run(*listen); err != nil {
+		if err := srv.Run(*listen); err != nil {
 			slog.Error("server failed", "error", err)
 			os.Exit(1)
 		}

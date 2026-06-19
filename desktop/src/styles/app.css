@@ -306,6 +306,84 @@ select {
   border-color: var(--accent-border);
   color: var(--accent);
 }
+
+/* New session dropdown */
+.new-session-wrap {
+  position: relative;
+  flex: 1;
+  display: flex;
+  gap: 0;
+}
+.new-session-wrap .btn-new {
+  flex: 1;
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+}
+.btn-new-dropdown {
+  -webkit-app-region: no-drag;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 9px 6px;
+  border: 1px solid var(--border-strong);
+  border-left: none;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  background: var(--bg-raised);
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: border-color 0.14s, color 0.14s;
+}
+.btn-new-dropdown:hover {
+  border-color: var(--accent-border);
+  color: var(--accent);
+}
+.new-session-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 4px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow);
+  z-index: 100;
+  overflow: hidden;
+}
+.new-session-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.new-session-option:hover {
+  background: var(--bg-hover);
+}
+
+/* Session mode badge */
+.session-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+}
+.session-badge.music {
+  background: var(--accent-weak);
+  color: var(--accent);
+}
+.session-badge.coding {
+  background: var(--blue-weak);
+  color: var(--blue);
+}
 .sidebar-filters {
   display: flex;
   gap: 6px;

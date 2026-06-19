@@ -209,7 +209,7 @@ interface StoreState {
   init: () => Promise<void>;
   refreshSessions: () => Promise<void>;
   setActive: (id: string) => void;
-  createSession: (opts?: { cwd?: string; model?: string }) => Promise<string>;
+  createSession: (opts?: { cwd?: string; model?: string; application?: string }) => Promise<string>;
   deleteSession: (id: string) => Promise<void>;
   sendPrompt: (id: string, text: string) => Promise<void>;
   cancel: (id: string) => Promise<void>;
@@ -485,13 +485,15 @@ export const useStore = create<StoreState>((set, get) => ({
     const body: Record<string, string> = {};
     if (opts?.cwd) body.cwd = opts.cwd;
     if (opts?.model) body.model = opts.model;
+    if (opts?.application) body.application = opts.application;
     const result = await apiRequest<{ id: string; created_at: number }>('POST', '/sessions', body);
     const meta: SessionMeta = {
       id: result.id,
-      title: opts?.cwd ? projectName(opts.cwd) : 'New Session',
+      title: opts?.application === 'music' ? '🎵 Music' : opts?.cwd ? projectName(opts.cwd) : 'New Session',
       cwd: opts?.cwd || '',
       status: 'idle' as SessionRunStatus,
       model: opts?.model || cachedCurrentModel,
+      application: opts?.application,
       availableModels: defaultModels(),
       createdAt: result.created_at || Date.now(),
       updatedAt: Date.now(),

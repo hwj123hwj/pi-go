@@ -27,7 +27,8 @@ type App struct {
 	registry     *providers.Registry
 	sessionStore *runtime.SessionRegistry
 	extRegistry  *extensions.Registry
-	application  runtime.Application
+	application  runtime.Application            // default application (backward compat)
+	applications map[string]runtime.Application // named applications for per-session selection
 	extraTools   []agent.ExternalToolDef
 }
 
@@ -36,6 +37,12 @@ type AppOptions struct {
 	Config      config.Config
 	SkillDirs   []string
 	Application runtime.Application // inject a concrete Application; defaults to CodingApplication
+
+	// Applications is a named map of available applications.
+	// Keys are application names (e.g. "coding", "music") that the frontend
+	// can use to select which application a session should use.
+	// If empty, falls back to Application (or CodingApplication).
+	Applications map[string]runtime.Application
 }
 
 // New creates a new App, assembling all shared dependencies.
@@ -57,10 +64,21 @@ func New(opts AppOptions) (*App, error) {
 	// Session registry (runtime)
 	store := runtime.NewSessionRegistry()
 
+	// Build application map
+	apps := make(map[string]runtime.Application)
+	for k, v := range opts.Applications {
+		apps[k] = v
+	}
+
 	// Use injected Application, or default to CodingApplication
 	application := opts.Application
 	if application == nil {
 		application = coding.NewCodingApplication(cfg)
+	}
+
+	// Ensure "coding" is always in the map
+	if _, ok := apps["coding"]; !ok {
+		apps["coding"] = application
 	}
 
 	return &App{
@@ -71,7 +89,28 @@ func New(opts AppOptions) (*App, error) {
 		sessionStore: store,
 		extRegistry:  extReg,
 		application:  application,
+		applications: apps,
 	}, nil
+}
+
+// ApplicationNames returns the names of all registered applications.
+func (a *App) ApplicationNames() []string {
+	names := make([]string, 0, len(a.applications))
+	for name := range a.applications {
+		names = append(names, name)
+	}
+	return names
+}
+
+// ResolveApplication returns the Application for the given name.
+// Falls back to the default application if name is empty or unknown.
+func (a *App) ResolveApplication(name string) runtime.Application {
+	if name != "" {
+		if app, ok := a.applications[name]; ok {
+			return app
+		}
+	}
+	return a.application
 }
 
 // NewSession creates a new AgentSession with a fresh session.
@@ -117,6 +156,16 @@ func (a *App) SessionStore() *runtime.SessionRegistry {
 // SessionDeps returns the dependencies for creating sessions (exposed for server).
 func (a *App) SessionDeps() runtime.Dependencies {
 	return a.deps()
+}
+
+// SessionDepsWithApp returns dependencies with a specific application selected by name.
+// Falls back to the default application if name is empty or unknown.
+func (a *App) SessionDepsWithApp(appName string) runtime.Dependencies {
+	d := a.deps()
+	if appName != "" {
+		d.Application = a.ResolveApplication(appName)
+	}
+	return d
 }
 
 // Config returns the current configuration.

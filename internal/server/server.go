@@ -83,6 +83,7 @@ func (s *Server) Handler() http.Handler {
 	restMux.HandleFunc("POST /sessions/{id}/model", s.switchModel)
 	restMux.HandleFunc("GET /models", s.listModels)
 	restMux.HandleFunc("GET /tools", s.listTools)
+	restMux.HandleFunc("GET /applications", s.listApplications)
 	restMux.HandleFunc("POST /sessions/{id}/compact", s.compactSession)
 	restMux.HandleFunc("POST /sessions/{id}/command", s.executeCommand)
 	restMux.HandleFunc("POST /tools/register", s.registerTool)
@@ -108,6 +109,7 @@ func (s *Server) Handler() http.Handler {
 	topMux.Handle("/sessions/", restHandler)
 	topMux.Handle("/models", restHandler)
 	topMux.Handle("/tools", restHandler)
+	topMux.Handle("/applications", restHandler)
 
 	// Register web UI routes (serves embedded static files at /)
 	web.RegisterRoutes(topMux)
@@ -244,8 +246,9 @@ func (s *Server) listSessions(w http.ResponseWriter, r *http.Request) {
 
 // CreateSessionRequest is the request body for creating a session.
 type CreateSessionRequest struct {
-	Cwd   string `json:"cwd,omitempty"`
-	Model string `json:"model,omitempty"`
+	Cwd         string `json:"cwd,omitempty"`
+	Model       string `json:"model,omitempty"`
+	Application string `json:"application,omitempty"` // e.g. "coding", "music"
 }
 
 func (s *Server) createSession(w http.ResponseWriter, r *http.Request) {
@@ -272,7 +275,7 @@ func (s *Server) createSession(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	deps := s.app.SessionDeps()
+	deps := s.app.SessionDepsWithApp(req.Application)
 	opts := runtime.AgentSessionOptions{
 		Config: cfg,
 	}
@@ -373,6 +376,16 @@ func (s *Server) listTools(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{
 		"tools": toolNames,
+	})
+}
+
+// ─── GET /applications ───────────────────────────────────────────────────────
+
+func (s *Server) listApplications(w http.ResponseWriter, r *http.Request) {
+	names := s.app.ApplicationNames()
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"applications": names,
 	})
 }
 
