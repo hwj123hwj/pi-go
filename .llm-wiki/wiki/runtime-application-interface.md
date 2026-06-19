@@ -54,3 +54,5 @@ Optional per-session extension providing:
 - [[tool-system]] — Built via `BuildTools()`
 - [[agent-loop]] — Loops are managed by runtime
 - [[four-layer-architecture]] — This is the Platform↔App boundary
+- [[coding-application]] — CodingApplication implements this interface
+- [[server-websocket]] — Server uses Runtime to create sessions

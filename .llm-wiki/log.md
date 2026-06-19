@@ -24,3 +24,19 @@
 - **Created** `operations-abstract.md` — Local/SSH backend concept
 - **Updated** `index.md` — Added all new pages to their sections
 - **Updated** `overview.md` — (no changes needed, already covered all)
+
+## [2026-06-14] ingest | Project Root (.) — comprehensive re-ingest
+- **Created** `desktop-app.md` — Electron + React desktop application entity
+- **Created** `feishu-integration.md` — Lark/Feishu bot bridge entity
+- **Created** `server-websocket.md` — HTTP REST + SSE + WebSocket server entity
+- **Created** `config-system.md` — Environment-driven configuration entity
+- **Created** `coding-application.md` — Coding agent application entity
+- **Created** `tui-presenter.md` — Terminal UI rendering entity
+- **Created** `external-tools.md` — HTTP callback tool registration entity
+- **Created** `web-embed.md` — Embedded SPA static file serving entity
+- **Created** `ai-transform-retry.md` — Message transform, retry, cost, model concept
+- **Updated** `overview.md` — Added external tools, status updates, desktop link
+- **Updated** `agent-core.md` — Added dependencies on external-tools and coding-application
+- **Updated** `tool-system.md` — Added partitioning details, external tools section
+- **Updated** `runtime-application-interface.md` — Added coding-application and server links
+- **Updated** `index.md` — Added 9 new pages to entities section

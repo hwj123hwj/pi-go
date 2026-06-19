@@ -1,6 +1,6 @@
 ---
 tags: [project-overview, architecture, agent-framework]
-date: 2026-06-10
+date: 2026-06-14
 ---
 
 # Pi-Go 项目概览
@@ -33,27 +33,28 @@ Entrypoints（组装与入口）
 | 技能系统 | `.claude/skills/` 目录加载 SKILL.md | ✅ |
 | Goal-Driven Loop | 目标驱动，自动评估完成度 | ✅ |
 | SSH 远程执行 | 通过 Operations 抽象切换 | ✅ |
-| Slash Commands | 14 个内置命令 | ✅ |
+| Slash Commands | 13 个内置命令 | ✅ |
 | HTTP API | REST + SSE + WebSocket | ✅ |
-| 桌面客户端 | Electron + React (v0.2.0) | 🚧 进行中 |
+| 桌面客户端 | Electron + React (v0.2.0) | ✅ 可用 |
 | 飞书桥接 | 独立服务接入飞书群聊 | ✅ 基础版 |
+| 外部工具 | HTTP 回调注册 | ✅ |
 
 ## 三种交付入口
 
 1. **CLI** — 交互式/单次/服务模式
-2. **Desktop** — Electron + React GUI
-3. **Server + Feishu** — 飞书群聊 Agent
+2. **Desktop** — Electron + React GUI ([[desktop-app]])
+3. **Server + Feishu** — 飞书群聊 Agent ([[feishu-integration]])
 
 ## 技术栈
 
 - **语言**：Go 1.24+
-- **桌面端**：Electron 33 / React 19 / Vite 6 / TypeScript 5
-- **外部依赖**：极简（标准库为主）
-- **存储**：文件系统（JSONL 会话）
-- **代码量**：~12,400 行 Go + 测试
+- **桌面端**：Electron 33 / React 19 / Vite 6 / TypeScript 5 / Zustand
+- **外部依赖**：极简（标准库为主；gorilla/websocket, larksuite oapi-sdk, lipgloss）
+- **存储**：文件系统（JSONL 会话 + JSON meta）
+- **代码量**：~12,400 行 Go + 39 个测试文件 + ~4,000 行 TypeScript/React
 
 ## 项目状态
 
 - **分支**：main
 - **路线图阶段**：Phase 1（基础能力已完成），Phase 2-5 规划中
-- **近期方向**：工具增强（bash streaming / 图片感知）、模型注册表、Desktop 打磨
+- **近期方向**：Desktop 打磨、工具增强、Agent 协作

@@ -55,11 +55,24 @@ The `partitionToolCalls` function groups tool calls into parallel-safe batches:
 - Sequential or unsafe tools → serial batch
 - Extension tools can implement `ConcurrencySafeChecker` via duck typing
 
+### Partitioning Algorithm (`partition_test.go`)
+The partition system (`internal/agent/partition_test.go`) classifies each tool call:
+- **Safe** — Can run concurrently with other safe calls
+- **Unsafe** — Must be serialized (file mutations, bash commands)
+- Execution flow: partition → batch → validate → execute → collect
+
 ## Filtering
 
 Tools can be filtered via config:
 - `AllowedTools` — whitelist
 - `BlockedTools` — blacklist
+
+## External Tools
+
+Tools can also be registered externally via HTTP callbacks ([[external-tools]]):
+- Registered via `POST /tools/register` API endpoint
+- Executed by HTTP POST to the callback URL
+- Support streaming partial results
 
 ## Related
 

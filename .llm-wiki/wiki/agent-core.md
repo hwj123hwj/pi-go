@@ -55,3 +55,5 @@ The agent emits events via a pub/sub model. `PromptStream` subscribes and forwar
 - [[session-persistence]] — Optional session storage
 - [[context-compaction]] — Managed via SummarizeFunc
 - [[agent-loop]] — The core execution loop
+- [[external-tools]] — HTTP-registered tools dispatched during execution
+- [[coding-application]] — The primary application layer driving the agent
