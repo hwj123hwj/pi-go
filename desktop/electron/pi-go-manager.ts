@@ -14,16 +14,11 @@ export interface PiGoServerInfo {
 const DEFAULT_ENV_CONTENT = `# Pi-Go Configuration
 # Edit this file to change the AI provider and model.
 
-PI_GO_PROVIDER=deepv
-DEEPV_ENABLED=true
-DEEPV_MODEL=deepseek-v4-flash
-# DEEPV_WORK_DIR=/path/to/your/project
-
-# OpenAI-compatible (alternative)
-# PI_GO_PROVIDER=openai
-# OPENAI_API_KEY=your-api-key
-# OPENAI_MODEL=gpt-4
-# OPENAI_BASE_URL=https://api.openai.com/v1
+# Use OpenAI-compatible provider to connect to local gateway
+PI_GO_PROVIDER=openai
+OPENAI_API_KEY=sk-local-gateway-hwj123hwj
+OPENAI_BASE_URL=http://localhost:4001
+OPENAI_MODEL=mimo-opus
 
 # Enable bash tool
 PI_GO_ENABLE_BASH=true
@@ -135,9 +130,10 @@ export class PiGoManager {
       // cwd is pi-go root so .env is loaded automatically
       spawnCwd = path.resolve(__dirname, '..', '..', '..');
 
-      envVars.PI_GO_PROVIDER = process.env.PI_GO_PROVIDER || 'deepv';
-      envVars.DEEPV_ENABLED = process.env.DEEPV_ENABLED || 'true';
-      envVars.DEEPV_MODEL = process.env.DEEPV_MODEL || 'deepseek-v4-flash';
+      envVars.PI_GO_PROVIDER = process.env.PI_GO_PROVIDER || 'openai';
+      envVars.OPENAI_API_KEY = process.env.OPENAI_API_KEY || 'sk-local-gateway-hwj123hwj';
+      envVars.OPENAI_BASE_URL = process.env.OPENAI_BASE_URL || 'http://localhost:4001';
+      envVars.OPENAI_MODEL = process.env.OPENAI_MODEL || 'mimo-opus';
     }
 
     this.process = spawn(binary, ['-mode', 'serve', '-listen', `127.0.0.1:${port}`], {

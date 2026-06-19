@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -226,11 +227,49 @@ func (s *Server) listSessions(w http.ResponseWriter, r *http.Request) {
 
 // ─── POST /sessions ───────────────────────────────────────────────────────────
 
+// CreateSessionRequest is the request body for creating a session.
+type CreateSessionRequest struct {
+	Cwd   string `json:"cwd,omitempty"`
+	Model string `json:"model,omitempty"`
+}
+
 func (s *Server) createSession(w http.ResponseWriter, r *http.Request) {
-	sess, err := s.app.NewSession(r.Context())
+	var req CreateSessionRequest
+	// Allow empty body
+	_ = json.NewDecoder(r.Body).Decode(&req)
+
+	cfg := s.app.Config()
+
+	// Apply cwd override if provided
+	if req.Cwd != "" {
+		cfg.Workspace = req.Cwd
+	}
+
+	// Apply model override if provided
+	if req.Model != "" {
+		switch cfg.Provider {
+		case "openai":
+			cfg.OpenAIModel = req.Model
+		case "deepv":
+			cfg.DeepVModel = req.Model
+		case "anthropic":
+			cfg.AnthropicModel = req.Model
+		}
+	}
+
+	deps := s.app.SessionDeps()
+	opts := runtime.AgentSessionOptions{
+		Config: cfg,
+	}
+	sess, err := s.app.SessionStore().Create(r.Context(), opts, deps)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
+	}
+
+	// Persist workspace metadata for session listing
+	if req.Cwd != "" {
+		_ = s.app.SessionManager().SaveMeta(sess.SessionID(), req.Cwd)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -333,20 +372,25 @@ type ModelInfo struct {
 
 // ModelsResponse is the response for the models list endpoint.
 type ModelsResponse struct {
-	Models  []ModelInfo      `json:"models"`
-	Current *ModelInfo       `json:"current,omitempty"`
+	Models  []ModelInfo `json:"models"`
+	Current *ModelInfo  `json:"current,omitempty"`
+}
+
+// gatewayModel represents a single model entry from the gateway /v1/models API.
+type gatewayModel struct {
+	ID          string `json:"id"`
+	DisplayName string `json:"display_name"`
+}
+
+// gatewayModelsResponse is the response shape from the gateway.
+type gatewayModelsResponse struct {
+	Data []gatewayModel `json:"data"`
 }
 
 func (s *Server) listModels(w http.ResponseWriter, r *http.Request) {
-	// Build model catalog from known models
-	models := []ModelInfo{
-		{ID: "deepseek-v4-flash", Provider: "deepv", Name: "DeepSeek V4 Flash"},
-		{ID: "glm-5", Provider: "deepv", Name: "GLM-5"},
-		{ID: "claude-sonnet-4-6", Provider: "deepv", Name: "Claude Sonnet 4.6"},
-	}
+	cfg := s.app.Config()
 
 	// Determine current model from config
-	cfg := s.app.Config()
 	var current *ModelInfo
 	provider := cfg.Provider
 	modelID := ""
@@ -362,8 +406,73 @@ func (s *Server) listModels(w http.ResponseWriter, r *http.Request) {
 		current = &ModelInfo{ID: modelID, Provider: provider, Name: modelID}
 	}
 
+	// Try to fetch models dynamically from the gateway (OpenAI-compatible /v1/models)
+	var models []ModelInfo
+	if cfg.OpenAIBaseURL != "" && cfg.OpenAIAPIKey != "" {
+		models = s.fetchGatewayModels(cfg.OpenAIBaseURL, cfg.OpenAIAPIKey)
+	}
+
+	// Fallback to hardcoded list if gateway is unreachable
+	if len(models) == 0 {
+		models = []ModelInfo{
+			{ID: "deepseek-v4-flash", Provider: "openai", Name: "DeepSeek V4 Flash"},
+			{ID: "glm-5", Provider: "openai", Name: "GLM-5"},
+			{ID: "claude-sonnet-4-6", Provider: "openai", Name: "Claude Sonnet 4.6"},
+		}
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(ModelsResponse{Models: models, Current: current})
+}
+
+// fetchGatewayModels queries an OpenAI-compatible /v1/models endpoint and returns
+// the list of available models. Returns nil on any error.
+func (s *Server) fetchGatewayModels(baseURL, apiKey string) []ModelInfo {
+	// Normalize base URL: ensure it ends with /
+	if !strings.HasSuffix(baseURL, "/") {
+		baseURL += "/"
+	}
+
+	url := baseURL + "v1/models"
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		slog.Debug("failed to create gateway models request", "error", err)
+		return nil
+	}
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		slog.Debug("failed to fetch gateway models", "url", url, "error", err)
+		return nil
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		slog.Debug("gateway models returned non-200", "status", resp.StatusCode)
+		return nil
+	}
+
+	var gwResp gatewayModelsResponse
+	if err := json.NewDecoder(resp.Body).Decode(&gwResp); err != nil {
+		slog.Debug("failed to decode gateway models response", "error", err)
+		return nil
+	}
+
+	models := make([]ModelInfo, 0, len(gwResp.Data))
+	for _, m := range gwResp.Data {
+		name := m.DisplayName
+		if name == "" {
+			name = m.ID
+		}
+		models = append(models, ModelInfo{
+			ID:       m.ID,
+			Provider: "openai",
+			Name:     name,
+		})
+	}
+	return models
 }
 
 // ─── GET /sessions/{id}/info ──────────────────────────────────────────────────
@@ -384,11 +493,15 @@ func (s *Server) getSessionInfo(w http.ResponseWriter, r *http.Request) {
 
 	provider, modelID := sess.ModelInfo()
 
+	// Get workspace from config
+	workspace := sess.Config().Workspace
+
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{
 		"id":        sess.SessionID(),
 		"provider":  provider,
 		"model":     modelID,
+		"workspace": workspace,
 	})
 }
 

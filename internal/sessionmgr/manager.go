@@ -26,6 +26,7 @@ type SessionInfo struct {
 	CreatedAt    int64  `json:"created_at"`
 	MessageCount int    `json:"message_count"`
 	LastActive   int64  `json:"last_active"`
+	Workspace    string `json:"workspace,omitempty"`
 }
 
 // NewManager creates a new session manager rooted at dataDir.
@@ -61,6 +62,34 @@ func (m *Manager) Create(ctx context.Context) (string, string, error) {
 	storage.Close()
 
 	return id, sessionPath, nil
+}
+
+// SaveMeta writes session metadata (e.g. workspace) to meta.json in the session directory.
+func (m *Manager) SaveMeta(sessionID string, workspace string) error {
+	sessionDir := filepath.Join(m.SessionsDir(), sessionID)
+	metaPath := filepath.Join(sessionDir, "meta.json")
+	meta := map[string]string{"workspace": workspace}
+	data, err := json.Marshal(meta)
+	if err != nil {
+		return fmt.Errorf("marshal meta: %w", err)
+	}
+	return os.WriteFile(metaPath, data, 0o644)
+}
+
+// readMeta reads session metadata from meta.json if it exists.
+func readMeta(sessionDir string) (workspace string) {
+	metaPath := filepath.Join(sessionDir, "meta.json")
+	data, err := os.ReadFile(metaPath)
+	if err != nil {
+		return ""
+	}
+	var meta struct {
+		Workspace string `json:"workspace"`
+	}
+	if json.Unmarshal(data, &meta) == nil {
+		return meta.Workspace
+	}
+	return ""
 }
 
 // Open opens an existing session by ID.
@@ -162,6 +191,9 @@ func (m *Manager) List(ctx context.Context) ([]SessionInfo, error) {
 			info.CreatedAt = fi.ModTime().Unix()
 			info.LastActive = fi.ModTime().Unix()
 		}
+
+		// Read workspace from meta.json
+		info.Workspace = readMeta(filepath.Join(sessionsDir, id))
 
 		// Count messages by scanning JSONL
 		msgCount, lastActive, err := countMessages(sessionPath)

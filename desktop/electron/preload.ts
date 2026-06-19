@@ -12,6 +12,7 @@ export interface PiAPI {
   startServer: () => Promise<{ url: string; port: number } | { error: string }>;
   checkForUpdate: () => Promise<UpdateInfo | null>;
   openDownloadPage: (url: string) => Promise<void>;
+  pickFolder: () => Promise<string | null>;
 }
 
 contextBridge.exposeInMainWorld('piAPI', {
@@ -19,4 +20,5 @@ contextBridge.exposeInMainWorld('piAPI', {
   startServer: () => ipcRenderer.invoke('start-server'),
   checkForUpdate: () => ipcRenderer.invoke('check-for-update'),
   openDownloadPage: (url: string) => ipcRenderer.invoke('open-download-page', url),
+  pickFolder: () => ipcRenderer.invoke('pick-folder'),
 });

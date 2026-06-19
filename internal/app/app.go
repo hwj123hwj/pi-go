@@ -114,6 +114,11 @@ func (a *App) SessionStore() *runtime.SessionRegistry {
 	return a.sessionStore
 }
 
+// SessionDeps returns the dependencies for creating sessions (exposed for server).
+func (a *App) SessionDeps() runtime.Dependencies {
+	return a.deps()
+}
+
 // Config returns the current configuration.
 func (a *App) Config() config.Config {
 	return a.cfg
