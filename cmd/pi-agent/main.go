@@ -5,8 +5,10 @@ import (
 	"flag"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
+	"strconv"
 
 	"github.com/earendil-works/pi-go/internal/agents/coding"
 	musicapp "github.com/earendil-works/pi-go/internal/agents/music"
@@ -39,6 +41,17 @@ func main() {
 	sessionFlag := flag.String("session", "", "session ID (empty = new session)")
 	skillDir := flag.String("skill-dir", "", "directory containing skills (SKILL.md files)")
 	flag.Parse()
+
+	// Sync the actual listen port back to config so MusicApplication
+	// generates correct audio proxy URLs (the desktop app uses random ports).
+	if _, portStr, err := net.SplitHostPort(*listen); err == nil {
+		if p, err := strconv.Atoi(portStr); err == nil {
+			cfg.Port = p
+		}
+	}
+	if host, _, err := net.SplitHostPort(*listen); err == nil && host != "" {
+		cfg.Host = host
+	}
 
 	// Set log level based on mode
 	switch *modeFlag {
