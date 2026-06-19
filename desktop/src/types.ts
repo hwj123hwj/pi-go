@@ -24,6 +24,7 @@ export interface SessionMeta {
   cwd: string;
   status: SessionRunStatus;
   model?: string;
+  application?: string; // e.g. "coding", "music"
   availableModels: ModelInfo[];
   createdAt: number;
   updatedAt: number;

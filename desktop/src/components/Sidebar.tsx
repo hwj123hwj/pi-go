@@ -30,6 +30,7 @@ export function Sidebar() {
   const [draft, setDraft] = useState('');
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [filter, setFilter] = useState('');
+  const [showNewMenu, setShowNewMenu] = useState(false);
 
   const toggleCollapse = (key: string) =>
     setCollapsed((prev) => {
@@ -88,8 +89,9 @@ export function Sidebar() {
     }
   };
 
-  const handleNew = async () => {
-    await createSession();
+  const handleNew = async (application?: string) => {
+    setShowNewMenu(false);
+    await createSession(application ? { application } : undefined);
   };
 
   const handleNewProject = async () => {
@@ -125,16 +127,23 @@ export function Sidebar() {
             }}
           />
         ) : (
-          <span
-            className="session-title"
-            title={t('sidebar.dblClickRename')}
-            onDoubleClick={(e) => {
-              e.stopPropagation();
-              startEdit(v.meta.id, v.meta.title);
-            }}
-          >
-            {v.meta.title}
-          </span>
+          <>
+            <span
+              className="session-title"
+              title={t('sidebar.dblClickRename')}
+              onDoubleClick={(e) => {
+                e.stopPropagation();
+                startEdit(v.meta.id, v.meta.title);
+              }}
+            >
+              {v.meta.title}
+            </span>
+            {v.meta.application && (
+              <span className={`session-badge ${v.meta.application}`}>
+                {v.meta.application}
+              </span>
+            )}
+          </>
         )}
       </div>
       <div className="session-row">
@@ -169,10 +178,31 @@ export function Sidebar() {
           Pi-Go
         </div>
         <div className="sidebar-head-actions">
-          <button className="btn-new" onClick={() => void handleNew()}>
-            <Icon name="plus" size={15} />
-            {t('sidebar.newSession')}
-          </button>
+          <div className="new-session-wrap">
+            <button className="btn-new" onClick={() => void handleNew()}>
+              <Icon name="plus" size={15} />
+              {t('sidebar.newSession')}
+            </button>
+            <button
+              className="btn-new-dropdown"
+              onClick={() => setShowNewMenu(!showNewMenu)}
+              title="Choose mode"
+            >
+              <Icon name="chevron-down" size={12} />
+            </button>
+            {showNewMenu && (
+              <div className="new-session-menu">
+                <button className="new-session-option" onClick={() => void handleNew()}>
+                  <Icon name="cpu" size={14} />
+                  Coding
+                </button>
+                <button className="new-session-option" onClick={() => void handleNew('music')}>
+                  <Icon name="sparkle" size={14} />
+                  Music
+                </button>
+              </div>
+            )}
+          </div>
           <button className="btn-new-project" onClick={() => void handleNewProject()} title={t('sidebar.newProject') || 'New Project'}>
             <Icon name="folder-open" size={15} />
           </button>

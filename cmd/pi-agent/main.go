@@ -5,12 +5,19 @@ import (
 	"flag"
 	"fmt"
 	"log/slog"
+	"net"
+	"net/http"
 	"os"
+	"strconv"
 
 	"github.com/earendil-works/pi-go/internal/agents/coding"
+	musicapp "github.com/earendil-works/pi-go/internal/agents/music"
 	"github.com/earendil-works/pi-go/internal/app"
 	"github.com/earendil-works/pi-go/internal/config"
 	"github.com/earendil-works/pi-go/internal/mode"
+	music "github.com/earendil-works/pi-go/internal/music"
+	"github.com/earendil-works/pi-go/internal/music/netease"
+	"github.com/earendil-works/pi-go/internal/runtime"
 	"github.com/earendil-works/pi-go/internal/slashcmd"
 )
 
@@ -35,6 +42,17 @@ func main() {
 	skillDir := flag.String("skill-dir", "", "directory containing skills (SKILL.md files)")
 	flag.Parse()
 
+	// Sync the actual listen port back to config so MusicApplication
+	// generates correct audio proxy URLs (the desktop app uses random ports).
+	if _, portStr, err := net.SplitHostPort(*listen); err == nil {
+		if p, err := strconv.Atoi(portStr); err == nil {
+			cfg.Port = p
+		}
+	}
+	if host, _, err := net.SplitHostPort(*listen); err == nil && host != "" {
+		cfg.Host = host
+	}
+
 	// Set log level based on mode
 	switch *modeFlag {
 	case "interactive", "chat":
@@ -44,11 +62,19 @@ func main() {
 		// Keep default INFO level for other modes
 	}
 
-	// Create App (thin assembly layer)
+	// Create music dependencies
+	neClient := netease.NewClient()
+	musicCache := music.NewCache()
+
+	// Create App (thin assembly layer) with both coding and music applications
 	application, err := app.New(app.AppOptions{
 		Config:      cfg,
 		SkillDirs:   skillDirs(*skillDir),
 		Application: coding.NewCodingApplication(cfg),
+		Applications: map[string]runtime.Application{
+			"coding": coding.NewCodingApplication(cfg),
+			"music":  musicapp.NewMusicApplication(cfg, neClient, musicCache),
+		},
 	})
 	if err != nil {
 		slog.Error("failed to create app", "error", err)
@@ -72,8 +98,14 @@ func main() {
 
 	case "serve":
 		cmds := buildSlashRegistry()
+		// Music audio proxy routes
+		musicHandler := music.NewHandler(neClient, musicCache)
+		extraMux := http.NewServeMux()
+		musicHandler.RegisterRoutes(extraMux)
+		srv := mode.NewServeMode(application, cmds)
+		srv.SetExtraRoutes(extraMux)
 		slog.Info("starting pi-go server", "listen", *listen)
-		if err := mode.NewServeMode(application, cmds).Run(*listen); err != nil {
+		if err := srv.Run(*listen); err != nil {
 			slog.Error("server failed", "error", err)
 			os.Exit(1)
 		}
