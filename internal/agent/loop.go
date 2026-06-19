@@ -490,8 +490,15 @@ func executeOneTool(ctx context.Context, a *Agent, call ai.ToolCall) ai.Message 
 	// 7. Execute tool
 	rawResult, err := tool.Execute(ctx, args, onUpdate)
 	if err != nil {
-		a.emit(ctx, EventToolExecutionEnd{ToolCallID: call.ID, ToolName: call.Name, Result: err.Error(), IsError: true})
-		return ai.ToolResultMessage{ToolCallID: call.ID, Content: err.Error(), IsError: true}
+		// Some tools (e.g. bash) return both a result with output and an error.
+		// Prefer the result content (actual command output/error) over err.Error()
+		// which may be a generic message like "command exited with code 127".
+		content := err.Error()
+		if rawResult.Content != "" {
+			content = rawResult.Content
+		}
+		a.emit(ctx, EventToolExecutionEnd{ToolCallID: call.ID, ToolName: call.Name, Result: content, IsError: true})
+		return ai.ToolResultMessage{ToolCallID: call.ID, Content: content, IsError: true}
 	}
 
 	// 8. Run after hooks
