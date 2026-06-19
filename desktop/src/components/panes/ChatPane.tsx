@@ -2,6 +2,8 @@ import { useEffect, useRef } from 'react';
 import { useStore, type ChatItem, type SessionView } from '../../store';
 import { Markdown } from '../Markdown';
 import { ToolCall } from '../ToolCall';
+import { MusicPlayer } from '../MusicPlayer';
+import { LyricsViewer } from '../LyricsViewer';
 import { Icon, toolKindIcon } from '../Icon';
 import { useT, type TFunc } from '../../i18n/useT';
 
@@ -111,6 +113,15 @@ function ChatItemView({
             </span>
           </div>
         );
+      }
+      // Music tool special rendering
+      if (item.title === 'music_play' && item.status === 'completed') {
+        const text = item.content.map((c) => c.text).filter(Boolean).join('\n');
+        if (text) return <MusicPlayer resultText={text} />;
+      }
+      if (item.title === 'music_lyrics' && item.status === 'completed') {
+        const text = item.content.map((c) => c.text).filter(Boolean).join('\n');
+        if (text) return <LyricsViewer lrcText={text} />;
       }
       return (
         <ToolCall

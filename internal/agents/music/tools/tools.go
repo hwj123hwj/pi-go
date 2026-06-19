@@ -17,7 +17,7 @@ type ListOptions struct {
 
 // BaseToolNames returns the canonical music-agent tool names.
 func BaseToolNames() []string {
-	return []string{"music_search", "music_play", "music_lyrics", "music_detail"}
+	return []string{"music_search", "music_play", "music_lyrics", "music_detail", "music_playlist", "music_recommend"}
 }
 
 // BuildList assembles the concrete music-agent toolset.
@@ -27,6 +27,8 @@ func BuildList(opts ListOptions) []agent.Tool {
 		NewPlayTool(opts.NetEaseClient, opts.Cache, opts.AudioBaseURL),
 		NewLyricsTool(opts.NetEaseClient, opts.Cache),
 		NewDetailTool(opts.NetEaseClient),
+		NewPlaylistTool(opts.NetEaseClient, opts.Cache, opts.AudioBaseURL),
+		NewRecommendTool(opts.NetEaseClient),
 	}
 	return filterTools(toolList, opts.AllowedTools, opts.BlockedTools)
 }
