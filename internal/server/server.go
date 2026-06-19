@@ -9,6 +9,8 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"os"
+	"os/exec"
 	"strings"
 	"sync"
 	"time"
@@ -78,6 +80,8 @@ func (s *Server) Handler() http.Handler {
 	restMux.HandleFunc("POST /sessions/{id}/compact", s.compactSession)
 	restMux.HandleFunc("POST /sessions/{id}/command", s.executeCommand)
 	restMux.HandleFunc("POST /tools/register", s.registerTool)
+	restMux.HandleFunc("GET /sessions/{id}/diff", s.getSessionDiff)
+	restMux.HandleFunc("GET /sessions/{id}/file", s.getSessionFile)
 
 	var restHandler http.Handler = restMux
 	restHandler = corsMiddleware(restHandler)
@@ -779,6 +783,110 @@ func recoveryMiddleware(next http.Handler) http.Handler {
 		}()
 		next.ServeHTTP(w, r)
 	})
+}
+
+// ─── GET /sessions/{id}/diff ────────────────────────────────────────────────
+
+func (s *Server) getSessionDiff(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	sess, err := s.resolveSession(r.Context(), id)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	cwd := sess.Workspace()
+	if cwd == "" {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{"files": []any{}})
+		return
+	}
+
+	// Run git diff --stat and git diff in the workspace
+	files, err := gitDiff(cwd)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "git diff failed: "+err.Error())
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{"files": files})
+}
+
+// ─── GET /sessions/{id}/file?path=... ───────────────────────────────────────
+
+func (s *Server) getSessionFile(w http.ResponseWriter, r *http.Request) {
+	path := r.URL.Query().Get("path")
+	if path == "" {
+		writeError(w, http.StatusBadRequest, "path is required")
+		return
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "file not found: "+err.Error())
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]string{"content": string(data)})
+}
+
+// gitDiff runs git diff in the given directory and returns parsed file diffs.
+type fileDiff struct {
+	Path    string `json:"path"`
+	Added   int    `json:"added"`
+	Removed int    `json:"removed"`
+	Patch   string `json:"patch"`
+}
+
+func gitDiff(cwd string) ([]fileDiff, error) {
+	// Get the raw diff
+	cmd := exec.Command("git", "diff", "--no-color")
+	cmd.Dir = cwd
+	output, err := cmd.Output()
+	if err != nil {
+		// git diff returns exit code 1 if there are differences in some configs
+		// but with --no-color it should be 0. If it fails, return empty.
+		return []fileDiff{}, nil
+	}
+
+	diffText := string(output)
+	if diffText == "" {
+		return []fileDiff{}, nil
+	}
+
+	// Parse diff into per-file sections
+	var files []fileDiff
+	var current *fileDiff
+	var currentPatch strings.Builder
+
+	for _, line := range strings.Split(diffText, "\n") {
+		if strings.HasPrefix(line, "diff --git") {
+			if current != nil {
+				current.Patch = currentPatch.String()
+				files = append(files, *current)
+			}
+			current = &fileDiff{}
+			currentPatch.Reset()
+			currentPatch.WriteString(line + "\n")
+		} else if current != nil {
+			currentPatch.WriteString(line + "\n")
+			if strings.HasPrefix(line, "+++ b/") {
+				current.Path = strings.TrimPrefix(line, "+++ b/")
+			} else if strings.HasPrefix(line, "+") && !strings.HasPrefix(line, "+++") {
+				current.Added++
+			} else if strings.HasPrefix(line, "-") && !strings.HasPrefix(line, "---") {
+				current.Removed++
+			}
+		}
+	}
+	if current != nil {
+		current.Patch = currentPatch.String()
+		files = append(files, *current)
+	}
+
+	return files, nil
 }
 
 func corsMiddleware(next http.Handler) http.Handler {

@@ -150,6 +150,11 @@ func (s *AgentSession) Config() config.Config {
 	return s.cfg
 }
 
+// Workspace returns the session's working directory.
+func (s *AgentSession) Workspace() string {
+	return s.cfg.Workspace
+}
+
 // ModelInfo returns the provider name and model ID.
 func (s *AgentSession) ModelInfo() (string, string) {
 	modelID := s.cfg.AnthropicModel

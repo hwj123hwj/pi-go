@@ -74,6 +74,20 @@ export type DesktopSessionEvent =
   | { kind: 'tool_update'; toolCallId: string; status?: ToolCallStatus; title?: string; content?: ToolCallContent[]; terminalOutput?: string }
   | { kind: 'error'; message: string };
 
+// ── Plan / Diff / File (side panes) ───────────────────────────────────────
+
+export interface PlanEntry {
+  content: string;
+  status: 'pending' | 'in_progress' | 'completed';
+}
+
+export interface GitFileDiff {
+  path: string;
+  added: number;
+  removed: number;
+  patch: string;
+}
+
 // ── Version updates ────────────────────────────────────────────────────────
 
 export interface UpdateInfo {

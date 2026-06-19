@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useStore, type ChatItem, type SessionView } from '../../store';
 import { Markdown } from '../Markdown';
 import { ToolCall } from '../ToolCall';
-import { Icon } from '../Icon';
+import { Icon, toolKindIcon } from '../Icon';
 import { useT, type TFunc } from '../../i18n/useT';
 
 export function ChatPane({ view }: { view: SessionView }) {
@@ -100,7 +100,18 @@ function ChatItemView({
       );
 
     case 'tool':
-      if (density === 'summary') return null;
+      if (density === 'summary') {
+        // Compact single-line summary instead of hiding entirely
+        return (
+          <div className="tool-summary-line">
+            <Icon name={toolKindIcon(item.toolKind)} size={13} />
+            <span className="tool-summary-title">{item.title}</span>
+            <span className={`tool-summary-status ${item.status}`}>
+              {item.status === 'completed' ? '✓' : item.status === 'failed' ? '✗' : '…'}
+            </span>
+          </div>
+        );
+      }
       return (
         <ToolCall
           title={item.title}

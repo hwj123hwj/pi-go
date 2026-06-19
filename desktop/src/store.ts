@@ -13,7 +13,9 @@ import { deriveTitleFromMessage } from './sessionTitle';
 import type {
   AcpToolKind,
   DesktopSessionEvent,
+  GitFileDiff,
   ModelInfo,
+  PlanEntry,
   SessionMeta,
   SessionRunStatus,
   ToolCallContent,
@@ -150,6 +152,8 @@ export const wsService = new WSService();
 
 export type ViewDensity = 'normal' | 'verbose' | 'summary';
 
+export type PaneKind = 'chat' | 'diff' | 'plan' | 'tasks' | 'terminal' | 'file';
+
 export type ChatItem =
   | { kind: 'user'; id: string; text: string }
   | { kind: 'assistant'; id: string; text: string }
@@ -172,8 +176,13 @@ export type ChatItem =
 export interface SessionView {
   meta: SessionMeta;
   transcript: ChatItem[];
+  plan: PlanEntry[];
+  diffs: GitFileDiff[];
   density: ViewDensity;
+  panes: PaneKind[];
+  activePane: PaneKind;
   draftAssistantId?: string;
+  openFile?: { path: string; content: string };
 }
 
 interface StoreState {
@@ -206,6 +215,9 @@ interface StoreState {
   cancel: (id: string) => Promise<void>;
   setModel: (id: string, modelId: string) => Promise<void>;
   setDensity: (id: string, density: ViewDensity) => void;
+  togglePane: (id: string, pane: PaneKind) => void;
+  refreshDiff: (id: string) => Promise<void>;
+  openFile: (id: string, path: string) => Promise<void>;
 }
 
 // Cached models from backend (shared across all sessions)
@@ -220,7 +232,15 @@ const newId = (() => {
 })();
 
 function emptyView(meta: SessionMeta): SessionView {
-  return { meta, transcript: [], density: 'normal' };
+  return {
+    meta,
+    transcript: [],
+    plan: [],
+    diffs: [],
+    density: 'normal',
+    panes: ['chat'],
+    activePane: 'chat',
+  };
 }
 
 function defaultModels(): ModelInfo[] {
@@ -533,6 +553,33 @@ export const useStore = create<StoreState>((set, get) => ({
   },
 
   setDensity: (id, density) => updateView(set, id, (v) => ({ ...v, density })),
+
+  togglePane: (id, pane) =>
+    updateView(set, id, (v) => {
+      const has = v.panes.includes(pane);
+      const panes = has ? v.panes.filter((p) => p !== pane) : [...v.panes, pane];
+      return { ...v, panes: panes.length ? panes : ['chat'], activePane: has ? v.activePane : pane };
+    }),
+
+  refreshDiff: async (id) => {
+    const view = get().sessions[id];
+    if (!view || !view.meta.cwd) return;
+    try {
+      const resp = await apiRequest<{ files: GitFileDiff[] }>('GET', `/sessions/${id}/diff`);
+      updateView(set, id, (v) => ({ ...v, diffs: resp.files || [] }));
+    } catch (err) {
+      console.error('Failed to fetch diff', err);
+    }
+  },
+
+  openFile: async (id, path) => {
+    try {
+      const resp = await apiRequest<{ content: string }>('GET', `/sessions/${id}/file?path=${encodeURIComponent(path)}`);
+      updateView(set, id, (v) => ({ ...v, openFile: { path, content: resp.content }, activePane: 'file' }));
+    } catch (err) {
+      console.error('Failed to read file', err);
+    }
+  },
 }));
 
 // ── Helpers ───────────────────────────────────────────────────────────────
