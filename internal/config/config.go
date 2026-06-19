@@ -56,6 +56,9 @@ type Config struct {
 	// Prompt
 	HistoryFile    string
 	PromptTemplate string
+
+	// Music
+	MusicPort int // Port for the music-agent server (default 8081)
 }
 
 func Default() Config {
@@ -81,6 +84,8 @@ func Default() Config {
 		BashTimeoutSeconds: 30,
 
 		MaxOutputLen: 30000,
+
+		MusicPort: 8081,
 	}
 }
 
@@ -192,6 +197,13 @@ func (c *Config) LoadFromEnv() {
 	}
 	if v := os.Getenv("PI_GO_PROMPT_TEMPLATE"); v != "" {
 		c.PromptTemplate = v
+	}
+
+	// Music
+	if v := os.Getenv("PI_GO_MUSIC_PORT"); v != "" {
+		if p, err := strconv.Atoi(v); err == nil && p > 0 {
+			c.MusicPort = p
+		}
 	}
 }
 

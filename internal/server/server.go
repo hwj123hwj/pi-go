@@ -30,6 +30,12 @@ type Server struct {
 	slashCmds     *slashcmd.Registry
 	externalTools []agent.ExternalToolDef
 	toolMu        sync.Mutex
+	extraRoutes   *http.ServeMux // optional extra routes (e.g. music audio proxy)
+}
+
+// SetExtraRoutes sets an additional ServeMux to be merged into the server's routes.
+func (s *Server) SetExtraRoutes(mux *http.ServeMux) {
+	s.extraRoutes = mux
 }
 
 // ChatRequest is the request body for chat endpoints.
@@ -105,6 +111,11 @@ func (s *Server) Handler() http.Handler {
 
 	// Register web UI routes (serves embedded static files at /)
 	web.RegisterRoutes(topMux)
+
+	// Merge extra routes (e.g. music audio proxy) if set
+	if s.extraRoutes != nil {
+		topMux.Handle("/music/", s.extraRoutes)
+	}
 
 	return topMux
 }
