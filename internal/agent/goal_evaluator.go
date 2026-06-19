@@ -28,8 +28,8 @@ var (
 
 func goalLog(format string, args ...interface{}) {
 	msg := fmt.Sprintf(format, args...)
-	fmt.Fprintf(os.Stderr, msg)
 
+	// Only log to file, not stderr (keeps TUI clean)
 	goalLogMu.Lock()
 	defer goalLogMu.Unlock()
 	if goalLogFile == nil {

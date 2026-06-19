@@ -24,16 +24,17 @@ type InteractiveMode struct {
 	session   *runtime.AgentSession
 	slashCmds *slashcmd.Registry
 	app       *app.App
-	presenter *ui.Presenter
+	presenter ui.TUIRenderer
 }
 
 // NewInteractiveMode creates a coding-agent interactive CLI.
+// Uses the lightweight TUI by default; -tags fancy enables Bubble Tea.
 func NewInteractiveMode(session *runtime.AgentSession, cmds *slashcmd.Registry, application *app.App) *InteractiveMode {
 	return &InteractiveMode{
 		session:   session,
 		slashCmds: cmds,
 		app:       application,
-		presenter: ui.NewPresenter(os.Stdout),
+		presenter: ui.NewTUI(os.Stdout),
 	}
 }
 
@@ -43,12 +44,19 @@ func (m *InteractiveMode) Run(ctx context.Context) error {
 	provider, modelID := m.session.ModelInfo()
 	cwd, _ := os.Getwd()
 
-	fmt.Println("pi-go chat mode. Type your message and press Enter. Ctrl-D to exit.")
+	// Print banner
+	ui.PrintBanner(os.Stdout)
+
+	// Print session status with cleaner formatting
 	fmt.Println(ui.FormatSessionStatus(m.session.SessionID(), provider, modelID, m.session.Profile(), cwd))
+	if ui.IsFancyMode() {
+		fmt.Printf("%s  ✨ Fancy TUI mode (Bubble Tea + Lipgloss)%s\n", ui.ColorMagenta, ui.ColorReset)
+	}
 	fmt.Println()
+	ui.PrintHelp(os.Stdout, true)
 
 	for {
-		fmt.Print("You> ")
+		fmt.Print(ui.FormatInputPrompt())
 		if !scanner.Scan() {
 			return nil
 		}
@@ -68,7 +76,7 @@ func (m *InteractiveMode) Run(ctx context.Context) error {
 			}
 			result, err := m.slashCmds.Execute(cmdCtx, input)
 			if err != nil {
-				fmt.Printf("error: %s\n", err)
+				fmt.Printf("%serror: %s%s\n", ui.ColorRed, err, ui.ColorReset)
 			} else {
 				// Handle clear screen first
 				if result.ClearScreen {
@@ -82,7 +90,7 @@ func (m *InteractiveMode) Run(ctx context.Context) error {
 					oldID := m.session.SessionID()
 					m.session = result.SessionSwitchTo.(*runtime.AgentSession)
 					provider, modelID := m.session.ModelInfo()
-					fmt.Printf("Session switched: %s → %s\n", oldID, m.session.SessionID())
+					fmt.Printf("%sSession switched: %s → %s%s\n", ui.ColorYellow, oldID, m.session.SessionID(), ui.ColorReset)
 					fmt.Println(ui.FormatSessionStatus(m.session.SessionID(), provider, modelID, m.session.Profile(), cwd))
 					fmt.Println()
 				}
@@ -113,11 +121,11 @@ func (m *InteractiveMode) runPrompt(ctx context.Context, input string) {
 
 	stream, err := m.session.PromptStream(promptCtx, input)
 	if err != nil {
-		fmt.Printf("error: %s\n", err)
+		fmt.Printf("%serror: %s%s\n", ui.ColorRed, err, ui.ColorReset)
 		return
 	}
 
-	fmt.Print("Pi> ")
+	fmt.Print(ui.FormatAssistantPrompt())
 	for event := range stream {
 		m.presenter.Present(event)
 	}

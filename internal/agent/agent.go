@@ -176,7 +176,7 @@ func (a *Agent) PromptStream(ctx context.Context, msg ai.Message) (<-chan AgentS
 		case EventTurnEnd:
 			ev = AgentStreamEvent{Type: StreamEventTurnEnd, Message: e.Message}
 		case EventToolExecutionStart:
-			ev = AgentStreamEvent{Type: StreamEventToolStart, ToolName: e.ToolName, ToolCallID: e.ToolCallID}
+			ev = AgentStreamEvent{Type: StreamEventToolStart, ToolName: e.ToolName, ToolCallID: e.ToolCallID, ToolArgs: e.Args}
 		case EventToolExecutionUpdate:
 				ev = AgentStreamEvent{Type: StreamEventToolUpdate, ToolName: e.ToolName, ToolCallID: e.ToolCallID, PartialResult: e.PartialResult}
 			case EventToolExecutionEnd:
@@ -404,6 +404,7 @@ type AgentStreamEvent struct {
 	Message      ai.Message          `json:"message,omitempty"`
 	ToolName     string              `json:"tool_name,omitempty"`
 	ToolCallID   string              `json:"tool_call_id,omitempty"`
+	ToolArgs     any                 `json:"tool_args,omitempty"` // raw arguments for diff preview
 	ToolResult   any                 `json:"tool_result,omitempty"`
 	PartialResult any                `json:"partial_result,omitempty"`
 	IsError      bool                `json:"is_error,omitempty"`
