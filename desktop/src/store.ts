@@ -360,7 +360,13 @@ export const useStore = create<StoreState>((set, get) => ({
         const transcript = [...v.transcript];
         const last = transcript[transcript.length - 1];
         if (last && last.kind === 'assistant') {
+          // Append to existing assistant message
           transcript[transcript.length - 1] = { ...last, text: last.text + delta };
+        } else {
+          // Last item is a tool/system/etc — create a new assistant item
+          const id = v.draftAssistantId || newId();
+          transcript.push({ kind: 'assistant', id, text: delta });
+          return { ...v, transcript, draftAssistantId: id, meta: { ...v.meta, status: 'thinking' as SessionRunStatus } };
         }
         return { ...v, transcript, meta: { ...v.meta, status: 'thinking' as SessionRunStatus } };
       });
