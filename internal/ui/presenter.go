@@ -31,6 +31,7 @@ const (
 	DisplayError
 	DisplayConfirmationReq
 	DisplayConfirmationRes
+	DisplayLoopDetected
 )
 
 // Presenter converts agent stream events into display events.
@@ -90,6 +91,13 @@ func convertEvent(event agent.AgentStreamEvent) DisplayEvent {
 	case agent.StreamEventConfirmationRes:
 		return DisplayEvent{Type: DisplayConfirmationRes, Content: event.Description, IsError: !event.Approved}
 
+	case agent.StreamEventLoopDetected:
+		return DisplayEvent{
+			Type:    DisplayLoopDetected,
+			Tool:    event.ToolName,
+			Content: fmt.Sprintf("%d", event.RepeatCount),
+		}
+
 	case agent.StreamEventDone:
 		return DisplayEvent{Type: DisplayDone}
 
@@ -144,6 +152,9 @@ func (p *Presenter) render(de DisplayEvent) {
 		} else {
 			fmt.Fprint(p.w, "  ✓ 已确认，继续执行\n")
 		}
+
+	case DisplayLoopDetected:
+		fmt.Fprintf(p.w, "  ⚠ 检测到循环：%s 连续重复 %s 次\n", de.Tool, de.Content)
 
 	case DisplayDone:
 		fmt.Fprintln(p.w)

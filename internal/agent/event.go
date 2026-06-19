@@ -107,3 +107,12 @@ type EventConfirmationResult struct {
 }
 
 func (EventConfirmationResult) agentEventMarker() {}
+
+// EventLoopDetected 在检测到 Agent 连续重复调用同一工具（相同参数）时发出。
+// UI 可据此展示"⚠ 检测到循环"提示；Agent 会同时收到一条提醒 follow-up。
+type EventLoopDetected struct {
+	ToolName    string
+	RepeatCount int
+}
+
+func (EventLoopDetected) agentEventMarker() {}

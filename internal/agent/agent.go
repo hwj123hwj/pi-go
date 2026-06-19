@@ -35,6 +35,7 @@ type Options struct {
 	SummarizeFunc      compaction.SummarizeFunc // 可选：摘要生成函数
 	LifecycleHooks     LifecycleHooks           // 可选：工具执行生命周期钩子
 	ConfirmFunc        ConfirmFunc              // 可选：危险工具执行前向用户确认（未注入则默认放行）
+	LoopDetectSettings LoopDetectSettings       // 循环检测设置（默认启用，连续相同 tool call 触发提醒）
 }
 
 type Agent struct {
@@ -54,6 +55,8 @@ type Agent struct {
 	summarizeFunc      compaction.SummarizeFunc
 	lifecycleHooks     LifecycleHooks
 	confirmFunc        ConfirmFunc
+	loopDetectSettings LoopDetectSettings
+	loopDetect         loopDetector
 }
 
 func New(opts Options) *Agent {
@@ -62,6 +65,17 @@ func New(opts Options) *Agent {
 		tools[tool.Name()] = tool
 	}
 	goalLog("[goal-debug] Agent.New called with goal=%q\n", opts.Goal)
+
+	// 循环检测：补齐零值字段。Enabled/Threshold 由调用方传入；未设 ReminderTemplate 用默认。
+	// 调用方（rebuildAgent、测试）应通过 DefaultLoopDetectSettings() 拿到"启用+阈值5"的默认。
+	loopSettings := opts.LoopDetectSettings
+	if loopSettings.Threshold <= 0 {
+		loopSettings.Threshold = DefaultLoopDetectSettings().Threshold
+	}
+	if loopSettings.ReminderTemplate == "" {
+		loopSettings.ReminderTemplate = DefaultLoopDetectSettings().ReminderTemplate
+	}
+
 	return &Agent{
 		state:              StateIdle,
 		registry:           opts.Registry,
@@ -78,6 +92,7 @@ func New(opts Options) *Agent {
 		summarizeFunc:      opts.SummarizeFunc,
 		lifecycleHooks:     opts.LifecycleHooks,
 		confirmFunc:        opts.ConfirmFunc,
+		loopDetectSettings: loopSettings,
 	}
 }
 
@@ -152,6 +167,9 @@ func (a *Agent) Prompt(ctx context.Context, msg ai.Message) (ai.AssistantMessage
 	a.state = StateRunning
 	a.mu.Unlock()
 
+	// per-prompt 重置循环检测器，避免跨对话累积误判
+	a.loopDetect.reset()
+
 	a.emit(ctx, EventAgentStart{})
 	a.steeringQueue.Enqueue(msg)
 	assistant, err := RunLoop(ctx, a)
@@ -192,6 +210,8 @@ func (a *Agent) PromptStream(ctx context.Context, msg ai.Message) (<-chan AgentS
 			ev = AgentStreamEvent{Type: StreamEventConfirmationReq, ToolCallID: e.ToolCallID, ToolName: e.ToolName, Description: e.Description}
 		case EventConfirmationResult:
 			ev = AgentStreamEvent{Type: StreamEventConfirmationRes, ToolCallID: e.ToolCallID, Approved: e.Approved, Description: e.Reason}
+		case EventLoopDetected:
+			ev = AgentStreamEvent{Type: StreamEventLoopDetected, ToolName: e.ToolName, RepeatCount: e.RepeatCount}
 		default:
 			return
 		}
@@ -209,6 +229,9 @@ func (a *Agent) PromptStream(ctx context.Context, msg ai.Message) (<-chan AgentS
 	}
 	a.state = StateRunning
 	a.mu.Unlock()
+
+	// per-prompt 重置循环检测器，避免跨对话累积误判
+	a.loopDetect.reset()
 
 	go func() {
 		defer close(ch)
@@ -405,6 +428,7 @@ const (
 	StreamEventCompacted       StreamEventType = "compacted"
 	StreamEventConfirmationReq StreamEventType = "confirmation_request"
 	StreamEventConfirmationRes StreamEventType = "confirmation_result"
+	StreamEventLoopDetected    StreamEventType = "loop_detected"
 )
 
 type AgentStreamEvent struct {
@@ -422,6 +446,7 @@ type AgentStreamEvent struct {
 	Summary       string              `json:"summary,omitempty"`
 	TrimmedFrom   int                 `json:"trimmed_from,omitempty"`
 	TrimmedTo     int                 `json:"trimmed_to,omitempty"`
-	Description   string              `json:"description,omitempty"` // 确认请求：工具给出的操作描述
-	Approved      bool                `json:"approved,omitempty"`    // 确认结果：是否放行
+	Description   string              `json:"description,omitempty"`  // 确认请求：工具给出的操作描述
+	Approved      bool                `json:"approved,omitempty"`     // 确认结果：是否放行
+	RepeatCount   int                 `json:"repeat_count,omitempty"` // 循环检测：连续重复次数
 }

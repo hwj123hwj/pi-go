@@ -141,8 +141,11 @@ func (p *FancyPresenter) Present(event agent.AgentStreamEvent) {
 			if event.Description != "" {
 				msg = event.Description
 			}
-			fmt.Fprintln(p.w, fancyStyleError.Render("  ✗ 已拒绝："+msg))
+			fmt.Fprintln(p.w, fancyStyleError.Render(fmt.Sprintf("  ✗ 已拒绝：%s", msg)))
 		}
+
+	case agent.StreamEventLoopDetected:
+		fmt.Fprintln(p.w, fancyStyleWarn.Render(fmt.Sprintf("  ⚠ 检测到循环：%s 连续重复 %d 次", event.ToolName, event.RepeatCount)))
 
 	case agent.StreamEventDone:
 		if p.streamBuf.Len() > 0 {
