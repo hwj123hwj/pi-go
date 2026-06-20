@@ -32,6 +32,7 @@ const (
 	DisplayConfirmationReq
 	DisplayConfirmationRes
 	DisplayLoopDetected
+	DisplayMicroCompacted
 )
 
 // Presenter converts agent stream events into display events.
@@ -98,6 +99,9 @@ func convertEvent(event agent.AgentStreamEvent) DisplayEvent {
 			Content: fmt.Sprintf("%d", event.RepeatCount),
 		}
 
+	case agent.StreamEventMicroCompacted:
+		return DisplayEvent{Type: DisplayMicroCompacted, Content: fmt.Sprintf("%d", event.ClearedCount)}
+
 	case agent.StreamEventDone:
 		return DisplayEvent{Type: DisplayDone}
 
@@ -155,6 +159,9 @@ func (p *Presenter) render(de DisplayEvent) {
 
 	case DisplayLoopDetected:
 		fmt.Fprintf(p.w, "  ⚠ 检测到循环：%s 连续重复 %s 次\n", de.Tool, de.Content)
+
+	case DisplayMicroCompacted:
+		fmt.Fprintf(p.w, "  ↘ 已清理 %s 个旧工具结果以节省上下文\n", de.Content)
 
 	case DisplayDone:
 		fmt.Fprintln(p.w)

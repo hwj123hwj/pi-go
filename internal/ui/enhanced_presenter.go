@@ -112,6 +112,10 @@ func (p *EnhancedPresenter) Present(event agent.AgentStreamEvent) {
 		fmt.Fprintf(p.w, "%s⚠ 检测到循环：%s 已连续重复 %d 次，已提醒 Agent 换方案%s\n",
 			ColorYellow, event.ToolName, event.RepeatCount, ColorReset)
 
+	case agent.StreamEventMicroCompacted:
+		fmt.Fprintf(p.w, "%s↘ 已清理 %d 个旧工具结果以节省上下文%s\n",
+			ColorDim, event.ClearedCount, ColorReset)
+
 	case agent.StreamEventDone:
 		p.handleDone()
 

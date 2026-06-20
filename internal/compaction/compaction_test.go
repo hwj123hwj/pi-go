@@ -148,3 +148,33 @@ func TestSplitMessages_NoBrokenToolCallPair(t *testing.T) {
 		}
 	}
 }
+
+func TestShouldMicroCompact(t *testing.T) {
+	settings := DefaultSettings() // MicroCompactRatio=0.6
+
+	// 60% 阈值：78000/128000 ≈ 60.9% → 触发
+	assert.True(t, ShouldMicroCompact(78000, 128000, settings))
+	// 59%：不触发
+	assert.False(t, ShouldMicroCompact(75000, 128000, settings))
+	// 远低于阈值：不触发
+	assert.False(t, ShouldMicroCompact(10000, 128000, settings))
+
+	// Disabled 不触发
+	disabled := settings
+	disabled.Enabled = false
+	assert.False(t, ShouldMicroCompact(120000, 128000, disabled))
+
+	// 阈值可配：ratio=0.3 时 40000/128000≈31% 触发
+	lowRatio := settings
+	lowRatio.MicroCompactRatio = 0.3
+	assert.True(t, ShouldMicroCompact(40000, 128000, lowRatio))
+
+	// contextWindow<=0 不触发（防除零/无意义）
+	assert.False(t, ShouldMicroCompact(100, 0, settings))
+}
+
+func TestDefaultSettings_MicroFields(t *testing.T) {
+	s := DefaultSettings()
+	assert.InDelta(t, 0.6, s.MicroCompactRatio, 0.001)
+	assert.Equal(t, 5, s.MicroKeepRecent)
+}
