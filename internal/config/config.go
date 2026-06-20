@@ -39,6 +39,8 @@ type Config struct {
 	Workspace          string
 	EnableBash         bool
 	BashTimeoutSeconds int
+	EnableWeb          bool
+	WebTimeoutSeconds  int
 
 	// Execution backend
 	ExecutionMode string // "local" (default) or "ssh"
@@ -82,6 +84,8 @@ func Default() Config {
 		Workspace:          "", // empty = use cwd
 		EnableBash:         false,
 		BashTimeoutSeconds: 30,
+		EnableWeb:          false,
+		WebTimeoutSeconds:  30,
 
 		MaxOutputLen: 30000,
 
@@ -121,6 +125,14 @@ func (c *Config) LoadFromEnv() {
 	if v := os.Getenv("PI_GO_BASH_TIMEOUT_SECONDS"); v != "" {
 		if t, err := strconv.Atoi(v); err == nil {
 			c.BashTimeoutSeconds = t
+		}
+	}
+	if v := os.Getenv("PI_GO_ENABLE_WEB"); v != "" {
+		c.EnableWeb = strings.ToLower(v) == "true" || v == "1"
+	}
+	if v := os.Getenv("PI_GO_WEB_TIMEOUT_SECONDS"); v != "" {
+		if t, err := strconv.Atoi(v); err == nil {
+			c.WebTimeoutSeconds = t
 		}
 	}
 
