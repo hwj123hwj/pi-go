@@ -254,8 +254,10 @@ func processTurn(ctx context.Context, a *Agent, provider interface {
 }
 
 // maybeCompact 检查是否需要压缩上下文，如果需要则执行压缩并返回新的历史。
+// 两级压缩：先 MicroCompact（低阈值，清旧 tool result，不调 LLM），
+// 再全量 AutoCompact（高阈值，调 LLM 摘要）。
 func (a *Agent) maybeCompact(ctx context.Context, history []ai.Message) []ai.Message {
-	if !a.compactionSettings.Enabled || a.summarizeFunc == nil {
+	if !a.compactionSettings.Enabled {
 		return history
 	}
 
@@ -266,6 +268,20 @@ func (a *Agent) maybeCompact(ctx context.Context, history []ai.Message) []ai.Mes
 		contextWindow = 128000
 	}
 
+	// 第一级：MicroCompact（清旧 tool result，不依赖 summarizeFunc）
+	if compaction.ShouldMicroCompact(contextTokens, contextWindow, a.compactionSettings) {
+		newHistory, cleared := compaction.MicroCompact(history, a.compactionSettings.MicroKeepRecent)
+		if cleared > 0 {
+			a.emit(ctx, EventMicroCompacted{ClearedResults: cleared, TokensBefore: contextTokens})
+			history = newHistory
+			contextTokens = compaction.EstimateTokens(history) // 重算：Micro 后可能降到全量阈值以下
+		}
+	}
+
+	// 第二级：全量 AutoCompact（需 summarizeFunc 才能做 LLM 摘要）
+	if a.summarizeFunc == nil {
+		return history
+	}
 	if !compaction.ShouldCompact(contextTokens, contextWindow, a.compactionSettings) {
 		return history
 	}

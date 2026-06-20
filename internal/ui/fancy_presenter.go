@@ -147,6 +147,9 @@ func (p *FancyPresenter) Present(event agent.AgentStreamEvent) {
 	case agent.StreamEventLoopDetected:
 		fmt.Fprintln(p.w, fancyStyleWarn.Render(fmt.Sprintf("  ⚠ 检测到循环：%s 连续重复 %d 次", event.ToolName, event.RepeatCount)))
 
+	case agent.StreamEventMicroCompacted:
+		fmt.Fprintln(p.w, fancyStyleDim.Render(fmt.Sprintf("  ↘ 已清理 %d 个旧工具结果以节省上下文", event.ClearedCount)))
+
 	case agent.StreamEventDone:
 		if p.streamBuf.Len() > 0 {
 			rendered := RenderMarkdown(p.streamBuf.String())

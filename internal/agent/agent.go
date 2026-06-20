@@ -214,6 +214,8 @@ func (a *Agent) PromptStream(ctx context.Context, msg ai.Message) (<-chan AgentS
 			ev = AgentStreamEvent{Type: StreamEventConfirmationRes, ToolCallID: e.ToolCallID, Approved: e.Approved, Description: e.Reason}
 		case EventLoopDetected:
 			ev = AgentStreamEvent{Type: StreamEventLoopDetected, ToolName: e.ToolName, RepeatCount: e.RepeatCount}
+		case EventMicroCompacted:
+			ev = AgentStreamEvent{Type: StreamEventMicroCompacted, ClearedCount: e.ClearedResults}
 		default:
 			return
 		}
@@ -433,6 +435,7 @@ const (
 	StreamEventConfirmationReq StreamEventType = "confirmation_request"
 	StreamEventConfirmationRes StreamEventType = "confirmation_result"
 	StreamEventLoopDetected    StreamEventType = "loop_detected"
+	StreamEventMicroCompacted  StreamEventType = "micro_compacted"
 )
 
 type AgentStreamEvent struct {
@@ -450,7 +453,8 @@ type AgentStreamEvent struct {
 	Summary       string              `json:"summary,omitempty"`
 	TrimmedFrom   int                 `json:"trimmed_from,omitempty"`
 	TrimmedTo     int                 `json:"trimmed_to,omitempty"`
-	Description   string              `json:"description,omitempty"`  // 确认请求：工具给出的操作描述
-	Approved      bool                `json:"approved,omitempty"`     // 确认结果：是否放行
-	RepeatCount   int                 `json:"repeat_count,omitempty"` // 循环检测：连续重复次数
+	Description   string              `json:"description,omitempty"`   // 确认请求：工具给出的操作描述
+	Approved      bool                `json:"approved,omitempty"`      // 确认结果：是否放行
+	RepeatCount   int                 `json:"repeat_count,omitempty"`  // 循环检测：连续重复次数
+	ClearedCount  int                 `json:"cleared_count,omitempty"` // MicroCompact：清理的 tool result 数
 }

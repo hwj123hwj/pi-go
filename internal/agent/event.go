@@ -116,3 +116,12 @@ type EventLoopDetected struct {
 }
 
 func (EventLoopDetected) agentEventMarker() {}
+
+// EventMicroCompacted 在 MicroCompact（清旧 tool result）执行后发出。
+// UI 可据此展示"已清理 N 个旧工具结果，节省上下文"。
+type EventMicroCompacted struct {
+	ClearedResults int
+	TokensBefore   int
+}
+
+func (EventMicroCompacted) agentEventMarker() {}
