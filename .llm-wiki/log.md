@@ -40,3 +40,11 @@
 - **Updated** `tool-system.md` — Added partitioning details, external tools section
 - **Updated** `runtime-application-interface.md` — Added coding-application and server links
 - **Updated** `index.md` — Added 9 new pages to entities section
+
+## [2026-06-21] ingest | Project Root (.) — re-ingest v2
+- **Created** `source-project-root-v2.md` — Comprehensive re-ingest with new findings
+- **Updated** `goal-driven-loop.md` — Added LLM evaluator, dual evaluation system, keyword fallback
+- **Updated** `agent-core.md` — Added 15 event types (was 11), loop detection details
+- **Updated** `tool-lifecycle-hooks.md` — Added confirmation gate, ToolCallContext, AfterHookError
+- **Updated** `overview.md` — Added loop detection, confirmation gate, updated slash command count to 14
+- **Updated** `index.md` — Added source-project-root-v2, updated entity descriptions

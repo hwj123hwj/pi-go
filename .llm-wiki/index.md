@@ -4,14 +4,15 @@
 
 ## Sources
 - [[source-project-root]] — Full ingest of project root (.)
+- [[source-project-root-v2]] — Comprehensive re-ingest with new findings (2026-06-21)
 
 ## Entities
 - [[agent-core]] — Agent state machine and execution engine
 - [[tool-system]] — 7 built-in tools + optional interfaces + external tools
 - [[llm-provider-system]] — Anthropic/OpenAI/DeepV/Mock providers
 - [[session-persistence]] — JSONL append-only with tree branching
-- [[slash-command-framework]] — 13 built-in slash commands
-- [[tool-lifecycle-hooks]] — Before/After hooks and argument preparation
+- [[slash-command-framework]] — 14 built-in slash commands
+- [[tool-lifecycle-hooks]] — Before/After hooks, confirmation gate, session observer hooks
 - [[extension-system]] — Plugin-style tools/commands/hooks
 - [[skill-system]] — Markdown skill loading from `.claude/skills/`
 - [[desktop-app]] — Electron + React GUI client
@@ -29,7 +30,7 @@
 - [[runtime-application-interface]] — The Platform↔App decoupling boundary
 - [[agent-loop]] — Outer follow-up + inner tool-call dual loop
 - [[context-compaction]] — LLM-driven conversation summarization
-- [[goal-driven-loop]] — Autonomous goal-directed agent execution
+- [[goal-driven-loop]] — Autonomous goal-directed agent execution with LLM evaluator
 - [[operations-abstract]] — Local/SSH execution backend switching
 
 ## Synthesis

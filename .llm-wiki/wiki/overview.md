@@ -26,14 +26,16 @@ Entrypoints（组装与入口）
 | 多 Provider | Anthropic / OpenAI / DeepV / Mock | ✅ |
 | Agent 双层循环 | 外层 follow-up + 内层 tool call | ✅ |
 | 7 个内置工具 | read / write / edit / bash / grep / find / ls | ✅ |
-| 工具生命周期 | Before/After hook + PrepareArguments | ✅ |
+| 工具生命周期 | Before/After hook + PrepareArguments + Confirmation | ✅ |
 | 会话持久化 | JSONL append-only，树状分支 | ✅ |
 | 上下文压缩 | LLM 摘要 + 保留最近消息 | ✅ |
 | 扩展系统 | Extension 接口支持工具/命令/事件钩子 | ✅ |
 | 技能系统 | `.claude/skills/` 目录加载 SKILL.md | ✅ |
-| Goal-Driven Loop | 目标驱动，自动评估完成度 | ✅ |
+| Goal-Driven Loop | 目标驱动，LLM 评估器 + 关键词回退 | ✅ |
+| 循环检测 | SHA256 指纹，连续相同工具调用检测 | ✅ |
+| 确认门控 | 危险工具执行前用户确认 | ✅ |
 | SSH 远程执行 | 通过 Operations 抽象切换 | ✅ |
-| Slash Commands | 13 个内置命令 | ✅ |
+| Slash Commands | 14 个内置命令 | ✅ |
 | HTTP API | REST + SSE + WebSocket | ✅ |
 | 桌面客户端 | Electron + React (v0.2.0) | ✅ 可用 |
 | 飞书桥接 | 独立服务接入飞书群聊 | ✅ 基础版 |

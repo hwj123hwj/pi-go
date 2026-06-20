@@ -20,6 +20,19 @@ type Tool interface {
 }
 ```
 
+## ToolResult
+
+The `ToolResult` struct separates content for the LLM from content for the user:
+
+| Field | Type | Purpose |
+|-------|------|---------|
+| `Content` | `string` | Content sent back to LLM (truncated/formatted for context) |
+| `UserFacing` | `string` | Content shown to user (can be more detailed); falls back to Content |
+| `Details` | `any` | Reserved structured metadata (unused) |
+| `IsError` | `bool` | Whether the result is an error |
+
+`DisplayText()` returns `UserFacing` if non-empty, otherwise `Content`. This separation allows different strategies for "what the model sees" vs "what the human sees" (e.g., bash output: full for user, truncated for model).
+
 ## Optional Interfaces
 
 | Interface | Purpose |
@@ -27,6 +40,8 @@ type Tool interface {
 | `ToolWithMode` | Override default execution mode (parallel/sequential) |
 | `ToolWithPromptInfo` | Provide system prompt snippets and guidelines |
 | `ConcurrencySafeChecker` | Declare concurrency safety per invocation |
+| `ToolWithPrepareArguments` | Normalize/enrich validated args before execution |
+| `ToolWithConfirmation` | Declare that a tool call needs user confirmation before execution |
 
 ## Built-in Tools (7)
 
