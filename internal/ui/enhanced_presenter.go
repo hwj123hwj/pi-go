@@ -108,6 +108,10 @@ func (p *EnhancedPresenter) Present(event agent.AgentStreamEvent) {
 			fmt.Fprintf(p.w, "%s✗ 已拒绝：%s%s\n", ColorRed, msg, ColorReset)
 		}
 
+	case agent.StreamEventLoopDetected:
+		fmt.Fprintf(p.w, "%s⚠ 检测到循环：%s 已连续重复 %d 次，已提醒 Agent 换方案%s\n",
+			ColorYellow, event.ToolName, event.RepeatCount, ColorReset)
+
 	case agent.StreamEventDone:
 		p.handleDone()
 

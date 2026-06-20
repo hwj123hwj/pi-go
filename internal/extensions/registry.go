@@ -19,6 +19,11 @@ type Registry struct {
 	// Lifecycle hooks for tool execution.
 	beforeHooks []agent.BeforeToolCallHook
 	afterHooks  []agent.AfterToolCallHook
+
+	// Observer hooks for session lifecycle and compaction (non-blocking).
+	sessionStartHooks []agent.SessionStartHook
+	sessionEndHooks   []agent.SessionEndHook
+	preCompressHooks  []agent.PreCompressHook
 }
 
 // NewRegistry creates a new empty extension registry.
@@ -45,6 +50,17 @@ func (r *Registry) Register(ext Extension) error {
 	if le, ok := ext.(ExtensionWithLifecycle); ok {
 		r.beforeHooks = append(r.beforeHooks, le.BeforeToolCallHooks()...)
 		r.afterHooks = append(r.afterHooks, le.AfterToolCallHooks()...)
+	}
+
+	// Auto-collect session observer hooks (non-blocking).
+	if se, ok := ext.(ExtensionWithSessionHooks); ok {
+		r.sessionStartHooks = append(r.sessionStartHooks, se.SessionStartHooks()...)
+		r.sessionEndHooks = append(r.sessionEndHooks, se.SessionEndHooks()...)
+	}
+
+	// Auto-collect compaction observer hooks (non-blocking).
+	if ce, ok := ext.(ExtensionWithCompressHook); ok {
+		r.preCompressHooks = append(r.preCompressHooks, ce.PreCompressHooks()...)
 	}
 
 	return nil
@@ -130,9 +146,18 @@ func (r *Registry) LifecycleHooks() agent.LifecycleHooks {
 	copy(before, r.beforeHooks)
 	after := make([]agent.AfterToolCallHook, len(r.afterHooks))
 	copy(after, r.afterHooks)
+	sessionStart := make([]agent.SessionStartHook, len(r.sessionStartHooks))
+	copy(sessionStart, r.sessionStartHooks)
+	sessionEnd := make([]agent.SessionEndHook, len(r.sessionEndHooks))
+	copy(sessionEnd, r.sessionEndHooks)
+	preCompress := make([]agent.PreCompressHook, len(r.preCompressHooks))
+	copy(preCompress, r.preCompressHooks)
 
 	return agent.LifecycleHooks{
-		Before: before,
-		After:  after,
+		Before:       before,
+		After:        after,
+		SessionStart: sessionStart,
+		SessionEnd:   sessionEnd,
+		PreCompress:  preCompress,
 	}
 }

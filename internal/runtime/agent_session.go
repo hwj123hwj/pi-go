@@ -397,6 +397,7 @@ func (s *AgentSession) buildAgent(ctx context.Context, registry *providers.Regis
 		SummarizeFunc:      summarizeFunc,
 		LifecycleHooks:     lifecycleHooks,
 		ConfirmFunc:        s.confirmFunc,
+		LoopDetectSettings: agent.DefaultLoopDetectSettings(),
 	}), nil
 }
 

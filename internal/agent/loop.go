@@ -200,6 +200,19 @@ func processTurn(ctx context.Context, a *Agent, provider interface {
 	}
 	a.emit(ctx, EventTurnEnd{Message: message, ToolResults: toolResults})
 
+	// 循环检测：遍历本轮 tool calls 更新检测器，命中则发事件 + 注入提醒（柔性，不中断）。
+	if a.loopDetectSettings.Enabled && len(message.ToolCalls) > 0 {
+		for _, tc := range message.ToolCalls {
+			if a.loopDetect.observe(a.loopDetectSettings.Threshold, tc.Name, tc.Args) {
+				a.emit(ctx, EventLoopDetected{ToolName: tc.Name, RepeatCount: a.loopDetect.repeatCount})
+				reminder := renderReminder(a.loopDetectSettings.ReminderTemplate, tc.Name, tc.Args, a.loopDetect.repeatCount)
+				a.followUpQueue.Enqueue(ai.NewTextUserMessage(reminder))
+				slog.Info("loop detected", "tool", tc.Name, "repeat", a.loopDetect.repeatCount)
+				break // 一轮内只注入一次提醒
+			}
+		}
+	}
+
 	// 如果有 tool calls，将 tool results 追加到历史并继续内层循环
 	if message.StopReason == ai.StopReasonToolUse && len(toolResults) > 0 {
 		history = append(history, toolResults...)
@@ -262,6 +275,13 @@ func (a *Agent) maybeCompact(ctx context.Context, history []ai.Message) []ai.Mes
 	if len(historyPart) == 0 {
 		return history
 	}
+
+	// PreCompress hook：观察型，确认要压缩时触发。不能阻止或修改压缩。
+	runPreCompressHooks(ctx, a.lifecycleHooks.PreCompress, PreCompressEvent{
+		ContextTokens: contextTokens,
+		ContextWindow: contextWindow,
+		MessageCount:  len(historyPart),
+	})
 
 	summary, err := compaction.Compact(ctx, historyPart, recentPart, "", a.summarizeFunc)
 	if err != nil {

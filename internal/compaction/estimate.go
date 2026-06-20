@@ -47,7 +47,15 @@ func EstimateTextTokens(text string) int {
 
 // SplitMessages 将消息列表按 token 预算分割为历史部分和保留部分。
 // 从后往前累积 token，直到达到 keepRecentTokens。
-// 找到最近的有效切割点（user/assistant 分界）。
+// SplitMessages 把消息切成 (history, recent) 两段：recent 保留最近 keepRecentTokens
+// token 的消息，history 是更早的可被压缩部分。
+//
+// 切割点必须在"完整 turn 边界"上——即 history 的最后一条是一个交互单元的自然收尾，
+// 不会把 assistant(tool_use) 和它后续的 tool_result 拆开。安全边界包括：
+//   - tool 结果之后（一个工具调用 turn 完整结束）
+//   - 纯文本 assistant 回复之后（一段对话完整结束）
+//
+// 注意：assistant 带 tool_call 时不算安全边界（它的 tool_result 还在后面）。
 func SplitMessages(msgs []ai.Message, keepRecentTokens int) (history []ai.Message, recent []ai.Message) {
 	if len(msgs) == 0 {
 		return nil, nil
@@ -66,13 +74,8 @@ func SplitMessages(msgs []ai.Message, keepRecentTokens int) (history []ai.Messag
 		cutIndex = i
 	}
 
-	// 找到有效的切割点（在 user 消息之前切割）
-	// 确保历史部分以完整的 turn 结束
-	for cutIndex > 0 {
-		if msgs[cutIndex-1].Role() == ai.RoleUser && msgs[cutIndex].Role() == ai.RoleAssistant {
-			// 在 user→assistant 之间切割
-			break
-		}
+	// 往前找到最近的安全切割点（msgs[cutIndex-1] 是完整 turn 收尾）。
+	for cutIndex > 0 && !isSafeCutBoundary(msgs[cutIndex-1]) {
 		cutIndex--
 	}
 
@@ -81,6 +84,23 @@ func SplitMessages(msgs []ai.Message, keepRecentTokens int) (history []ai.Messag
 	}
 
 	return msgs[:cutIndex], msgs[cutIndex:]
+}
+
+// isSafeCutBoundary 判断一条消息是否可作为 history 的安全收尾。
+// 安全 = 该消息后面可以开始新的 turn，不会割裂正在进行的工具调用。
+func isSafeCutBoundary(msg ai.Message) bool {
+	switch m := msg.(type) {
+	case ai.ToolResultMessage:
+		// tool 结果后是新 turn，安全
+		return true
+	case ai.AssistantMessage:
+		// 纯文本 assistant（不带未完成 tool_call）是安全边界；
+		// 带 tool_call 的 assistant 后面还有 tool_result，不能在此切。
+		return len(m.ToolCalls) == 0
+	default:
+		// user 消息后是它触发的 assistant，不能切
+		return false
+	}
 }
 
 // SummarizePrompt 生成摘要的 prompt。

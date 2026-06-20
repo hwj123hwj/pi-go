@@ -174,11 +174,11 @@ type testExt struct {
 	hooks []Hook
 }
 
-func (e *testExt) Name() string                       { return e.name }
-func (e *testExt) Init(ctx InitContext) error          { return nil }
-func (e *testExt) Tools() []agent.Tool                 { return e.tools }
-func (e *testExt) Commands() []CommandDef              { return e.cmds }
-func (e *testExt) Hooks() []Hook                       { return e.hooks }
+func (e *testExt) Name() string               { return e.name }
+func (e *testExt) Init(ctx InitContext) error { return nil }
+func (e *testExt) Tools() []agent.Tool        { return e.tools }
+func (e *testExt) Commands() []CommandDef     { return e.cmds }
+func (e *testExt) Hooks() []Hook              { return e.hooks }
 
 // ─── ExtensionWithLifecycle tests ─────────────────────────────────────────────
 
@@ -259,8 +259,10 @@ func TestRegister_MixedExtensions(t *testing.T) {
 
 	// Register another lifecycle extension
 	reg.Register(&testLifecycleExt{
-		testExt:    testExt{name: "lifecycle2"},
-		afterHooks: []agent.AfterToolCallHook{func(ctx context.Context, call agent.ToolCallContext, result agent.ToolResult) (agent.ToolResult, error) { return result, nil }},
+		testExt: testExt{name: "lifecycle2"},
+		afterHooks: []agent.AfterToolCallHook{func(ctx context.Context, call agent.ToolCallContext, result agent.ToolResult) (agent.ToolResult, error) {
+			return result, nil
+		}},
 	})
 
 	// Also add a manually registered hook
@@ -271,4 +273,60 @@ func TestRegister_MixedExtensions(t *testing.T) {
 	hooks := reg.LifecycleHooks()
 	assert.Len(t, hooks.Before, 2) // 1 from lifecycle ext + 1 manual
 	assert.Len(t, hooks.After, 1)  // 1 from lifecycle2 ext
+}
+
+// ─── Session / Compress observer hook tests ─────────────────────────────────
+
+// testSessionExt implements ExtensionWithSessionHooks.
+type testSessionExt struct {
+	testExt
+	startHooks []agent.SessionStartHook
+	endHooks   []agent.SessionEndHook
+}
+
+func (e *testSessionExt) SessionStartHooks() []agent.SessionStartHook { return e.startHooks }
+func (e *testSessionExt) SessionEndHooks() []agent.SessionEndHook     { return e.endHooks }
+
+// testCompressExt implements ExtensionWithCompressHook.
+type testCompressExt struct {
+	testExt
+	preCompressHooks []agent.PreCompressHook
+}
+
+func (e *testCompressExt) PreCompressHooks() []agent.PreCompressHook { return e.preCompressHooks }
+
+func TestRegister_SessionAndCompressHooks(t *testing.T) {
+	reg := NewRegistry()
+
+	require.NoError(t, reg.Register(&testSessionExt{
+		testExt:    testExt{name: "session-ext"},
+		startHooks: []agent.SessionStartHook{func(ctx context.Context, e agent.SessionStartEvent) error { return nil }},
+		endHooks:   []agent.SessionEndHook{func(ctx context.Context, e agent.SessionEndEvent) error { return nil }},
+	}))
+	require.NoError(t, reg.Register(&testCompressExt{
+		testExt:          testExt{name: "compress-ext"},
+		preCompressHooks: []agent.PreCompressHook{func(ctx context.Context, e agent.PreCompressEvent) error { return nil }},
+	}))
+
+	hooks := reg.LifecycleHooks()
+	assert.Len(t, hooks.SessionStart, 1)
+	assert.Len(t, hooks.SessionEnd, 1)
+	assert.Len(t, hooks.PreCompress, 1)
+	// 不影响原有 before/after
+	assert.Empty(t, hooks.Before)
+	assert.Empty(t, hooks.After)
+}
+
+// 纯 lifecycle extension 不贡献 session/compress hook（独立接口，互不干扰）。
+func TestRegister_LifecycleExtNoSessionHooks(t *testing.T) {
+	reg := NewRegistry()
+	require.NoError(t, reg.Register(&testLifecycleExt{
+		testExt:     testExt{name: "lifecycle-only"},
+		beforeHooks: []agent.BeforeToolCallHook{func(ctx context.Context, call agent.ToolCallContext) (agent.ToolCallContext, error) { return call, nil }},
+	}))
+
+	hooks := reg.LifecycleHooks()
+	assert.Len(t, hooks.Before, 1)
+	assert.Empty(t, hooks.SessionStart, "lifecycle ext 不应贡献 session hook")
+	assert.Empty(t, hooks.PreCompress)
 }

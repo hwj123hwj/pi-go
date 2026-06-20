@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 )
 
 // ToolCallContext carries the full context for a single tool invocation through
@@ -77,10 +78,75 @@ func NewAfterHookError(err error, result ToolResult) *AfterHookError {
 	return &AfterHookError{Err: err, Result: result}
 }
 
-// LifecycleHooks aggregates the before/after hook slices consumed by the agent.
+// ─── Observer hooks (session-level, non-blocking) ───────────────────────────
+//
+// 以下三个 hook 是观察型：签名 func(ctx, Event) error，返回的 error 仅被
+// slog.Warn 记录，不阻断主流程。与 DeepV 的 PreCompress 语义一致（只能观察）。
+// 用于会话启动/结束、上下文压缩前注入副作用（预加载、清理、记录）。
+
+// SessionStartEvent 携带会话启动时的上下文。
+type SessionStartEvent struct {
+	Goal string // 当前 goal（若有）
+}
+
+// SessionStartHook 在会话开始时触发（对应 EventAgentStart）。观察型。
+type SessionStartHook func(ctx context.Context, e SessionStartEvent) error
+
+// SessionEndEvent 携带会话结束时的上下文。
+type SessionEndEvent struct {
+	Err error // 会话是否因错误结束（nil=正常完成）
+}
+
+// SessionEndHook 在会话结束时触发（对应 EventAgentEnd）。观察型。
+type SessionEndHook func(ctx context.Context, e SessionEndEvent) error
+
+// PreCompressEvent 携带上下文压缩前的上下文。
+type PreCompressEvent struct {
+	ContextTokens int // 估算的当前 token 数
+	ContextWindow int // 模型上下文窗口
+	MessageCount  int // 待压缩的消息数
+}
+
+// PreCompressHook 在上下文压缩前触发。观察型——不能阻止或修改压缩。
+type PreCompressHook func(ctx context.Context, e PreCompressEvent) error
+
+// LifecycleHooks aggregates the hook slices consumed by the agent.
+//
+// Before/After 是工具执行级 hook（可阻断）。
+// SessionStart/SessionEnd/PreCompress 是会话级 hook（观察型，error 仅记录不阻断）。
 type LifecycleHooks struct {
-	Before []BeforeToolCallHook
-	After  []AfterToolCallHook
+	Before       []BeforeToolCallHook
+	After        []AfterToolCallHook
+	SessionStart []SessionStartHook
+	SessionEnd   []SessionEndHook
+	PreCompress  []PreCompressHook
+}
+
+// 观察型 hook 的统一执行模式：遍历调用，error 仅 slog.Warn 记录，不阻断主流程。
+// 三个函数分别对应三种 Event 类型（Go 具名 hook 类型不隐式转换，故不合并）。
+
+func runSessionStartHooks(ctx context.Context, hooks []SessionStartHook, e SessionStartEvent) {
+	for _, h := range hooks {
+		if err := h(ctx, e); err != nil {
+			slog.Warn("SessionStart hook failed (non-blocking)", "error", err)
+		}
+	}
+}
+
+func runSessionEndHooks(ctx context.Context, hooks []SessionEndHook, e SessionEndEvent) {
+	for _, h := range hooks {
+		if err := h(ctx, e); err != nil {
+			slog.Warn("SessionEnd hook failed (non-blocking)", "error", err)
+		}
+	}
+}
+
+func runPreCompressHooks(ctx context.Context, hooks []PreCompressHook, e PreCompressEvent) {
+	for _, h := range hooks {
+		if err := h(ctx, e); err != nil {
+			slog.Warn("PreCompress hook failed (non-blocking)", "error", err)
+		}
+	}
 }
 
 // ─── Optional tool interfaces ────────────────────────────────────────────────
