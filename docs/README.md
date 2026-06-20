@@ -22,6 +22,7 @@ docs/
 │
 ├── decisions/                         # 当前采纳判断（会演进，但比 research 更接近团队共识）
 │   ├── skills-vs-application.md
+│   ├── personal-assistant-roadmap.md
 │   ├── goal-compact-cross-framework.md
 │   ├── manual-compaction-design-analysis.md
 │   └── deepvcode-essence-absorption.md
@@ -94,6 +95,7 @@ docs/
 | 文档 | 用途 |
 |------|------|
 | [skills-vs-application.md](decisions/skills-vs-application.md) | 什么时候用 Skills，什么时候拆成独立 Application |
+| [personal-assistant-roadmap.md](decisions/personal-assistant-roadmap.md) | pi-go 从编程助手演进为通用个人助手：多 agent + 记忆层（OpenViking）路线 |
 | [goal-compact-cross-framework.md](decisions/goal-compact-cross-framework.md) | `/goal` 与 `/compact` 的跨框架对比与采纳建议 |
 | [manual-compaction-design-analysis.md](decisions/manual-compaction-design-analysis.md) | `/compact` 手动上下文治理设计收敛文档 |
 | [deepvcode-essence-absorption.md](decisions/deepvcode-essence-absorption.md) | 基于 DeepV 对比得出的阶段性增强建议 |

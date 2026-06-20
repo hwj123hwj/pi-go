@@ -1,6 +1,6 @@
 # Pi-Go
 
-用 Go 实现的通用 Agent 框架，核心目标：**可扩展的 Agent 底座 + 可插拔的应用层**。当前主要应用是 coding-agent（代码编辑助手）。
+用 Go 实现的通用 Agent 框架，核心目标：**可扩展的 Agent 底座 + 可插拔的应用层**。当前主要应用是 coding-agent（代码编辑助手）和 music-agent（音乐助手）。
 
 ## 架构
 
@@ -9,10 +9,11 @@
 ```
 ┌─────────────────────────────────────────────────────┐
 │  Entrypoints（组装与入口）                           │
-│  app/  cli/  server/                                 │
+│  cmd/pi-agent  cmd/pi-feishu-bridge  cmd/pi-music    │
 ├─────────────────────────────────────────────────────┤
 │  Application（领域应用层，可插拔）                    │
 │  agents/coding/ — 工具集、提示、命令、Profile        │
+│  agents/music/  — 音乐助手应用                       │
 ├─────────────────────────────────────────────────────┤
 │  Platform（运行时平台层，领域无关）                   │
 │  runtime/ — AgentSession 生命周期、Application 接口  │
@@ -30,16 +31,20 @@
 - **多 Provider 支持**：Anthropic、OpenAI、DeepV、Mock，通过插件注册机制扩展
 - **流式输出**：SSE 事件流，支持 text delta / tool call / error 等细粒度事件
 - **Agent 循环**：双层循环（外层 follow-up + 内层 tool call），支持顺序/并行工具执行
-- **7 个内置工具**：bash、read、write、edit、grep、find、ls
+- **8 个内置工具**：bash、read、write、edit、grep、find、ls、web_fetch
 - **会话持久化**：JSONL append-only 存储，支持树状分支
 - **上下文压缩**：长对话自动摘要，防止超出上下文窗口
+- **MicroCompact**：零 LLM 成本的工具结果清理，保留最近 N 个完整结果
 - **技能系统**：加载 `.claude/skills/` 目录下的 SKILL.md
 - **HTTP API**：RESTful 接口 + SSE 流式端点 + WebSocket，含 logging/recovery/CORS 中间件
-- **CLI 控制面**：Slash Commands 框架 + 14 个内置命令
+- **CLI 控制面**：Slash Commands 框架 + 15 个内置命令
 - **Profile 系统**：coding / review 双 profile，切换即重建 agent
 - **SSH 远程执行**：通过 Operations 抽象切换本地 / SSH 执行后端
 - **扩展系统**：Extension 接口支持工具、命令、事件钩子注入
-- **Tool Lifecycle Hooks**：Before/After hook + PrepareArguments 接口
+- **Tool Lifecycle Hooks**：Before/After hook + PrepareArguments + Confirmation 接口
+- **Goal-Driven Loop**：目标驱动模式，LLM 评估器 + 关键词回退自动判断完成度
+- **循环检测**：SHA256 指纹识别连续相同工具调用，柔性提醒 Agent 换策略
+- **确认门控**：危险工具执行前用户确认（`ToolWithConfirmation` 接口）
 - **飞书桥接**：独立服务（`cmd/pi-feishu-bridge`），将 Agent 接入飞书群聊
 
 ## 快速开始
@@ -114,8 +119,12 @@ npm run electron:build:x64
 | `POST` | `/sessions/{id}/model` | 切换会话模型 |
 | `POST` | `/sessions/{id}/compact` | 压缩会话上下文 |
 | `POST` | `/sessions/{id}/command` | 执行斜杠命令 |
+| `GET` | `/sessions/{id}/diff` | 获取会话 Git diff |
+| `GET` | `/sessions/{id}/file` | 获取会话文件内容 |
 | `GET` | `/models` | 列出可用模型 |
 | `GET` | `/tools` | 列出工具 |
+| `POST` | `/tools/register` | 注册外部工具 |
+| `GET` | `/applications` | 列出可用应用 |
 | `GET` | `/ws` | WebSocket 连接 |
 
 ## 环境变量
@@ -139,6 +148,8 @@ npm run electron:build:x64
 | `PI_GO_SESSION_FILE` | `./data/session.jsonl` | 会话文件路径 |
 | `PI_GO_ENABLE_BASH` | `false` | 是否启用 Bash 工具 |
 | `PI_GO_BASH_TIMEOUT_SECONDS` | `30` | Bash 命令超时 |
+| `PI_GO_ENABLE_WEB` | `false` | 是否启用 Web Fetch 工具 |
+| `PI_GO_WEB_TIMEOUT_SECONDS` | `30` | Web Fetch 超时（秒） |
 | `PI_GO_MAX_OUTPUT_LEN` | `30000` | 工具输出最大字符数 |
 | `PI_GO_WORKSPACE` | 当前目录 | 工作目录 |
 | `PI_GO_EXECUTION_MODE` | `local` | 执行后端：`local` 或 `ssh` |
@@ -149,6 +160,7 @@ npm run electron:build:x64
 | `PI_GO_BLOCKED_TOOLS` | - | 工具黑名单（逗号分隔） |
 | `PI_GO_HISTORY_FILE` | - | 交互模式历史记录路径 |
 | `PI_GO_PROMPT_TEMPLATE` | - | 自定义提示模板路径 |
+| `PI_GO_MUSIC_PORT` | - | 音乐服务端口 |
 
 完整环境变量说明见 [CONTRIBUTING.md](docs/CONTRIBUTING.md#八环境变量速查)。
 
@@ -164,7 +176,7 @@ go test ./...
 
 ## 项目统计
 
-- **语言**：Go 1.22+
-- **代码量**：~12,400 行（74 个源文件 + 39 个测试文件）
-- **内置工具**：7 个（read / write / edit / bash / grep / find / ls）
-- **斜杠命令**：14 个（help / new / switch / sessions / session / model / models / tools / profiles / profile / compact / branch / goal / context / clear）
+- **语言**：Go 1.24+
+- **代码量**：~14,000+ 行（113 个源文件 + 54 个测试文件）
+- **内置工具**：8 个（read / write / edit / bash / grep / find / ls / web_fetch）
+- **斜杠命令**：15 个（help / compact / sessions / session / branch / new / switch / tools / model / models / profiles / profile / goal / context / clear）
