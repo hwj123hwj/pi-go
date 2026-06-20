@@ -109,6 +109,7 @@ docs/
 | [claude-code-system-prompt-analysis.md](research/claude-code-system-prompt-analysis.md) | Claude Code 系统提示构建方式与 pi-go 对比 |
 | [cc-haha-architecture-analysis.md](research/cc-haha-architecture-analysis.md) | cc-haha 桌面端架构与功能全景分析 |
 | [cc-haha-core-engine-analysis.md](research/cc-haha-core-engine-analysis.md) | cc-haha Agent 循环、Tool 系统、核心引擎源码深度分析 |
+| [cc-haha-web-fetch-analysis.md](research/cc-haha-web-fetch-analysis.md) | cc-haha(=Claude Code 官方) WebFetch 源码级分析，pi-go web_fetch 实现参照 |
 | [codex-rust-cli-analysis.md](research/codex-rust-cli-analysis.md) | Codex Rust CLI 详细调研 |
 | [deepv-code-full-analysis.md](research/deepv-code-full-analysis.md) | DeepV Code 全面分析 |
 | ~~competitive-research.md~~ | *(已归档)* 阶段性竞品对比分析 |

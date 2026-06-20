@@ -2,12 +2,12 @@ package coding
 
 import (
 	"github.com/earendil-works/pi-go/internal/agent"
+	"github.com/earendil-works/pi-go/internal/agents/coding/profile"
 	codingprompt "github.com/earendil-works/pi-go/internal/agents/coding/prompt"
 	codingtools "github.com/earendil-works/pi-go/internal/agents/coding/tools"
 	"github.com/earendil-works/pi-go/internal/config"
 	"github.com/earendil-works/pi-go/internal/runtime"
 	"github.com/earendil-works/pi-go/internal/slashcmd"
-	"github.com/earendil-works/pi-go/internal/agents/coding/profile"
 )
 
 // CodingApplication implements runtime.Application for the coding-agent.
@@ -29,6 +29,8 @@ func (a CodingApplication) BuildTools(opts runtime.ToolBuildOptions) []agent.Too
 		MaxOutputLen:      opts.MaxOutputLen,
 		EnableBash:        a.Cfg.EnableBash,
 		BashOps:           opts.BashOps,
+		EnableWeb:         a.Cfg.EnableWeb,
+		WebTimeoutSeconds: a.Cfg.WebTimeoutSeconds,
 		FileOps:           opts.FileOps,
 		ExtensionTools:    opts.ExtensionTools,
 		AllowedTools:      opts.AllowedTools,

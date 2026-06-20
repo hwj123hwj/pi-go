@@ -520,25 +520,26 @@ type TodoItem struct {
 
 ### 4.1 WebFetchTool（网页抓取）
 
-> ⚠️ 从高优先级移入。对 coding agent 核心场景（读写代码）价值有限，属于锦上添花。
+> 2026-06-20 更新：参考来源从 DeepV 升级为 cc-haha（=Claude Code 官方实现，成熟度远超 DeepV）。详细源码级分析见 [cc-haha-web-fetch-analysis](../research/cc-haha-web-fetch-analysis.md)。
 
-- **参考**: `DeepVcodeClient/packages/core/src/tools/web-fetch.ts`
-- **价值**: 让 Agent 能抓取网页内容（查看文档、API 说明等）
-- **关键特性**:
-  - HTTP GET 获取 URL 内容
-  - 响应大小限制
-  - 内容格式化为 markdown
+- **参考**: `cc-haha/src/tools/WebFetchTool/`（Anthropic 官方 Claude Code 实现，1115 行）
+- **价值**: 让 Agent 能抓取用户给定 URL 的内容（查文档、读 issue/PR、参考设计）
+- **关键设计**（参照 cc-haha）:
+  - 结构化参数 `{url, prompt?}`（非 DeepV 的 URL 塞 prompt 正则提取）
+  - HTML→markdown 用成熟库（cc-haha 用 turndown，pi-go 用 `JohannesKaufmann/html-to-markdown`），DeepV 不转换靠 LLM 硬消化
+  - 三层长度控制（URL / 原始 HTML 10MB / markdown 100K）
+  - URL 校验：长度 + 禁凭证 URL + hostname≥2 段
+  - SSRF 防护：内网 IP 拦截（学 DeepV isPrivateIp）
+  - 跨域重定向不自动跟，返回提示让 Agent 重调
+  - 权限：复用 pi-go P0 的 `ToolWithConfirmation`，非白名单域名确认（cc-haha 也是确认模型）
+- **预估**: 单工具约 200-250 行
 
 ### 4.2 WebSearchTool（网络搜索）
 
-> ⚠️ 从高优先级移入。同上，coding agent 核心不需要搜索引擎。
+> 2026-06-20 决定：**暂缓，倾向不做**。编程 agent 低频，用户主动给 URL 走 web_fetch 更准；DeepV 的搜索靠 Gemini API grounding，pi-go 多 Provider 走不了；自己做要选搜索后端 + API key，成本/收益不划算。
 
-- **参考**: `DeepVcodeClient/packages/core/src/tools/web-search.ts`
-- **价值**: 让 Agent 能搜索网络信息
-- **关键特性**:
-  - 调用搜索 API
-  - 结果摘要返回
-  - 域名过滤（允许/禁止）
+- **参考**: `DeepVcodeClient/packages/core/src/tools/web-search.ts`（依赖 Gemini grounding，不可移植）
+- **结论**: 砍掉。真有搜索需求时用 web_fetch + 用户给链接兜底
 
 ### 4.3 BatchTool（批量工具调用）
 - **参考**: `DeepVcodeClient/packages/core/src/tools/batch.ts`

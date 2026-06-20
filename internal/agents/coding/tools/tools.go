@@ -12,6 +12,8 @@ type ListOptions struct {
 	MaxOutputLen      int
 	EnableBash        bool
 	BashOps           operations.BashOperations
+	EnableWeb         bool
+	WebTimeoutSeconds int
 	FileOps           operations.FileOperations
 	ExtensionTools    []agent.Tool
 	AllowedTools      []string
@@ -37,6 +39,13 @@ func BuildList(opts ListOptions) []agent.Tool {
 			basetools.WithBashWorkspace(opts.Workspace),
 			basetools.WithBashMaxOutputLen(opts.MaxOutputLen),
 			basetools.WithBashOperations(opts.BashOps),
+		))
+	}
+
+	if opts.EnableWeb {
+		toolList = append(toolList, basetools.NewWebFetchTool(
+			basetools.WithWebFetchTimeout(opts.WebTimeoutSeconds),
+			basetools.WithWebFetchMaxOutputLen(opts.MaxOutputLen),
 		))
 	}
 
