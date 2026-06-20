@@ -171,6 +171,7 @@ func (a *Agent) Prompt(ctx context.Context, msg ai.Message) (ai.AssistantMessage
 	a.loopDetect.reset()
 
 	a.emit(ctx, EventAgentStart{})
+	runSessionStartHooks(ctx, a.lifecycleHooks.SessionStart, SessionStartEvent{Goal: a.goal})
 	a.steeringQueue.Enqueue(msg)
 	assistant, err := RunLoop(ctx, a)
 	a.mu.Lock()
@@ -180,6 +181,7 @@ func (a *Agent) Prompt(ctx context.Context, msg ai.Message) (ai.AssistantMessage
 		a.state = StateIdle
 	}
 	a.mu.Unlock()
+	runSessionEndHooks(ctx, a.lifecycleHooks.SessionEnd, SessionEndEvent{Err: err})
 	a.emit(ctx, EventAgentEnd{Messages: []ai.Message{msg}})
 	return assistant, err
 }
@@ -247,6 +249,7 @@ func (a *Agent) PromptStream(ctx context.Context, msg ai.Message) (<-chan AgentS
 		}
 
 		a.emit(ctx, EventAgentStart{})
+		runSessionStartHooks(ctx, a.lifecycleHooks.SessionStart, SessionStartEvent{Goal: a.goal})
 		a.steeringQueue.Enqueue(msg)
 
 		// PromptStream 的 stream consumer：转发 text delta 事件到 channel
@@ -287,6 +290,7 @@ func (a *Agent) PromptStream(ctx context.Context, msg ai.Message) (<-chan AgentS
 		a.mu.Lock()
 		a.state = StateIdle
 		a.mu.Unlock()
+		runSessionEndHooks(ctx, a.lifecycleHooks.SessionEnd, SessionEndEvent{Err: err})
 		a.emit(ctx, EventAgentEnd{})
 	}()
 

@@ -276,6 +276,13 @@ func (a *Agent) maybeCompact(ctx context.Context, history []ai.Message) []ai.Mes
 		return history
 	}
 
+	// PreCompress hook：观察型，确认要压缩时触发。不能阻止或修改压缩。
+	runPreCompressHooks(ctx, a.lifecycleHooks.PreCompress, PreCompressEvent{
+		ContextTokens: contextTokens,
+		ContextWindow: contextWindow,
+		MessageCount:  len(historyPart),
+	})
+
 	summary, err := compaction.Compact(ctx, historyPart, recentPart, "", a.summarizeFunc)
 	if err != nil {
 		// 压缩失败，继续使用完整历史

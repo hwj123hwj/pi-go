@@ -56,3 +56,19 @@ type ExtensionWithLifecycle interface {
 	BeforeToolCallHooks() []agent.BeforeToolCallHook
 	AfterToolCallHooks() []agent.AfterToolCallHook
 }
+
+// ExtensionWithSessionHooks is an optional interface for extensions that want
+// to observe session start/end. Hooks are non-blocking (observer-only).
+// Kept separate from ExtensionWithLifecycle so extensions can opt in granularly.
+type ExtensionWithSessionHooks interface {
+	Extension
+	SessionStartHooks() []agent.SessionStartHook
+	SessionEndHooks() []agent.SessionEndHook
+}
+
+// ExtensionWithCompressHook is an optional interface for extensions that want
+// to observe context compaction. Hook is non-blocking (observer-only).
+type ExtensionWithCompressHook interface {
+	Extension
+	PreCompressHooks() []agent.PreCompressHook
+}
