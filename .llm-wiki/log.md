@@ -25,6 +25,18 @@
 - **Updated** `index.md` — Added all new pages to their sections
 - **Updated** `overview.md` — (no changes needed, already covered all)
 
+## [2026-06-20] ingest | Project Root (.) — incremental re-ingest
+- **Updated** `source-project-root.md` — New date, 14 notable facts (up from 7), added music/web_fetch/loop-detect/MicroCompact/hook facts
+- **Created** `music-agent.md` — NetEase Cloud Music application layer with 6 tools, HTTP proxy, per-session extension
+- **Created** `web-fetch-tool.md` — 8th built-in tool: URL→markdown with SSRF protection (isPrivateHost, redirect check)
+- **Created** `micro-compact.md` — Two-tier compaction concept: MicroCompact (60%, no LLM) → Full Compact (90%, LLM)
+- **Updated** `tool-system.md` — Added web_fetch as 8th tool, added music-agent tools section
+- **Updated** `context-compaction.md` — Added two-tier strategy, MicroCompact config, MicroCompacted event
+- **Updated** `overview.md` — Added music agent to capabilities table, added "两种应用层" section
+- **Updated** `index.md` — Added 3 new pages (music-agent, web-fetch-tool, micro-compact)
+- **Skipped** `agent-core.md` — Already had loop detection, confirmation, session hooks
+- **Skipped** `tool-lifecycle-hooks.md` — Already had session observer hooks
+
 ## [2026-06-14] ingest | Project Root (.) — comprehensive re-ingest
 - **Created** `desktop-app.md` — Electron + React desktop application entity
 - **Created** `feishu-integration.md` — Lark/Feishu bot bridge entity

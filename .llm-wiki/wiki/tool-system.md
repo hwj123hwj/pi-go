@@ -43,7 +43,7 @@ The `ToolResult` struct separates content for the LLM from content for the user:
 | `ToolWithPrepareArguments` | Normalize/enrich validated args before execution |
 | `ToolWithConfirmation` | Declare that a tool call needs user confirmation before execution |
 
-## Built-in Tools (7)
+## Built-in Tools (8)
 
 All located in `internal/tools/`:
 
@@ -56,6 +56,7 @@ All located in `internal/tools/`:
 | `grep` | `grep.go` | Content search |
 | `find` | `find.go` | File search |
 | `ls` | `ls.go` | Directory listing |
+| `web_fetch` | `web_fetch.go` | Fetch URL content → markdown ([[web-fetch-tool]]) |
 
 ## Tool Lifecycle Hooks
 
@@ -81,6 +82,10 @@ The partition system (`internal/agent/partition_test.go`) classifies each tool c
 Tools can be filtered via config:
 - `AllowedTools` — whitelist
 - `BlockedTools` — blacklist
+
+## Music Agent Tools (6)
+The [[music-agent]] application provides 6 additional tools:
+`music_search` / `music_play` / `music_lyrics` / `music_detail` / `music_playlist` / `music_recommend`
 
 ## External Tools
 

@@ -8,7 +8,9 @@
 
 ## Entities
 - [[agent-core]] — Agent state machine and execution engine
-- [[tool-system]] — 7 built-in tools + optional interfaces + external tools
+- [[tool-system]] — 8 built-in tools + optional interfaces + external tools
+- [[web-fetch-tool]] — 8th built-in tool: URL→markdown with SSRF protection
+- [[music-agent]] — NetEase Cloud Music application layer (6 tools)
 - [[llm-provider-system]] — Anthropic/OpenAI/DeepV/Mock providers
 - [[session-persistence]] — JSONL append-only with tree branching
 - [[slash-command-framework]] — 14 built-in slash commands
@@ -26,6 +28,7 @@
 - [[ai-transform-retry]] — Message transform, retry, cost, model registry
 
 ## Concepts
+- [[micro-compact]] — LLM-free compaction: clear old tool results at 60% threshold
 - [[four-layer-architecture]] — Entrypoints → Application → Platform → Core
 - [[runtime-application-interface]] — The Platform↔App decoupling boundary
 - [[agent-loop]] — Outer follow-up + inner tool-call dual loop

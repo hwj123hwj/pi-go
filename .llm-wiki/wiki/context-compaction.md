@@ -8,7 +8,24 @@ tags: [compaction, context, summary, memory]
 
 > LLM-driven summarization of conversation history to prevent context window overflow.
 
-## How It Works
+## Two-Tier Compaction Strategy
+
+Pi-Go uses a two-tier approach to manage context window pressure:
+
+### Tier 1: [[micro-compact|MicroCompact]] (LLM-free)
+- **Threshold**: context > 60% of window (`MicroCompactRatio`)
+- **Action**: Replace old tool result content with placeholders
+- **Cost**: Zero LLM calls
+- **Keeps**: Last N tool results intact (`MicroKeepRecent`, default 5)
+
+### Tier 2: Full Compact (LLM-driven)
+- **Threshold**: context > ~90% of window (`ReserveTokens`)
+- **Action**: LLM summarizes old history, keeps recent messages
+- **Cost**: One LLM call
+
+MicroCompact fires first, delaying the need for expensive full compaction.
+
+## Full Compact Flow
 
 1. **Split** — Full message history is split at `KeepRecentTokens` boundary:
    - `historyPart` — Older messages (to summarize)
@@ -21,7 +38,13 @@ tags: [compaction, context, summary, memory]
 
 ```go
 type Settings struct {
-    KeepRecentTokens int  // How many recent tokens to preserve
+    Enabled          bool    // Default: true
+    ReserveTokens    int     // Default: 16384 — tokens reserved for summary prompt
+    KeepRecentTokens int     // Default: 20000 — recent tokens to preserve intact
+
+    // MicroCompact (Tier 1)
+    MicroCompactRatio float64 // Default: 0.6 — trigger MicroCompact at 60% of window
+    MicroKeepRecent   int     // Default: 5 — keep last N tool results intact
 }
 ```
 
@@ -43,10 +66,13 @@ type Settings struct {
 
 ## Events
 
-- `EventCompacted` — Emitted on successful compaction
+- `EventMicroCompacted` — Emitted after MicroCompact (Tier 1): `{ClearedResults, TokensBefore}`
+- `EventCompacted` — Emitted on successful full compaction (Tier 2)
 - `EventCompactionFailed` — Emitted on failure
 
 ## Related
 
-- [[agent-core]] — Agent holds CompactionSettings and SummarizeFunc
+- [[micro-compact]] — Tier 1 compaction (LLM-free, clears old tool results)
+- [[agent-core]] — Agent holds CompactionSettings and SummarizeFunc; runs `maybeCompact()` after each turn
+- [[tool-lifecycle-hooks]] — PreCompressHook fires before both tiers
 - [[session-persistence]] — Compaction entries stored in session JSONL

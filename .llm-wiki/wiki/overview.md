@@ -25,10 +25,10 @@ Entrypoints（组装与入口）
 |------|------|------|
 | 多 Provider | Anthropic / OpenAI / DeepV / Mock | ✅ |
 | Agent 双层循环 | 外层 follow-up + 内层 tool call | ✅ |
-| 7 个内置工具 | read / write / edit / bash / grep / find / ls | ✅ |
+| 8 个内置工具 | read / write / edit / bash / grep / find / ls / [[web-fetch-tool\|web_fetch]] | ✅ |
 | 工具生命周期 | Before/After hook + PrepareArguments + Confirmation | ✅ |
 | 会话持久化 | JSONL append-only，树状分支 | ✅ |
-| 上下文压缩 | LLM 摘要 + 保留最近消息 | ✅ |
+| 上下文压缩 | 两级：[[micro-compact\|MicroCompact]]（无 LLM）+ LLM 摘要 | ✅ |
 | 扩展系统 | Extension 接口支持工具/命令/事件钩子 | ✅ |
 | 技能系统 | `.claude/skills/` 目录加载 SKILL.md | ✅ |
 | Goal-Driven Loop | 目标驱动，LLM 评估器 + 关键词回退 | ✅ |
@@ -39,6 +39,7 @@ Entrypoints（组装与入口）
 | HTTP API | REST + SSE + WebSocket | ✅ |
 | 桌面客户端 | Electron + React (v0.2.0) | ✅ 可用 |
 | 飞书桥接 | 独立服务接入飞书群聊 | ✅ 基础版 |
+| [[music-agent\|音乐助手]] | NetEase 云音乐，6 个专用工具 | ✅ |
 | 外部工具 | HTTP 回调注册 | ✅ |
 
 ## 三种交付入口
@@ -46,6 +47,11 @@ Entrypoints（组装与入口）
 1. **CLI** — 交互式/单次/服务模式
 2. **Desktop** — Electron + React GUI ([[desktop-app]])
 3. **Server + Feishu** — 飞书群聊 Agent ([[feishu-integration]])
+
+## 两种应用层
+
+1. **Coding Agent** — 代码编辑助手（主要应用）
+2. **Music Agent** — 音乐助手，基于 NetEase 云音乐（[[music-agent]]）
 
 ## 技术栈
 
