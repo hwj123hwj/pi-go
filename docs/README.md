@@ -112,6 +112,7 @@ docs/
 | [cc-haha-web-fetch-analysis.md](research/cc-haha-web-fetch-analysis.md) | cc-haha(=Claude Code 官方) WebFetch 源码级分析，pi-go web_fetch 实现参照 |
 | [codex-rust-cli-analysis.md](research/codex-rust-cli-analysis.md) | Codex Rust CLI 详细调研 |
 | [deepv-code-full-analysis.md](research/deepv-code-full-analysis.md) | DeepV Code 全面分析 |
+| [pi-go-enhancement-status.md](research/pi-go-enhancement-status.md) | pi-go P0-P2 增强落地状态（确认机制/循环检测/Hook/web_fetch/MicroCompact 的 commit 与 PR 索引） |
 | ~~competitive-research.md~~ | *(已归档)* 阶段性竞品对比分析 |
 
 ## 开发文档
