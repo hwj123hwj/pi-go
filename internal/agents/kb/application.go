@@ -1,0 +1,54 @@
+package kb
+
+import (
+	"github.com/earendil-works/pi-go/internal/agent"
+	kbprompt "github.com/earendil-works/pi-go/internal/agents/kb/prompt"
+	kbtools "github.com/earendil-works/pi-go/internal/agents/kb/tools"
+	"github.com/earendil-works/pi-go/internal/config"
+	"github.com/earendil-works/pi-go/internal/runtime"
+)
+
+// KBApplication implements runtime.Application for the knowledge-base agent.
+type KBApplication struct {
+	Cfg      config.Config
+	RepoPath string // path to agent-lessons repo, e.g. ~/agent-lessons
+}
+
+// NewKBApplication creates a new KBApplication.
+func NewKBApplication(cfg config.Config, repoPath string) KBApplication {
+	return KBApplication{
+		Cfg:      cfg,
+		RepoPath: repoPath,
+	}
+}
+
+// BuildTools assembles the kb-agent toolset.
+func (a KBApplication) BuildTools(opts runtime.ToolBuildOptions) []agent.Tool {
+	return kbtools.BuildList(kbtools.ListOptions{
+		RepoPath:     a.RepoPath,
+		AllowedTools: opts.AllowedTools,
+		BlockedTools: opts.BlockedTools,
+	})
+}
+
+// BuildPrompt constructs the kb-agent system prompt.
+func (a KBApplication) BuildPrompt(opts runtime.PromptBuildOptions, profile, goal string) string {
+	return kbprompt.BuildSystemPrompt(kbprompt.Options{
+		Tools:    opts.Tools,
+		Goal:     goal,
+		RepoPath: a.RepoPath,
+	})
+}
+
+// NewSessionExt creates a per-session KBSessionExt.
+func (a KBApplication) NewSessionExt() runtime.SessionExt {
+	return NewKBSessionExt()
+}
+
+// ToolNames returns the canonical kb-agent tool names.
+func (KBApplication) ToolNames(_ bool) []string {
+	return kbtools.BaseToolNames()
+}
+
+// Verify interface compliance at compile time.
+var _ runtime.Application = KBApplication{}

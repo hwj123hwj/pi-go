@@ -37,6 +37,64 @@ function getBaseUrl(): string {
   return baseUrl;
 }
 
+// Extract file paths from tool result text for clickable locations.
+// Matches: paths with known extensions, paths after "文件:" prefix,
+// directory paths (ending with /), and paths with ≥2 segments but no extension.
+function extractLocationsFromText(text: string): ToolLocation[] {
+  const locations: ToolLocation[] = [];
+  const seen = new Set<string>();
+
+  const knownExt = '(?:md|txt|json|js|ts|go|py|yaml|yml|toml|xml|html|css|sh|bash|rs|java|c|cpp|h|rb|php|sql|graphql|proto|vue|svelte|jsx|tsx|mdx|csv|log|cfg|conf|ini|env|lock|sum|mod)';
+
+  // Pattern 1: paths explicitly labeled (文件: /path/to/file)
+  // This catches both files and directories after a label prefix.
+  const pathPatterns = [
+    /(?:文件|File|路径|Path)[:：]\s*(\/[^\s\n]+)/gi,
+    // Paths with known extensions (broad match)
+    new RegExp(`(\\/[^\\s\\n]+\\.${knownExt})`, 'gi'),
+    // Directory paths ending with / (e.g. /Users/weijian/agent-lessons/doubao-knowledge/work/)
+    /(\/(?:[^\s\n]+\/){2,})/g,
+    // Paths with ≥3 segments, no extension in last segment
+    // (e.g. /Users/weijian/agent-lessons/doubao-knowledge/other)
+    // Requires ≥3 segments to avoid matching short fragments like "/foo/bar"
+    /(\/[^\s\n]*\/[^\s\n]*\/[^\s\n/.]+(?:\/[^\s\n/.]+)*)/g,
+  ];
+
+  for (const pattern of pathPatterns) {
+    let match;
+    while ((match = pattern.exec(text)) !== null) {
+      let path = match[1].trim();
+      // Skip URLs
+      if (/^https?:\/\//i.test(path)) continue;
+      // Skip very short matches (avoid false positives like "/a")
+      if (path.length < 10) continue;
+      // Normalize: remove trailing / for dedup, but keep it for display
+      const normalized = path.replace(/\/+$/, '');
+      if (!seen.has(normalized)) {
+        seen.add(normalized);
+        locations.push({ path });
+      }
+    }
+  }
+
+  // Pattern 2: paths without extensions that have ≥2 segments
+  // (e.g. /Users/weijian/agent-lessons/doubao-knowledge/work/something)
+  // Only match if it follows a label prefix to avoid false positives.
+  const noExtPattern = /(?:文件|File|路径|Path)[:：]\s*(\/(?:[^\s\n]+\/)*[^\s\n/.]+)/gi;
+  let match;
+  while ((match = noExtPattern.exec(text)) !== null) {
+    const path = match[1].trim();
+    if (path.length < 10) continue;
+    const normalized = path.replace(/\/+$/, '');
+    if (!seen.has(normalized)) {
+      seen.add(normalized);
+      locations.push({ path });
+    }
+  }
+
+  return locations;
+}
+
 async function apiRequest<T>(method: string, path: string, body?: unknown): Promise<T> {
   const opts: RequestInit = {
     method,
@@ -209,7 +267,7 @@ interface StoreState {
 
   init: () => Promise<void>;
   refreshSessions: () => Promise<void>;
-  setActive: (id: string) => void;
+  setActive: (id: string) => Promise<void>;
   createSession: (opts?: { cwd?: string; model?: string; application?: string }) => Promise<string>;
   deleteSession: (id: string) => Promise<void>;
   sendPrompt: (id: string, text: string) => Promise<void>;
@@ -219,6 +277,7 @@ interface StoreState {
   togglePane: (id: string, pane: PaneKind) => void;
   refreshDiff: (id: string) => Promise<void>;
   openFile: (id: string, path: string) => Promise<void>;
+  saveFile: (id: string, path: string, content: string) => Promise<boolean>;
 }
 
 // Cached models from backend (shared across all sessions)
@@ -407,6 +466,10 @@ export const useStore = create<StoreState>((set, get) => ({
         (resultObj && (resultObj.UserFacing || resultObj.Content)) ||
         (typeof result === 'string' ? result : JSON.stringify(result || ''));
       const details = resultObj?.Details ?? data.event?.tool_details ?? undefined;
+
+      // Extract file paths from result text for clickable locations
+      const locations = extractLocationsFromText(resultText);
+
       updateView(set, sessionId, (v) => {
         const transcript = v.transcript.map((item) => {
           if (item.kind === 'tool' && item.toolCallId === toolCallId) {
@@ -415,6 +478,7 @@ export const useStore = create<StoreState>((set, get) => ({
               status: (isError ? 'failed' : 'completed') as ToolCallStatus,
               content: [{ text: resultText }],
               details,
+              locations: locations.length > 0 ? locations : item.locations,
             };
           }
           return item;
@@ -493,7 +557,69 @@ export const useStore = create<StoreState>((set, get) => ({
     }
   },
 
-  setActive: (id) => set({ activeSessionId: id }),
+  setActive: async (id) => {
+    set({ activeSessionId: id });
+    // Load transcript from backend if this session has no messages yet
+    const view = get().sessions[id];
+    if (view && view.transcript.length === 0) {
+      try {
+        const messages = await apiRequest<any[]>('GET', `/sessions/${id}/messages`);
+        if (!Array.isArray(messages) || messages.length === 0) return;
+
+        const items: ChatItem[] = [];
+        for (const msg of messages) {
+          if (msg.role === 'user' && msg.content) {
+            items.push({ kind: 'user', id: newId(), text: msg.content });
+          } else if (msg.role === 'assistant') {
+            // Thinking
+            if (msg.thinking) {
+              items.push({ kind: 'thought', id: newId(), text: msg.thinking });
+            }
+            // Tool calls (each becomes a completed tool item)
+            if (msg.tool_calls && msg.tool_calls.length > 0) {
+              for (const tc of msg.tool_calls) {
+                const toolKind = inferToolKind(tc.name);
+                // Find matching tool result
+                const resultMsg = messages.find(
+                  (m: any) => m.role === 'tool' && m.tool_call_id === tc.id,
+                );
+                const resultText = resultMsg?.content || '';
+                const isError = resultMsg?.is_error || false;
+                items.push({
+                  kind: 'tool',
+                  id: newId(),
+                  toolCallId: tc.id,
+                  title: tc.name,
+                  toolKind,
+                  status: isError ? 'failed' : 'completed',
+                  content: [{ text: resultText }],
+                  rawInput: tc.args ? (() => { try { return JSON.parse(tc.args); } catch { return undefined; } })() : undefined,
+                });
+              }
+            }
+            // Text response
+            if (msg.content) {
+              items.push({ kind: 'assistant', id: newId(), text: msg.content });
+            }
+          }
+        }
+
+        // Derive title from first user message
+        const firstUser = messages.find((m: any) => m.role === 'user');
+        const title = firstUser?.content ? deriveTitleFromMessage(firstUser.content) : undefined;
+
+        if (items.length > 0) {
+          updateView(set, id, (v) => ({
+            ...v,
+            transcript: items,
+            ...(title ? { meta: { ...v.meta, title } } : {}),
+          }));
+        }
+      } catch (err) {
+        console.error('Failed to load session transcript', err);
+      }
+    }
+  },
 
   createSession: async (opts) => {
     const body: Record<string, string> = {};
@@ -597,6 +723,23 @@ export const useStore = create<StoreState>((set, get) => ({
       updateView(set, id, (v) => ({ ...v, openFile: { path, content: resp.content }, activePane: 'file' }));
     } catch (err) {
       console.error('Failed to read file', err);
+    }
+  },
+
+  saveFile: async (id, path, content) => {
+    try {
+      console.log('[saveFile] Saving file:', { id, path, contentLength: content.length });
+      await apiRequest<{ status: string }>('PUT', `/sessions/${id}/file?path=${encodeURIComponent(path)}`, { content });
+      console.log('[saveFile] File saved successfully');
+      // Update the view with new content
+      updateView(set, id, (v) => ({
+        ...v,
+        openFile: v.openFile?.path === path ? { path, content } : v.openFile,
+      }));
+      return true;
+    } catch (err) {
+      console.error('Failed to save file', err);
+      return false;
     }
   },
 }));

@@ -200,6 +200,10 @@ export function Sidebar() {
                   <Icon name="sparkle" size={14} />
                   {t('mode.music')}
                 </button>
+                <button className="new-session-option" onClick={() => void handleNew('kb')}>
+                  <Icon name="search" size={14} />
+                  {t('mode.kb')}
+                </button>
               </div>
             )}
           </div>

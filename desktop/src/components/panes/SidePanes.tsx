@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import { useStore, type SessionView } from '../../store';
 import { Icon, type IconName } from '../Icon';
+import { Markdown } from '../Markdown';
 import { useT } from '../../i18n/useT';
 
 /** Plan pane — the agent's current execution plan / TODO list. */
@@ -126,21 +128,91 @@ export function TerminalPane({ view }: { view: SessionView }) {
   );
 }
 
-/** File pane — read-only viewer for a file opened from a tool location. */
+/** File pane — viewer and editor for files opened from tool locations. */
 export function FilePane({ view }: { view: SessionView }) {
   const t = useT();
   const open = view.openFile;
+  const isMarkdown = open?.path?.endsWith('.md') ?? false;
+  const saveFile = useStore((s) => s.saveFile);
+  const [editing, setEditing] = useState(false);
+  const [editContent, setEditContent] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const handleEdit = () => {
+    if (open) {
+      setEditContent(open.content);
+      setEditing(true);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!open) return;
+    console.log('[handleSave] Saving file:', { path: open.path, contentLength: editContent.length });
+    setSaving(true);
+    const success = await saveFile(view.meta.id, open.path, editContent);
+    console.log('[handleSave] Save result:', success);
+    setSaving(false);
+    if (success) {
+      setEditing(false);
+    }
+  };
+
+  const handleCancel = () => {
+    setEditing(false);
+    setEditContent('');
+  };
+
   return (
     <div className="pane">
       <div className="pane-head">
         <Icon name="file" size={15} />
-        <span style={{ fontFamily: 'var(--mono)' }}>{open?.path ?? t('pane.file')}</span>
+        <span style={{ fontFamily: 'var(--mono)', flex: 1 }}>{open?.path ?? t('pane.file')}</span>
+        {open && !editing && (
+          <button className="icon-btn" onClick={handleEdit} title="Edit">
+            <Icon name="edit" size={14} />
+          </button>
+        )}
+        {editing && (
+          <>
+            <button className="icon-btn" onClick={handleCancel} title="Cancel">
+              <Icon name="x" size={14} />
+            </button>
+            <button className="icon-btn" onClick={handleSave} disabled={saving} title="Save">
+              <Icon name="check" size={14} />
+            </button>
+          </>
+        )}
       </div>
       <div className="pane-body">
         {open ? (
-          <pre style={{ margin: 0, padding: 16, fontFamily: 'var(--mono)', fontSize: 12.5, lineHeight: 1.55 }}>
-            {open.content}
-          </pre>
+          editing ? (
+            <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+              <textarea
+                value={editContent}
+                onChange={(e) => setEditContent(e.target.value)}
+                style={{
+                  flex: 1,
+                  margin: 0,
+                  padding: 16,
+                  fontFamily: 'var(--mono)',
+                  fontSize: 12.5,
+                  lineHeight: 1.55,
+                  border: 'none',
+                  resize: 'none',
+                  background: 'var(--bg-sunken)',
+                  color: 'var(--text)',
+                }}
+              />
+            </div>
+          ) : isMarkdown ? (
+            <div style={{ padding: 16, overflow: 'auto' }}>
+              <Markdown text={open.content} />
+            </div>
+          ) : (
+            <pre style={{ margin: 0, padding: 16, fontFamily: 'var(--mono)', fontSize: 12.5, lineHeight: 1.55 }}>
+              {open.content}
+            </pre>
+          )
         ) : (
           <div className="empty">{t('file.empty')}</div>
         )}

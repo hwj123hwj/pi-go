@@ -351,6 +351,7 @@ export const en = {
   'music.nowPlaying': 'Now playing: {name}',
   'mode.coding': 'Coding',
   'mode.music': 'Music',
+  'mode.kb': 'Knowledge Base',
   'session.defaultTitle': 'New Session',
   'session.musicTitle': '🎵 Music',
 };

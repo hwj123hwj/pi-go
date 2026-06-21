@@ -215,12 +215,51 @@ function renderInline(text: string): ReactNode[] {
   let key = 0;
   for (const part of parts) {
     if (part.startsWith('`') && part.endsWith('`') && part.length > 1) {
-      nodes.push(<code key={key++}>{part.slice(1, -1)}</code>);
+      const codeContent = part.slice(1, -1);
+      // Check if the code content is a file path
+      if (isFilePath(codeContent)) {
+        nodes.push(
+          <code
+            key={key++}
+            className="file-path-link"
+            onClick={(e) => {
+              e.preventDefault();
+              // Dispatch a custom event to open the file in FilePane
+              window.dispatchEvent(new CustomEvent('open-file', { detail: { path: codeContent } }));
+            }}
+            style={{ cursor: 'pointer', textDecoration: 'underline' }}
+          >
+            {codeContent}
+          </code>
+        );
+      } else {
+        nodes.push(<code key={key++}>{codeContent}</code>);
+      }
     } else {
       nodes.push(<Fragment key={key++}>{renderEmphasis(part)}</Fragment>);
     }
   }
   return nodes;
+}
+
+// Check if a string looks like a file path.
+// Matches: paths with known extensions, directory paths (ending with /),
+// and paths with ≥2 segments but no extension (e.g. /Users/.../work/something).
+function isFilePath(text: string): boolean {
+  // Strip trailing slash for analysis
+  const stripped = text.replace(/\/+$/, '');
+  // Must start with / or ~/
+  if (!/^~?\//.test(stripped)) return false;
+  // Exclude URLs
+  if (/^https?:\/\//i.test(text)) return false;
+  // Known extensions (covers most source/config/doc files)
+  if (/^~?\/[^\s]+\.(md|txt|json|js|ts|go|py|yaml|yml|toml|xml|html|css|sh|bash|rs|java|c|cpp|h|rb|php|sql|graphql|proto|tf|vue|svelte|jsx|tsx|mdx|csv|log|cfg|conf|ini|env|lock|sum|mod)$/i.test(text)) return true;
+  // Directory path (ends with / and has ≥2 segments)
+  if (/\/$/.test(text) && stripped.split('/').filter(Boolean).length >= 2) return true;
+  // File/dir with ≥2 segments, no extension in last segment (e.g. /Users/foo/bar/something)
+  const lastSegment = stripped.split('/').pop() || '';
+  if (stripped.split('/').filter(Boolean).length >= 2 && !lastSegment.includes('.')) return true;
+  return false;
 }
 
 function renderEmphasis(text: string): ReactNode[] {
@@ -232,21 +271,22 @@ function renderEmphasis(text: string): ReactNode[] {
   let m: RegExpExecArray | null;
   let key = 0;
   while ((m = re.exec(text)) !== null) {
-    if (m.index > last) nodes.push(text.slice(last, m.index));
+    if (m.index > last) nodes.push(...renderTextWithFilePaths(text.slice(last, m.index), key));
+    key += 100; // reserve keyspace for path nodes
     const token = m[0];
     if (token.startsWith('![')) {
       const im = token.match(/^!\[([^\]]*)\]\(([^)]+)\)$/);
       if (im) {
         // The URL part may carry an optional CommonMark title: `(src "title")`.
         const inner = im[2].trim();
-        const titleMatch = inner.match(/^(\S+)\s+["'(](.*)["')]$/);
+        const titleMatch = inner.match(/^(\S+)\s+["'(](.*)["']$/);
         const src = titleMatch ? titleMatch[1] : inner;
         const title = titleMatch ? titleMatch[2] : undefined;
         nodes.push(
           <img key={key++} className="md-img" src={src} alt={im[1]} title={title} />,
         );
       } else {
-        nodes.push(token);
+        nodes.push(<Fragment key={key++}>{token}</Fragment>);
       }
     } else if (token.startsWith('**')) {
       nodes.push(<strong key={key++}>{token.slice(2, -2)}</strong>);
@@ -268,11 +308,44 @@ function renderEmphasis(text: string): ReactNode[] {
           </a>,
         );
       } else {
-        nodes.push(token);
+        nodes.push(<Fragment key={key++}>{token}</Fragment>);
       }
     }
     last = m.index + token.length;
   }
+  if (last < text.length) nodes.push(...renderTextWithFilePaths(text.slice(last), key));
+  return nodes;
+}
+
+// Scan plain text for file paths and make them clickable.
+const PATH_RE = /(\/(?:[^\s\n]*\/)+[^\s\n/.]+)/g;
+
+function renderTextWithFilePaths(text: string, baseKey: number): ReactNode[] {
+  const nodes: ReactNode[] = [];
+  let last = 0;
+  let m: RegExpExecArray | null;
+  let key = baseKey;
+  PATH_RE.lastIndex = 0;
+  while ((m = PATH_RE.exec(text)) !== null) {
+    const path = m[0];
+    if (!isFilePath(path)) continue;
+    if (m.index > last) nodes.push(text.slice(last, m.index));
+    nodes.push(
+      <code
+        key={key++}
+        className="file-path-link"
+        onClick={(e) => {
+          e.preventDefault();
+          window.dispatchEvent(new CustomEvent('open-file', { detail: { path } }));
+        }}
+        style={{ cursor: 'pointer', textDecoration: 'underline' }}
+      >
+        {path}
+      </code>,
+    );
+    last = m.index + path.length;
+  }
   if (last < text.length) nodes.push(text.slice(last));
+  if (nodes.length === 0) return [text]; // no paths found, return plain string
   return nodes;
 }

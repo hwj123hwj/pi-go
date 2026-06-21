@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -89,6 +90,7 @@ func (s *Server) Handler() http.Handler {
 	restMux.HandleFunc("POST /tools/register", s.registerTool)
 	restMux.HandleFunc("GET /sessions/{id}/diff", s.getSessionDiff)
 	restMux.HandleFunc("GET /sessions/{id}/file", s.getSessionFile)
+	restMux.HandleFunc("PUT /sessions/{id}/file", s.writeFile)
 
 	var restHandler http.Handler = restMux
 	restHandler = corsMiddleware(restHandler)
@@ -320,9 +322,19 @@ func (s *Server) getSessionMessages(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	type toolCallEntry struct {
+		ID   string `json:"id"`
+		Name string `json:"name"`
+		Args string `json:"args"`
+	}
+
 	type messageEntry struct {
-		Role    string `json:"role"`
-		Content string `json:"content"`
+		Role       string          `json:"role"`
+		Content    string          `json:"content"`
+		Thinking   string          `json:"thinking,omitempty"`
+		ToolCalls  []toolCallEntry `json:"tool_calls,omitempty"`
+		ToolCallID string          `json:"tool_call_id,omitempty"`
+		IsError    bool            `json:"is_error,omitempty"`
 	}
 
 	var result []messageEntry
@@ -339,8 +351,18 @@ func (s *Server) getSessionMessages(w http.ResponseWriter, r *http.Request) {
 			entry.Content = joinTexts(texts)
 		case ai.AssistantMessage:
 			entry.Content = m.Text
+			entry.Thinking = m.Thinking
+			if len(m.ToolCalls) > 0 {
+				for _, tc := range m.ToolCalls {
+					entry.ToolCalls = append(entry.ToolCalls, toolCallEntry{
+						ID: tc.ID, Name: tc.Name, Args: tc.Args,
+					})
+				}
+			}
 		case ai.ToolResultMessage:
 			entry.Content = m.Content
+			entry.ToolCallID = m.ToolCallID
+			entry.IsError = m.IsError
 		}
 		result = append(result, entry)
 	}
@@ -856,6 +878,41 @@ func (s *Server) getSessionFile(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(map[string]string{"content": string(data)})
 }
 
+// ─── PUT /sessions/{id}/file?path=... ────────────────────────────────────────
+
+type writeFileRequest struct {
+	Content string `json:"content"`
+}
+
+func (s *Server) writeFile(w http.ResponseWriter, r *http.Request) {
+	path := r.URL.Query().Get("path")
+	if path == "" {
+		writeError(w, http.StatusBadRequest, "path is required")
+		return
+	}
+
+	var req writeFileRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	// Ensure parent directory exists
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to create directory: "+err.Error())
+		return
+	}
+
+	if err := os.WriteFile(path, []byte(req.Content), 0644); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to write file: "+err.Error())
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+}
+
 // gitDiff runs git diff in the given directory and returns parsed file diffs.
 type fileDiff struct {
 	Path    string `json:"path"`
@@ -916,7 +973,7 @@ func gitDiff(cwd string) ([]fileDiff, error) {
 func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)

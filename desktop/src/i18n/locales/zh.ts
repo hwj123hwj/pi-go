@@ -349,6 +349,7 @@ export const zh = {
   'music.nowPlaying': '正在播放：{name}',
   'mode.coding': '编程',
   'mode.music': '音乐',
+  'mode.kb': '知识库',
   'session.defaultTitle': '新会话',
   'session.musicTitle': '🎵 音乐',
 } as const;
