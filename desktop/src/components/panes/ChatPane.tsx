@@ -11,6 +11,7 @@ export function ChatPane({ view }: { view: SessionView }) {
   const density = view.density;
   const t = useT();
   const bottomRef = useRef<HTMLDivElement>(null);
+  const openFile = useStore((s) => s.openFile);
 
   const busy = view.meta.status === 'thinking' || view.meta.status === 'starting';
   const last = view.transcript[view.transcript.length - 1];
@@ -19,6 +20,19 @@ export function ChatPane({ view }: { view: SessionView }) {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'auto' });
   }, [view.transcript, showDots]);
+
+  // Listen for file path clicks in Markdown
+  useEffect(() => {
+    const handleOpenFile = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      const path = customEvent.detail?.path;
+      if (path) {
+        openFile(view.meta.id, path);
+      }
+    };
+    window.addEventListener('open-file', handleOpenFile);
+    return () => window.removeEventListener('open-file', handleOpenFile);
+  }, [view.meta.id, openFile]);
 
   return (
     <div className="pane-body">
@@ -34,7 +48,7 @@ export function ChatPane({ view }: { view: SessionView }) {
           </div>
         )}
         {view.transcript.map((item) => (
-          <ChatItemView key={item.id} item={item} density={density} t={t} />
+          <ChatItemView key={item.id} item={item} density={density} t={t} sessionId={view.meta.id} onOpenFile={(path) => openFile(view.meta.id, path)} />
         ))}
         {showDots && (
           <div className="msg msg-assistant typing-row">
@@ -55,10 +69,14 @@ function ChatItemView({
   item,
   density,
   t,
+  sessionId,
+  onOpenFile,
 }: {
   item: ChatItem;
   density: SessionView['density'];
   t: TFunc;
+  sessionId: string;
+  onOpenFile: (path: string) => void;
 }) {
   switch (item.kind) {
     case 'user':
@@ -133,6 +151,7 @@ function ChatItemView({
           terminalOutput={item.terminalOutput}
           rawInput={item.rawInput}
           defaultOpen={density === 'verbose'}
+          onOpenFile={onOpenFile}
         />
       );
 

@@ -15,9 +15,14 @@ Thumbs.db
 /tmp/
 /pi-agent
 /pi-feishu-bridge
+/pi-music
+
+# Easy Code
+.easycode/
 
 # Reviews (local only)
 docs/reviews/
 
 # Runtime data
 data/
+*.log

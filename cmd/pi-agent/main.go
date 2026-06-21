@@ -11,6 +11,7 @@ import (
 	"strconv"
 
 	"github.com/earendil-works/pi-go/internal/agents/coding"
+	kbapp "github.com/earendil-works/pi-go/internal/agents/kb"
 	musicapp "github.com/earendil-works/pi-go/internal/agents/music"
 	"github.com/earendil-works/pi-go/internal/app"
 	"github.com/earendil-works/pi-go/internal/config"
@@ -72,7 +73,14 @@ func main() {
 		music.NewBilibiliAdapter(biliClient),
 	)
 
-	// Create App (thin assembly layer) with both coding and music applications
+	// Determine agent-lessons repo path (default: ~/agent-lessons)
+	homeDir, _ := os.UserHomeDir()
+	kbRepoPath := os.Getenv("PI_GO_KB_REPO_PATH")
+	if kbRepoPath == "" {
+		kbRepoPath = homeDir + "/agent-lessons"
+	}
+
+	// Create App (thin assembly layer) with coding, music, and kb applications
 	application, err := app.New(app.AppOptions{
 		Config:      cfg,
 		SkillDirs:   skillDirs(*skillDir),
@@ -80,6 +88,7 @@ func main() {
 		Applications: map[string]runtime.Application{
 			"coding": coding.NewCodingApplication(cfg),
 			"music":  musicapp.NewMusicApplication(cfg, musicRouter, musicCache),
+			"kb":     kbapp.NewKBApplication(cfg, kbRepoPath),
 		},
 	})
 	if err != nil {

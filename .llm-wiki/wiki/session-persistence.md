@@ -45,3 +45,4 @@ The `sessionmgr` package provides:
 
 - [[agent-core]] — Agent can attach a Session for persistence
 - [[context-compaction]] — Compaction entries are stored in sessions
+- [[session-manager]] — Higher-level session CRUD, forking, and metadata management (wraps this package)

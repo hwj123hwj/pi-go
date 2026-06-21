@@ -60,3 +60,36 @@
 - **Updated** `tool-lifecycle-hooks.md` — Added confirmation gate, ToolCallContext, AfterHookError
 - **Updated** `overview.md` — Added loop detection, confirmation gate, updated slash command count to 14
 - **Updated** `index.md` — Added source-project-root-v2, updated entity descriptions
+
+## [2026-06-22] ingest | Project Root (.) — re-ingest v3
+- **Created** `source-project-root-v3.md` — Source summary covering decisions, deployment, desktop internals, agent guidance
+- **Created** `personal-assistant-roadmap.md` — Evolution to general personal assistant, memory layer design (OpenViking-inspired), phased rollout P0-P3
+- **Created** `deployment-infrastructure.md` — GitHub Actions CI/CD, Ubuntu server systemd deployment, server layout
+- **Created** `agent-guidance-system.md` — CLAUDE.md/AGENTS.md coding conventions for AI agents, skill list
+- **Created** `competitive-analysis.md` — DeepV feature gap analysis, 30+ features with P0-P3 prioritization
+- **Updated** `overview.md` — Added personal assistant direction, deployment link, agent guidance, competitive analysis, corrected tool count (8) and slash command count (15)
+- **Updated** `desktop-app.md` — Added PiGoManager internals (subprocess lifecycle, port allocation, health check), update checker (GitHub Releases API), preload IPC bridge, Zustand store details (WebSocket events, tool kind inference)
+- **Updated** `four-layer-architecture.md` — Added skills-vs-application decision framework with 3-layer judgment flow, concrete examples, domain infrastructure note
+- **Updated** `context-compaction.md` — Added cross-framework comparison table (Pi/CC/Codex/DeepV), design insights, future enhancement roadmap, customInstructions support
+- **Updated** `index.md` — Added 4 new pages (personal-assistant-roadmap, deployment-infrastructure, agent-guidance-system, competitive-analysis), updated descriptions
+
+## [2026-06-22] ingest | Project Root (.) — v3 correction: music multi-source + quality filtering
+- **Updated** `music-agent.md` — **MAJOR REWRITE**: Added SourceRouter multi-source architecture (NetEase + Bilibili), composite ID format, Bilibili wbi-signed API client, two-gate quality filtering (blacklist + same-name check with two-pass fallback), cross-source VIP fallback, per-source Referer in audio proxy, Range header passthrough. Updated MusicApplication struct from `*netease.Client` to `*music.SourceRouter`.
+- **Updated** `source-project-root-v3.md` — Added "Music Multi-Source Implementation" section with 6 code references; added music-agent contradiction note; added bilibili/quality-filtering tags
+- **Updated** `overview.md` — Updated music-agent description to "多源音乐（NetEase + Bilibili）"; updated three application layers description
+
+## [2026-06-22] ingest | KB Agent wiki page
+- **Created** `kb-agent.md` — Knowledge base retrieval agent (3 tools: kb_search/kb_read/kb_query), agent-lessons repo integration, 507 knowledge cards, 38 project journals
+- **Updated** `overview.md` — Added KB agent to capabilities table; updated "三种应用层" from "Future agents" to KB Agent
+- **Updated** `four-layer-architecture.md` — Added `agents/kb/` to Application layer diagram; added KB Agent to concrete examples table; added kb-agent to related concepts
+- **Updated** `source-project-root-v3.md` — Added kb-agent to cross-references; added "kb-agent was missing" to contradictions section
+- **Updated** `index.md` — Added kb-agent entry to entities section
+
+## [2026-06-22] ingest | Project Root (.) — v4: tool execution internals, session management, path clicking
+- **Created** `source-project-root-v4.md` — Source summary: tool 9-step execution, session management layers, WebSocket protocol, desktop path clicking, gateway model discovery
+- **Created** `session-manager.md` — sessionmgr package: session CRUD, forking, directory-per-session storage, meta.json, relationship to SessionRegistry
+- **Updated** `tool-lifecycle-hooks.md` — **MAJOR REWRITE**: Added full 9-step execution flow (Find→EmitStart→Validate→Prepare→BeforeHooks→Confirmation→BuildOnUpdate→Execute→AfterHooks→EmitEnd), error handling table, tool batching (partitionToolCalls), IsError=false design for rejection
+- **Updated** `server-websocket.md` — Added WebSocket protocol (client/server message types), file endpoints (GET/PUT), CORS PUT fix, dynamic model discovery from gateway, CreateSession application field, session messages enrichment
+- **Updated** `desktop-app.md` — Added path clicking (Markdown.tsx + store.ts two-layer detection), isFilePath validation, extractLocationsFromText 4 patterns, session history restoration on setActive, file pane operations
+- **Updated** `session-persistence.md` — Added session-manager to related pages
+- **Updated** `index.md` — Added source-project-root-v4, session-manager; updated descriptions for tool-lifecycle-hooks, server-websocket, desktop-app
