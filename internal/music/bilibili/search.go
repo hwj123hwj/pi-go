@@ -11,7 +11,7 @@ type VideoResult struct {
 	Bvid     string
 	Title    string
 	Author   string
-	Duration int   // milliseconds
+	Duration int // milliseconds
 	Pic      string
 	Play     int64 // view count
 }
@@ -60,7 +60,9 @@ func (c *Client) Search(query string, limit int) ([]VideoResult, error) {
 			Play:     r.Play,
 		})
 	}
-	return results, nil
+	// 质量过滤：剔除鼓谱/reaction/教学/混剪等"不是在放这首歌"的视频（见 filter.go）。
+	// 在 client 内部过滤，让 adapter/playByQuery/跨源兜底等所有调用方自动受益。
+	return filterQualityResults(query, results), nil
 }
 
 // GetView fetches video metadata by BV ID.
