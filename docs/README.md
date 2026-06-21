@@ -38,8 +38,6 @@ docs/
 │   └── competitive-research.md        # (archived)
 │
 ├── dev/                               # 活跃开发主题（4-agent 流水线产出）
-│   ├── layering-refactor/             # 分层深度重构
-│   ├── second-agent-validation/       # 第二个 Agent 验证（暂缓预案）
 │   ├── skills-support/                # Skills 完整支持
 │   └── web-access/                    # 浏览器操控能力
 │
@@ -50,6 +48,8 @@ docs/
     ├── coding-agent-cli-control-plane/ # CLI 控制面（已完成）
     ├── feishu-bridge/                 # 飞书桥接基础版（已完成）
     ├── layering/                      # 分层架构提案（已完成）
+    ├── layering-refactor/             # 分层深度重构（已完成，四层架构 + Application 层落地）
+    ├── second-agent-validation/       # 第二个 Agent 验证（已完成，由 music agent 真实验证）
     ├── parallel/                      # 并行工具执行（已完成）
     ├── cli-tui/                       # CLI/TUI（已完成）
     ├── runtime-decoupling/            # Runtime 解耦（已完成）
@@ -147,10 +147,8 @@ updated: YYYY-MM-DD
 
 | 主题 | 状态 | 文档 | 说明 |
 |------|------|------|------|
-| 分层深度重构 | draft | [proposal.md](dev/layering-refactor/proposal.md) | 将 coding-agent 语义从 runtime 抽到 Application 层 |
 | Skills 完整支持 | draft | [proposal.md](dev/skills-support/proposal.md) | Skills 从展示列表变为可调用指令集 |
 | 浏览器操控 | draft | [spec.md](dev/web-access/spec.md) | 为 Agent 提供内置浏览器操控能力 |
-| 第二个 Agent 验证 | deferred | [execution-plan.md](dev/second-agent-validation/execution-plan.md) | 暂缓预案，非当前主线 |
 
 ## 归档
 
@@ -165,6 +163,8 @@ updated: YYYY-MM-DD
 | [coding-agent-cli-control-plane/](archive/coding-agent-cli-control-plane/execution-plan.md) | Coding Agent CLI 控制面（已完成） |
 | [feishu-bridge/](archive/feishu-bridge/execution-plan.md) | 飞书桥接基础版（已完成） |
 | [layering/](archive/layering/proposal.md) | 分层架构提案（已完成，演进为 layering-refactor） |
+| [layering-refactor/](archive/layering-refactor/proposal.md) | 分层深度重构：四层架构（Core/Platform/Application/Entrypoints）落地，coding-agent 语义抽到 Application 层（已完成） |
+| [second-agent-validation/](archive/second-agent-validation/execution-plan.md) | 第二个 Agent 验证预案；其目标（验证分层能承载多 agent）已由 music agent 真实落地验证（已完成） |
 | [parallel/](archive/parallel/execution-plan.md) | 并行工具执行（已完成） |
 | [cli-tui/](archive/cli-tui/execution-plan.md) | CLI/TUI 执行计划（已完成，方向已明确为 CLI） |
 | [runtime-decoupling/](archive/runtime-decoupling/execution-plan.md) | Runtime 解耦执行计划（已完成） |
