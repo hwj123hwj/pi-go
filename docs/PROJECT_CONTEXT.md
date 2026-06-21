@@ -7,7 +7,13 @@
 
 ## 定位
 
-pi-go 是一个用 Go 实现的通用 Agent 框架，核心目标是：**可扩展的 Agent 底座 + 可插拔的应用层**。当前主要应用是 coding-agent（代码编辑助手）。
+pi-go 是一个用 Go 实现的通用 Agent 框架，核心目标是：**可扩展的 Agent 底座 + 可插拔的应用层**。
+
+当前已落地两个一等公民 Application：
+- **coding-agent**（代码编辑助手，主力）
+- **music-agent**（音乐助手，第一个"非编程"个人 agent，验证了多 agent 架构）
+
+方向上正从"编程助手"演进为**通用个人助手**（详见 [personal-assistant-roadmap.md](./decisions/personal-assistant-roadmap.md)）：music 是首个个人 agent，后续会集成更多（记账/健康/日记），核心诉求之一是"收集个人习惯"。
 
 ## 架构
 
@@ -15,9 +21,12 @@ pi-go 是一个用 Go 实现的通用 Agent 框架，核心目标是：**可扩�
 ┌─────────────────────────────────────────────────────┐
 │  Entrypoints（组装与入口）                           │
 │  app/ CLI/ server/                                   │
+│  cmd/pi-agent  cmd/pi-feishu-bridge  cmd/pi-music    │
 ├─────────────────────────────────────────────────────┤
 │  Application（领域应用层，可插拔）                    │
 │  agents/coding/ — coding-agent 的工具集、提示、命令   │
+│  agents/music/  — music-agent 的工具/提示/SessionExt │
+│    └─ 依赖 music/（音乐专属基础设施：多源+代理+缓存） │
 ├─────────────────────────────────────────────────────┤
 │  Platform（运行时平台层，领域无关）                   │
 │  runtime/ — AgentSession 生命周期、Application 接口  │
@@ -34,6 +43,7 @@ pi-go 是一个用 Go 实现的通用 Agent 框架，核心目标是：**可扩�
 - **Platform** → 只依赖 Core，通过 `runtime.Application` 接口与上层解耦
 - **Application** → 实现 `runtime.Application` 接口，依赖 Core + Platform
 - **Entrypoints** → 组装所有依赖，注入 Application 实例
+- **领域基础设施**（如 `internal/music/`）→ Application 层的叶子库，只被对应 agent 和入口 import，零上层依赖。**不属于标准四层**，是某 Application 的专属支撑层
 
 ### 关键接口
 
@@ -43,6 +53,8 @@ pi-go 是一个用 Go 实现的通用 Agent 框架，核心目标是：**可扩�
 | `agent.Tool` | `internal/agent/` | 工具系统：泛型 schema + 执行函数 |
 | `providers.Provider` | `internal/ai/providers/` | LLM Provider 抽象：注册制 + 懒加载 |
 | `operations.Operations` | `internal/operations/` | 执行后端：本地 / SSH 切换 |
+| `music.MusicSource` | `internal/music/source.go` | 音乐源后端抽象：Search/GetAudioURL/GetLyrics/...（网易/B站实现） |
+| `music.SourceRouter` | `internal/music/router.go` | 多源路由：按复合 ID（`netease:123`/`bilibili:BV1xx`）分发到对应源 |
 | `slashcmd.SessionContext` | `internal/slashcmd/context.go` | Slash command 可操作的 session 接口（model/profile/switch） |
 | `slashcmd.AppContext` | `internal/slashcmd/context.go` | Slash command 可操作的 app 接口（session CRUD/profiles） |
 
@@ -68,6 +80,8 @@ pi-go 是一个用 Go 实现的通用 Agent 框架，核心目标是：**可扩�
 | CLI 控制面 | `internal/agents/coding/commands/` + `cli/` | ✅ /new /switch /sessions /model /models /tools /profiles /profile /goal /context /clear |
 | Profile 机制 | `internal/agents/coding/profile/` | ✅ coding/review 双 profile，切换即重建 agent |
 | Session Goal | `runtime.AgentSession` + prompt builder | ✅ session 级目标注入 system prompt |
+| music-agent（多源音乐） | `internal/agents/music/` + `internal/music/` | ✅ music_play/search/recommend/lyrics/playlist 工具；多源（网易云+B站）+ SourceRouter；网易 VIP 自动降级 B站；B站搜索质量过滤（黑名单+同名）；音频代理支持 Range seek；结构化 PlayDetails 透传到前端 |
+| 多 Application 并存 | `internal/app/app.go` | ✅ Applications map（coding/music），前端选 agent 建对应 session |
 
 ## 技术栈
 
@@ -91,8 +105,10 @@ pi-go 是一个用 Go 实现的通用 Agent 框架，核心目标是：**可扩�
 
 - **已完成**：runtime 从 coding-agent 解耦（Application 接口注入）
 - **已完成**：CLI 控制面（session 切换、model 切换、profile 切换、结构化 slash command）
-- **规划中**：Desktop App（Electron + React）、更多内置工具、Agent 协作
-- **文档**：`docs/` 下有架构提案、产品路线图、编码规范
+- **已完成**：music-agent 落地——多源音乐（网易云+B站兜底）、音频代理、桌面端播放器
+- **已完成**：Desktop App（Electron + React）首版，管理 pi-agent 子进程
+- **规划中**：记忆层（`runtime.Memory` 接口，music 偏好收集为首场景，详见 personal-assistant-roadmap）；更多个人 agent（记账/健康/日记）
+- **文档**：`docs/` 下有架构提案、产品路线图、编码规范、决策记录
 
 ## 关键文件速查
 
@@ -112,3 +128,8 @@ pi-go 是一个用 Go 实现的通用 Agent 框架，核心目标是：**可扩�
 | `internal/agents/coding/commands/builtins.go` | Coding-agent 内置命令（/new /switch /model /profile 等） |
 | `internal/agents/coding/profile/profile.go` | Profile 类型定义与 prompt 片段 |
 | `internal/agents/coding/cli/interactive.go` | CLI 交互模式（命令分发 + session 交接） |
+| `internal/agents/music/application.go` | MusicApplication 实现（首个非编程 agent） |
+| `internal/music/source.go` / `router.go` | MusicSource 接口 + SourceRouter 多源路由 |
+| `internal/music/netease_adapter.go` / `bilibili_adapter.go` | 网易/B站源 adapter（实现 MusicSource） |
+| `internal/music/handler.go` | 音频代理 HTTP handler（Range 透传 + 多源防盗链 Referer） |
+| `cmd/pi-music/main.go` | music 专用入口（默认 serve 模式） |
