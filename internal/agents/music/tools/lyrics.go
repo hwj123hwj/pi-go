@@ -7,31 +7,28 @@ import (
 
 	"github.com/earendil-works/pi-go/internal/agent"
 	"github.com/earendil-works/pi-go/internal/music"
-	"github.com/earendil-works/pi-go/internal/music/netease"
 )
 
-// LyricsTool fetches LRC-format lyrics for a song.
+// LyricsTool fetches LRC lyrics.
 type LyricsTool struct {
-	client *netease.Client
-	cache  *music.Cache
+	router *music.SourceRouter
 }
 
-func NewLyricsTool(client *netease.Client, cache *music.Cache) *LyricsTool {
-	return &LyricsTool{client: client, cache: cache}
+func NewLyricsTool(router *music.SourceRouter) *LyricsTool {
+	return &LyricsTool{router: router}
 }
 
 func (t *LyricsTool) Name() string { return "music_lyrics" }
 func (t *LyricsTool) Description() string {
-	return "Get LRC-format lyrics (with timestamps) for a song by its ID. Optionally includes translated lyrics."
+	return "获取歌词。返回 LRC 格式歌词。B站暂不支持歌词。"
 }
-
 func (t *LyricsTool) Parameters() map[string]any {
 	return map[string]any{
 		"type": "object",
 		"properties": map[string]any{
 			"song_id": map[string]any{
-				"type":        "integer",
-				"description": "The song ID (from music_search results)",
+				"type":        "string",
+				"description": "复合歌曲 ID，如 \"netease:576466\" 或 \"bilibili:BV1qD4y1U7fs\"",
 			},
 		},
 		"required": []string{"song_id"},
@@ -40,12 +37,12 @@ func (t *LyricsTool) Parameters() map[string]any {
 
 func (t *LyricsTool) Validate(params json.RawMessage) (json.RawMessage, error) {
 	var p struct {
-		SongID int64 `json:"song_id"`
+		SongID string `json:"song_id"`
 	}
 	if err := json.Unmarshal(params, &p); err != nil {
 		return nil, fmt.Errorf("invalid parameters: %w", err)
 	}
-	if p.SongID == 0 {
+	if p.SongID == "" {
 		return nil, fmt.Errorf("song_id is required")
 	}
 	return params, nil
@@ -53,41 +50,26 @@ func (t *LyricsTool) Validate(params json.RawMessage) (json.RawMessage, error) {
 
 func (t *LyricsTool) Execute(_ context.Context, params json.RawMessage, _ func(agent.PartialResult)) (agent.ToolResult, error) {
 	var p struct {
-		SongID int64 `json:"song_id"`
+		SongID string `json:"song_id"`
 	}
 	_ = json.Unmarshal(params, &p)
 
-	lyrics, err := t.getLyrics(p.SongID)
+	lyrics, err := t.router.GetLyrics(context.Background(), p.SongID)
 	if err != nil {
-		return agent.ToolResult{Content: fmt.Sprintf("Failed to get lyrics: %v", err), IsError: true}, nil
+		return agent.ToolResult{Content: fmt.Sprintf("获取歌词失败: %v", err), IsError: true}, nil
 	}
 
 	if lyrics.LRC == "" {
-		return agent.ToolResult{Content: "No lyrics available for this song."}, nil
+		return agent.ToolResult{Content: "暂无歌词"}, nil
 	}
 
-	output := lyrics.LRC
+	out := "🎤 歌词：\n"
 	if lyrics.TransLRC != "" {
-		output += "\n\n--- Translation ---\n" + lyrics.TransLRC
+		out += "原词 + 翻译：\n"
 	}
-
-	return agent.ToolResult{Content: output}, nil
+	out += lyrics.LRC
+	if lyrics.TransLRC != "" {
+		out += "\n\n翻译：\n" + lyrics.TransLRC
+	}
+	return agent.ToolResult{Content: out}, nil
 }
-
-func (t *LyricsTool) getLyrics(songID int64) (*netease.Lyrics, error) {
-	cached := t.cache.Get(music.LyricsKey(songID))
-	if cached != nil {
-		return cached.(*netease.Lyrics), nil
-	}
-
-	lyrics, err := t.client.GetLyrics(songID)
-	if err != nil {
-		return nil, err
-	}
-
-	t.cache.Set(music.LyricsKey(songID), lyrics, music.TTLLyrics)
-	return lyrics, nil
-}
-
-// IsConcurrencySafe declares this tool is safe to run concurrently.
-func (t *LyricsTool) IsConcurrencySafe(_ json.RawMessage) bool { return true }

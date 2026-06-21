@@ -594,7 +594,7 @@ func executeOneTool(ctx context.Context, a *Agent, call ai.ToolCall) ai.Message 
 
 	// 9. Emit end
 	// Result 给 UI 展示，优先 UserFacing（给用户看的更详细内容）；回填 LLM 用 Content（见 appendToolResult）。
-	a.emit(ctx, EventToolExecutionEnd{ToolCallID: call.ID, ToolName: call.Name, Result: rawResult.DisplayText(), IsError: rawResult.IsError})
+	a.emit(ctx, EventToolExecutionEnd{ToolCallID: call.ID, ToolName: call.Name, Result: rawResult.DisplayText(), Details: rawResult.Details, IsError: rawResult.IsError})
 	return a.appendToolResult(call, rawResult)
 }
 

@@ -406,7 +406,7 @@ export const useStore = create<StoreState>((set, get) => ({
       const resultText =
         (resultObj && (resultObj.UserFacing || resultObj.Content)) ||
         (typeof result === 'string' ? result : JSON.stringify(result || ''));
-      const details = resultObj?.Details ?? undefined;
+      const details = resultObj?.Details ?? data.event?.tool_details ?? undefined;
       updateView(set, sessionId, (v) => {
         const transcript = v.transcript.map((item) => {
           if (item.kind === 'tool' && item.toolCallId === toolCallId) {

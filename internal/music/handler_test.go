@@ -9,6 +9,11 @@ import (
 	"github.com/earendil-works/pi-go/internal/music/netease"
 )
 
+// testRouter creates a minimal SourceRouter with a netease adapter for testing.
+func testRouter() *SourceRouter {
+	return NewSourceRouter(SourceNetease, NewNetEaseAdapter(netease.NewClient()))
+}
+
 // fakeAudioUpstream 起一个模拟上游 CDN 的 server：
 // 记录收到的 Range 头，并按 Range 返回对应的字节范围（206）或全量（200）。
 // 用最小实现验证 handler 的 Range 透传，不模拟真实 CDN 的边界细节。
@@ -59,8 +64,8 @@ func TestHandleAudio_ErrorNotCached(t *testing.T) {
 	upstream := fakeErrorUpstream(t, http.StatusForbidden)
 
 	cache := NewCache()
-	cache.Set(AudioKey(99), upstream.URL+"/audio.mp3", TTLAudio)
-	h := NewHandler(netease.NewClient(), cache)
+	cache.Set(AudioKey("netease", "99"), upstream.URL+"/audio.mp3", TTLAudio)
+	h := NewHandler(testRouter(), cache)
 
 	req := httptest.NewRequest(http.MethodGet, "/music/audio/99", nil)
 	req.SetPathValue("song_id", "99")
@@ -92,8 +97,8 @@ func TestHandleAudio_ForwardsRangeHeader(t *testing.T) {
 
 	// 预填 cache：让 handler 直接命中缓存，指向测试 upstream
 	cache := NewCache()
-	cache.Set(AudioKey(42), upstream.URL+"/audio.mp3", TTLAudio)
-	h := NewHandler(netease.NewClient(), cache)
+	cache.Set(AudioKey("netease", "42"), upstream.URL+"/audio.mp3", TTLAudio)
+	h := NewHandler(testRouter(), cache)
 
 	// 客户端请求 bytes=100-199（100 字节）
 	req := httptest.NewRequest(http.MethodGet, "/music/audio/42", nil)
@@ -145,8 +150,8 @@ func TestHandleAudio_NoRangeReturnsFullContent(t *testing.T) {
 	upstream, gotRange := fakeAudioUpstream(t, content)
 
 	cache := NewCache()
-	cache.Set(AudioKey(7), upstream.URL+"/audio.mp3", TTLAudio)
-	h := NewHandler(netease.NewClient(), cache)
+	cache.Set(AudioKey("netease", "7"), upstream.URL+"/audio.mp3", TTLAudio)
+	h := NewHandler(testRouter(), cache)
 
 	req := httptest.NewRequest(http.MethodGet, "/music/audio/7", nil)
 	req.SetPathValue("song_id", "7")

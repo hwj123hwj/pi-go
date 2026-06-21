@@ -11,8 +11,8 @@ import (
 
 type detailResponse struct {
 	Songs []struct {
-		ID       int64  `json:"id"`
-		Name     string `json:"name"`
+		ID      int64  `json:"id"`
+		Name    string `json:"name"`
 		Artists []struct {
 			Name string `json:"name"`
 		} `json:"artists"`
@@ -47,8 +47,8 @@ func (c *Client) GetSongDetail(ids []int64) ([]Song, error) {
 	b.WriteString("]")
 
 	apiURL := fmt.Sprintf(
-		"http://music.163.com/api/song/detail?ids=%s",
-		b.String(),
+		"%s/api/song/detail?ids=%s",
+		c.apiBase(), b.String(),
 	)
 
 	body, err := c.doRequest(apiURL)
@@ -66,9 +66,11 @@ func (c *Client) GetSongDetail(ids []int64) ([]Song, error) {
 
 	songs := make([]Song, 0, len(resp.Songs))
 	for _, s := range resp.Songs {
-		artist := ""
-		if len(s.Artists) > 0 {
-			artist = s.Artists[0].Name
+		artists := make([]string, 0, len(s.Artists))
+		for _, a := range s.Artists {
+			if a.Name != "" {
+				artists = append(artists, a.Name)
+			}
 		}
 		cover := ""
 		if s.Album.PicURL != "" {
@@ -77,7 +79,8 @@ func (c *Client) GetSongDetail(ids []int64) ([]Song, error) {
 		songs = append(songs, Song{
 			ID:         s.ID,
 			Name:       s.Name,
-			Artist:     artist,
+			Artist:     JoinArtists(artists),
+			Artists:    artists,
 			AlbumName:  s.Album.Name,
 			AlbumCover: cover,
 			Duration:   s.Duration,
@@ -101,8 +104,8 @@ type lyricsResponse struct {
 // GetLyrics fetches LRC-format lyrics for a song.
 func (c *Client) GetLyrics(songID int64) (*Lyrics, error) {
 	apiURL := fmt.Sprintf(
-		"http://music.163.com/api/song/lyric?id=%d&lv=1&kv=1&tv=-1",
-		songID,
+		"%s/api/song/lyric?id=%d&lv=1&kv=1&tv=-1",
+		c.apiBase(), songID,
 	)
 
 	body, err := c.doRequest(apiURL)
@@ -137,15 +140,15 @@ type enhancePlayerResponse struct {
 // It uses the outer URL as primary method, falling back to the enhance/player API.
 func (c *Client) GetAudioURL(songID int64) (string, error) {
 	// Strategy 1: outer URL (works for free songs)
-	outerURL := fmt.Sprintf("https://music.163.com/song/media/outer/url?id=%d.mp3", songID)
+	outerURL := fmt.Sprintf("%s/song/media/outer/url?id=%d.mp3", c.apiBase(), songID)
 	if c.checkURL(outerURL) {
 		return outerURL, nil
 	}
 
 	// Strategy 2: enhance/player/url API (CDN direct link)
 	apiURL := fmt.Sprintf(
-		"http://music.163.com/api/song/enhance/player/url?id=%d&ids=[%d]&br=320000",
-		songID, songID,
+		"%s/api/song/enhance/player/url?id=%d&ids=[%d]&br=320000",
+		c.apiBase(), songID, songID,
 	)
 
 	body, err := c.doRequest(apiURL)

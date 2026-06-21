@@ -19,14 +19,19 @@ interface MusicPlayerProps {
 
 /** 从自由文本正则提取播放信息（仅当 details 缺失时用，向后兼容）。 */
 function parsePlayResult(text: string) {
-  const songMatch = text.match(/🎵\s*Now playing:\s*(.+?)\s*[—–-]\s*(.+?)(?:\n|$)/);
+  // English format
+  const songMatchEN = text.match(/🎵\s*Now playing:\s*(.+?)\s*[—–-]\s*(.+?)(?:\n|$)/);
   const directMatch = text.match(/Direct URL:\s*(\S+)/);
   const proxyMatch = text.match(/Proxy URL:\s*(\S+)/);
+  // Chinese format: "曲名：xxx" and "歌手：xxx" and "播放链接：xxx"
+  const songMatchZH = text.match(/曲名[：:]\s*(.+?)(?:\n|$)/);
+  const artistMatchZH = text.match(/歌手[：:]\s*(.+?)(?:\n|$)/);
+  const proxyMatchZH = text.match(/播放链接[：:]\s*(\S+)/);
   return {
-    songName: songMatch?.[1]?.trim() || '',
-    artist: songMatch?.[2]?.trim() || '',
+    songName: songMatchEN?.[1]?.trim() || songMatchZH?.[1]?.trim() || '',
+    artist: songMatchEN?.[2]?.trim() || artistMatchZH?.[1]?.trim() || '',
     directURL: directMatch?.[1] || '',
-    proxyURL: proxyMatch?.[1] || '',
+    proxyURL: proxyMatch?.[1] || proxyMatchZH?.[1] || '',
   };
 }
 

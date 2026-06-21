@@ -203,7 +203,7 @@ func (a *Agent) PromptStream(ctx context.Context, msg ai.Message) (<-chan AgentS
 		case EventToolExecutionUpdate:
 			ev = AgentStreamEvent{Type: StreamEventToolUpdate, ToolName: e.ToolName, ToolCallID: e.ToolCallID, PartialResult: e.PartialResult}
 		case EventToolExecutionEnd:
-			ev = AgentStreamEvent{Type: StreamEventToolEnd, ToolName: e.ToolName, ToolCallID: e.ToolCallID, ToolResult: e.Result, IsError: e.IsError}
+			ev = AgentStreamEvent{Type: StreamEventToolEnd, ToolName: e.ToolName, ToolCallID: e.ToolCallID, ToolResult: e.Result, ToolDetails: e.Details, IsError: e.IsError}
 		case EventCompacted:
 			ev = AgentStreamEvent{Type: StreamEventCompacted, Summary: e.Summary, TrimmedFrom: e.TrimmedFrom, TrimmedTo: e.TrimmedTo}
 		case EventCompactionFailed:
@@ -446,6 +446,7 @@ type AgentStreamEvent struct {
 	ToolCallID    string              `json:"tool_call_id,omitempty"`
 	ToolArgs      any                 `json:"tool_args,omitempty"` // raw arguments for diff preview
 	ToolResult    any                 `json:"tool_result,omitempty"`
+	ToolDetails   any                 `json:"tool_details,omitempty"` // 结构化附加数据（如 PlayDetails）
 	PartialResult any                 `json:"partial_result,omitempty"`
 	IsError       bool                `json:"is_error,omitempty"`
 	FinalMessage  ai.AssistantMessage `json:"final_message,omitempty"`

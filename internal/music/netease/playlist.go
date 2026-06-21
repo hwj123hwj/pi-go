@@ -19,9 +19,9 @@ type playlistDetailResponse struct {
 			Nickname string `json:"nickname"`
 		} `json:"creator"`
 		Tracks []struct {
-			ID       int64  `json:"id"`
-			Name     string `json:"name"`
-			Artists  []struct {
+			ID      int64  `json:"id"`
+			Name    string `json:"name"`
+			Artists []struct {
 				Name string `json:"name"`
 			} `json:"ar"`
 			Album struct {
@@ -41,8 +41,8 @@ type playlistDetailResponse struct {
 // For large playlists (1000+ tracks), it fetches track details separately via trackIds.
 func (c *Client) GetPlaylistDetail(playlistID int64) (*PlaylistDetail, error) {
 	apiURL := fmt.Sprintf(
-		"https://music.163.com/api/v6/playlist/detail?id=%d",
-		playlistID,
+		"%s/api/v6/playlist/detail?id=%d",
+		c.apiBase(), playlistID,
 	)
 
 	body, err := c.doRequest(apiURL)
@@ -74,9 +74,11 @@ func (c *Client) GetPlaylistDetail(playlistID int64) (*PlaylistDetail, error) {
 	if len(p.Tracks) > 0 {
 		songs = make([]Song, 0, len(p.Tracks))
 		for _, t := range p.Tracks {
-			artist := ""
-			if len(t.Artists) > 0 {
-				artist = t.Artists[0].Name
+			artists := make([]string, 0, len(t.Artists))
+			for _, a := range t.Artists {
+				if a.Name != "" {
+					artists = append(artists, a.Name)
+				}
 			}
 			cover := ""
 			if t.Album.PicURL != "" {
@@ -85,7 +87,8 @@ func (c *Client) GetPlaylistDetail(playlistID int64) (*PlaylistDetail, error) {
 			songs = append(songs, Song{
 				ID:         t.ID,
 				Name:       t.Name,
-				Artist:     artist,
+				Artist:     JoinArtists(artists),
+				Artists:    artists,
 				AlbumName:  t.Album.Name,
 				AlbumCover: cover,
 				Duration:   t.Duration,
@@ -140,7 +143,7 @@ type RankingEntry struct {
 
 // GetRankings fetches the list of all available ranking charts.
 func (c *Client) GetRankings() ([]RankingEntry, error) {
-	body, err := c.doRequest("https://music.163.com/api/toplist")
+	body, err := c.doRequest(c.apiBase() + "/api/toplist")
 	if err != nil {
 		return nil, err
 	}
@@ -170,10 +173,10 @@ func (c *Client) GetRankings() ([]RankingEntry, error) {
 
 // Well-known ranking playlist IDs on NetEase Cloud Music.
 const (
-	RankSoaring   int64 = 19723756 // 飙升榜
-	RankHot       int64 = 3778678  // 热歌榜
-	RankNew       int64 = 3779629  // 新歌榜
-	RankOriginal  int64 = 2884035  // 原创榜
+	RankSoaring  int64 = 19723756 // 飙升榜
+	RankHot      int64 = 3778678  // 热歌榜
+	RankNew      int64 = 3779629  // 新歌榜
+	RankOriginal int64 = 2884035  // 原创榜
 )
 
 // GetTopList fetches a ranking list by its playlist ID.
@@ -209,8 +212,8 @@ func (c *Client) GetNewSongs(limit int) ([]Song, error) {
 	}
 
 	apiURL := fmt.Sprintf(
-		"https://music.163.com/api/personalized/newsong?limit=%d",
-		limit,
+		"%s/api/personalized/newsong?limit=%d",
+		c.apiBase(), limit,
 	)
 
 	body, err := c.doRequest(apiURL)
@@ -229,9 +232,11 @@ func (c *Client) GetNewSongs(limit int) ([]Song, error) {
 	songs := make([]Song, 0, len(resp.Result))
 	for _, item := range resp.Result {
 		s := item.Song
-		artist := ""
-		if len(s.Artists) > 0 {
-			artist = s.Artists[0].Name
+		artists := make([]string, 0, len(s.Artists))
+		for _, a := range s.Artists {
+			if a.Name != "" {
+				artists = append(artists, a.Name)
+			}
 		}
 		cover := ""
 		if s.Album.PicURL != "" {
@@ -240,7 +245,8 @@ func (c *Client) GetNewSongs(limit int) ([]Song, error) {
 		songs = append(songs, Song{
 			ID:         s.ID,
 			Name:       s.Name,
-			Artist:     artist,
+			Artist:     JoinArtists(artists),
+			Artists:    artists,
 			AlbumName:  s.Album.Name,
 			AlbumCover: cover,
 			Duration:   s.Duration,

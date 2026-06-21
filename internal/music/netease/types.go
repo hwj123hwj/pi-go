@@ -2,18 +2,19 @@ package netease
 
 // Song represents a song from NetEase Cloud Music.
 type Song struct {
-	ID         int64  `json:"id"`
-	Name       string `json:"name"`
-	Artist     string `json:"artist"`
-	AlbumName  string `json:"album_name"`
-	AlbumCover string `json:"album_cover"`
-	Duration   int    `json:"duration"` // milliseconds
+	ID         int64    `json:"id"`
+	Name       string   `json:"name"`
+	Artist     string   `json:"artist"`  // joinArtists 拼接的展示字符串（" / " 分隔），向后兼容
+	Artists    []string `json:"artists"` // 完整歌手列表（用于同名匹配，修合唱丢失）
+	AlbumName  string   `json:"album_name"`
+	AlbumCover string   `json:"album_cover"`
+	Duration   int      `json:"duration"` // milliseconds
 }
 
 // Lyrics holds LRC-format lyrics for a song.
 type Lyrics struct {
-	LRC      string `json:"lrc"`      // Timestamped LRC lyrics
-	TransLRC string `json:"tlyric"`   // Translated lyrics (may be empty)
+	LRC      string `json:"lrc"`    // Timestamped LRC lyrics
+	TransLRC string `json:"tlyric"` // Translated lyrics (may be empty)
 }
 
 // SearchResult holds songs returned from a search query.
