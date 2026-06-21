@@ -194,11 +194,11 @@ export function Sidebar() {
               <div className="new-session-menu">
                 <button className="new-session-option" onClick={() => void handleNew()}>
                   <Icon name="cpu" size={14} />
-                  Coding
+                  {t('mode.coding')}
                 </button>
                 <button className="new-session-option" onClick={() => void handleNew('music')}>
                   <Icon name="sparkle" size={14} />
-                  Music
+                  {t('mode.music')}
                 </button>
               </div>
             )}

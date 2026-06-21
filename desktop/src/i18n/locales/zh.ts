@@ -338,4 +338,17 @@ export const zh = {
   'mermaid.viewDiagram': '查看图表',
   'mermaid.rendering': '正在渲染图表…',
   'mermaid.error': '图表渲染失败',
+
+  // ── music ───────────────────────────────────────────────────────────────────
+  'music.unknownSong': '未知歌曲',
+  'music.noAudio': '无可用音频',
+  'music.loadFailed': '音频加载失败',
+  'music.play': '播放',
+  'music.pause': '暂停',
+  'music.volume': '音量',
+  'music.nowPlaying': '正在播放：{name}',
+  'mode.coding': '编程',
+  'mode.music': '音乐',
+  'session.defaultTitle': '新会话',
+  'session.musicTitle': '🎵 音乐',
 } as const;

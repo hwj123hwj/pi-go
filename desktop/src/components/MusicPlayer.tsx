@@ -1,18 +1,29 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { useT } from '../i18n/useT';
+
+/** music_play 的结构化结果（后端 PlayDetails 的 JSON 镜像） */
+interface MusicPlayDetails {
+  song_id?: number;
+  song_name?: string;
+  artist?: string;
+  direct_url?: string;
+  proxy_url?: string;
+}
 
 interface MusicPlayerProps {
-  /** Tool result text from music_play */
+  /** 结构化结果（优先用，来自后端 ToolResult.Details） */
+  details?: Record<string, unknown>;
+  /** 自由文本（结构化缺失时的 fallback，旧格式兼容） */
   resultText: string;
 }
 
-/** Parse music_play tool result to extract metadata and URLs. */
+/** 从自由文本正则提取播放信息（仅当 details 缺失时用，向后兼容）。 */
 function parsePlayResult(text: string) {
   const songMatch = text.match(/🎵\s*Now playing:\s*(.+?)\s*[—–-]\s*(.+?)(?:\n|$)/);
   const directMatch = text.match(/Direct URL:\s*(\S+)/);
   const proxyMatch = text.match(/Proxy URL:\s*(\S+)/);
-
   return {
-    songName: songMatch?.[1]?.trim() || 'Unknown',
+    songName: songMatch?.[1]?.trim() || '',
     artist: songMatch?.[2]?.trim() || '',
     directURL: directMatch?.[1] || '',
     proxyURL: proxyMatch?.[1] || '',
@@ -26,8 +37,16 @@ function formatTime(seconds: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
-export function MusicPlayer({ resultText }: MusicPlayerProps) {
-  const { songName, artist, proxyURL, directURL } = parsePlayResult(resultText);
+export function MusicPlayer({ resultText, details }: MusicPlayerProps) {
+  const t = useT();
+
+  // 优先用结构化 details，缺失则 fallback 正则解析文本
+  const det = details as MusicPlayDetails | undefined;
+  const parsed = parsePlayResult(resultText);
+  const songName = det?.song_name || parsed.songName || t('music.unknownSong');
+  const artist = det?.artist || parsed.artist;
+  const directURL = det?.direct_url || parsed.directURL;
+  const proxyURL = det?.proxy_url || parsed.proxyURL;
   const audioURL = proxyURL || directURL;
 
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -88,7 +107,7 @@ export function MusicPlayer({ resultText }: MusicPlayerProps) {
     return (
       <div className="music-player music-player-error">
         <span>🎵 {songName}{artist ? ` — ${artist}` : ''}</span>
-        <span className="music-player-err-msg">No audio URL available</span>
+        <span className="music-player-err-msg">{t('music.noAudio')}</span>
       </div>
     );
   }
@@ -110,7 +129,7 @@ export function MusicPlayer({ resultText }: MusicPlayerProps) {
           className="music-player-btn"
           onClick={togglePlay}
           disabled={error}
-          title={playing ? 'Pause' : 'Play'}
+          title={playing ? t('music.pause') : t('music.play')}
         >
           {error ? '✗' : playing ? '⏸' : '▶'}
         </button>
@@ -130,7 +149,7 @@ export function MusicPlayer({ resultText }: MusicPlayerProps) {
 
         <span className="music-player-time">{formatTime(duration)}</span>
 
-        <span className="music-player-vol-icon">🔊</span>
+        <span className="music-player-vol-icon" title={t('music.volume')}>🔊</span>
         <input
           className="music-player-volume"
           type="range"
@@ -142,7 +161,7 @@ export function MusicPlayer({ resultText }: MusicPlayerProps) {
         />
       </div>
 
-      {error && <div className="music-player-error-bar">Failed to load audio</div>}
+      {error && <div className="music-player-error-bar">{t('music.loadFailed')}</div>}
     </div>
   );
 }

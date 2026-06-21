@@ -7,7 +7,7 @@
  */
 
 import { create } from 'zustand';
-import { type Lang, loadStoredLang, persistLang } from './i18n/i18n';
+import { type Lang, loadStoredLang, persistLang, translate } from './i18n/i18n';
 import { type ThemeMode, loadStoredTheme, persistTheme } from './theme';
 import { deriveTitleFromMessage } from './sessionTitle';
 import type {
@@ -171,6 +171,7 @@ export type ChatItem =
       content: ToolCallContent[];
       terminalOutput?: string;
       rawInput?: Record<string, unknown>;
+      details?: Record<string, unknown>; // 结构化结果（如 music_play 的 PlayDetails），前端据此渲染
     };
 
 export interface SessionView {
@@ -399,7 +400,13 @@ export const useStore = create<StoreState>((set, get) => ({
       const toolCallId = data.event?.tool_call_id || '';
       const result = data.event?.tool_result;
       const isError = data.event?.is_error || false;
-      const resultText = typeof result === 'string' ? result : JSON.stringify(result || '');
+      // result 可能是字符串（老格式）或 ToolResult 对象（{Content, UserFacing, Details}）
+      // 展示文本优先 UserFacing，次 Content，兼容字符串
+      const resultObj = result && typeof result === 'object' ? result : null;
+      const resultText =
+        (resultObj && (resultObj.UserFacing || resultObj.Content)) ||
+        (typeof result === 'string' ? result : JSON.stringify(result || ''));
+      const details = resultObj?.Details ?? undefined;
       updateView(set, sessionId, (v) => {
         const transcript = v.transcript.map((item) => {
           if (item.kind === 'tool' && item.toolCallId === toolCallId) {
@@ -407,6 +414,7 @@ export const useStore = create<StoreState>((set, get) => ({
               ...item,
               status: (isError ? 'failed' : 'completed') as ToolCallStatus,
               content: [{ text: resultText }],
+              details,
             };
           }
           return item;
@@ -493,9 +501,12 @@ export const useStore = create<StoreState>((set, get) => ({
     if (opts?.model) body.model = opts.model;
     if (opts?.application) body.application = opts.application;
     const result = await apiRequest<{ id: string; created_at: number }>('POST', '/sessions', body);
+    const lang = get().lang;
     const meta: SessionMeta = {
       id: result.id,
-      title: opts?.application === 'music' ? '🎵 Music' : opts?.cwd ? projectName(opts.cwd) : 'New Session',
+      title: opts?.application === 'music'
+        ? translate(lang, 'session.musicTitle')
+        : opts?.cwd ? projectName(opts.cwd) : translate(lang, 'session.defaultTitle'),
       cwd: opts?.cwd || '',
       status: 'idle' as SessionRunStatus,
       model: opts?.model || cachedCurrentModel,
