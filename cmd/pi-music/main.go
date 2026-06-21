@@ -13,6 +13,7 @@ import (
 	"github.com/earendil-works/pi-go/internal/config"
 	"github.com/earendil-works/pi-go/internal/mode"
 	"github.com/earendil-works/pi-go/internal/music"
+	"github.com/earendil-works/pi-go/internal/music/bilibili"
 	"github.com/earendil-works/pi-go/internal/music/netease"
 )
 
@@ -42,13 +43,18 @@ func main() {
 	}
 
 	// Create music dependencies
-	client := netease.NewClient()
+	neClient := netease.NewClient()
+	biliClient := bilibili.NewClient()
 	cache := music.NewCache()
+	router := music.NewSourceRouter(music.SourceNetease,
+		music.NewNetEaseAdapter(neClient),
+		music.NewBilibiliAdapter(biliClient),
+	)
 
 	// Create App with MusicApplication
 	application, err := app.New(app.AppOptions{
 		Config:      cfg,
-		Application: musicagent.NewMusicApplication(cfg, client, cache),
+		Application: musicagent.NewMusicApplication(cfg, router, cache),
 	})
 	if err != nil {
 		slog.Error("failed to create app", "error", err)
@@ -76,7 +82,7 @@ func main() {
 	case "serve":
 		// Set up music audio proxy routes
 		musicMux := http.NewServeMux()
-		musicHandler := music.NewHandler(client, cache)
+		musicHandler := music.NewHandler(router, cache)
 		musicHandler.RegisterRoutes(musicMux)
 
 		serveMode := mode.NewServeMode(application, nil)

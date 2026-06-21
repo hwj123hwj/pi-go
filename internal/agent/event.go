@@ -50,6 +50,7 @@ type EventToolExecutionEnd struct {
 	ToolCallID string
 	ToolName   string
 	Result     any
+	Details    any // structured附加数据（如 PlayDetails），可选
 	IsError    bool
 }
 

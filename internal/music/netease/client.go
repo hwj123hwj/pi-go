@@ -12,7 +12,22 @@ import (
 type Client struct {
 	httpClient *http.Client
 	userAgents []string
+	baseURL    string // 可空：空则用默认 apiBase()；测试可注入 httptest server 地址来 mock
 }
+
+// apiBase 返回 API 根地址。baseURL 非空时用它（测试注入），否则默认网易云线上。
+func (c *Client) apiBase() string {
+	if c.baseURL != "" {
+		return c.baseURL
+	}
+	return "https://music.163.com"
+}
+
+// SetBaseURL 注入 API 根地址（测试用，指向 httptest server）。
+func (c *Client) SetBaseURL(url string) { c.baseURL = url }
+
+// SetHTTPClient 注入 HTTP 客户端（测试用，指向 httptest.Client）。
+func (c *Client) SetHTTPClient(hc *http.Client) { c.httpClient = hc }
 
 // NewClient creates a new NetEase API client with default settings.
 func NewClient() *Client {

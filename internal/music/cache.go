@@ -51,8 +51,12 @@ const (
 	TTLLyrics = 24 * time.Hour
 )
 
-func AudioKey(songID int64) string  { return "audio:" + itoa(songID) }
-func LyricsKey(songID int64) string { return "lyrics:" + itoa(songID) }
+// AudioKey returns a cache key for an audio URL, with source prefix.
+// Example: AudioKey("netease", "12345") → "audio:netease:12345"
+func AudioKey(source, rawID string) string { return "audio:" + source + ":" + rawID }
+
+// LyricsKey returns a cache key for lyrics, with source prefix.
+func LyricsKey(source, rawID string) string { return "lyrics:" + source + ":" + rawID }
 
 func itoa(n int64) string {
 	if n == 0 {

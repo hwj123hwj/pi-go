@@ -4,51 +4,54 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/earendil-works/pi-go/internal/agent"
 	"github.com/earendil-works/pi-go/internal/music"
-	"github.com/earendil-works/pi-go/internal/music/netease"
 )
 
-// PlayTool gets a playable audio URL for a song.
-// Supports two modes: by song_id, or by query (searches first, then plays the top result).
-// When query mode fails (e.g. VIP-only), it automatically retries with the next search result.
+// PlayTool plays a song from any source with cross-source fallback.
 type PlayTool struct {
-	client       *netease.Client
+	router       *music.SourceRouter
 	cache        *music.Cache
-	audioBaseURL string // e.g. "http://localhost:8080/music/audio"
+	audioBaseURL string
 }
 
-// PlayDetails 是 music_play 工具的结构化结果，供前端渲染播放器（替代正则解析自由文本）。
-// 通过 ToolResult.Details 传递；UserFacing 仍保留人类可读文案给聊天界面展示。
+// PlayDetails is the structured result for the frontend player.
 type PlayDetails struct {
-	SongID    int64  `json:"song_id"`     // 歌曲 ID（前端据此 fetch 歌词）
-	SongName  string `json:"song_name"`   // 歌名
-	Artist    string `json:"artist"`      // 歌手
-	DirectURL string `json:"direct_url"`  // 网易 CDN 直链（可能跨域受限）
-	ProxyURL  string `json:"proxy_url"`   // 本地代理 URL（前端优先用，避免 CORS）
+	SongID       string `json:"song_id"`       // Composite ID
+	SongName     string `json:"song_name"`
+	Artist       string `json:"artist"`
+	ProxyURL     string `json:"proxy_url"`
+	Source       string `json:"source"`        // "netease" or "bilibili"
+	IsFallback   bool   `json:"is_fallback"`   // true if fell back to B站
+	OriginalIntent string `json:"original_intent,omitempty"`
 }
 
-func NewPlayTool(client *netease.Client, cache *music.Cache, audioBaseURL string) *PlayTool {
-	return &PlayTool{client: client, cache: cache, audioBaseURL: audioBaseURL}
+func NewPlayTool(router *music.SourceRouter, cache *music.Cache, audioBaseURL string) *PlayTool {
+	return &PlayTool{router: router, cache: cache, audioBaseURL: audioBaseURL}
 }
 
 func (t *PlayTool) Name() string { return "music_play" }
 func (t *PlayTool) Description() string {
-	return "Play a song. Provide either song_id (from search/recommend results) or query to search and play the top result directly. If the top result requires VIP, automatically tries the next one. Returns the streaming URL, song name, and artist."
+	return "播放歌曲。提供 song_id 或 query。支持网易云和B站，网易云VIP歌曲会自动降级到B站。"
 }
-
 func (t *PlayTool) Parameters() map[string]any {
 	return map[string]any{
 		"type": "object",
 		"properties": map[string]any{
 			"song_id": map[string]any{
-				"type":        "integer",
-				"description": "The song ID (from music_search/music_recommend results). Use this OR query.",
+				"type":        "string",
+				"description": "复合歌曲 ID，如 \"netease:576466\" 或 \"bilibili:BV1xx\"。与 query 二选一。",
 			},
 			"query": map[string]any{
 				"type":        "string",
-				"description": "Search query to find and play a song directly (e.g. '周杰伦 晴天'). Use this OR song_id. Will auto-retry if top result requires VIP.",
+				"description": "搜索词（当 song_id 为空时用于搜索播放，如 '周杰伦 晴天'）",
+			},
+			"source": map[string]any{
+				"type":        "string",
+				"description": "播放源：\"netease\"（网易云，默认）或 \"bilibili\"（B站）",
+				"enum":        []string{"netease", "bilibili"},
 			},
 		},
 	}
@@ -56,13 +59,13 @@ func (t *PlayTool) Parameters() map[string]any {
 
 func (t *PlayTool) Validate(params json.RawMessage) (json.RawMessage, error) {
 	var p struct {
-		SongID int64  `json:"song_id"`
+		SongID string `json:"song_id"`
 		Query  string `json:"query"`
 	}
 	if err := json.Unmarshal(params, &p); err != nil {
 		return nil, fmt.Errorf("invalid parameters: %w", err)
 	}
-	if p.SongID == 0 && p.Query == "" {
+	if p.SongID == "" && p.Query == "" {
 		return nil, fmt.Errorf("provide either song_id or query")
 	}
 	return params, nil
@@ -70,124 +73,111 @@ func (t *PlayTool) Validate(params json.RawMessage) (json.RawMessage, error) {
 
 func (t *PlayTool) Execute(_ context.Context, params json.RawMessage, _ func(agent.PartialResult)) (agent.ToolResult, error) {
 	var p struct {
-		SongID int64  `json:"song_id"`
+		SongID string `json:"song_id"`
 		Query  string `json:"query"`
+		Source string `json:"source"`
 	}
 	_ = json.Unmarshal(params, &p)
+	ctx := context.Background()
+	src := ParseSource(p.Source)
 
-	// Mode 1: Direct song_id — no retry possible
-	if p.SongID != 0 && p.Query == "" {
-		return t.playByID(p.SongID)
+	// Mode 1: Direct song_id
+	if p.SongID != "" {
+		return t.playByID(ctx, p.SongID, false)
 	}
 
-	// Mode 2: Query — search and auto-retry on VIP failure
-	songs, err := t.client.SearchSongs(p.Query, 10)
-	if err != nil {
-		return agent.ToolResult{Content: fmt.Sprintf("Search failed: %v", err), IsError: true}, nil
-	}
-	if len(songs.Songs) == 0 {
-		return agent.ToolResult{Content: "No songs found for: " + p.Query, IsError: true}, nil
-	}
-
-	var lastErr string
-	for i, song := range songs.Songs {
-		if i >= 5 {
-			break // max 5 attempts
-		}
-		audioURL, err := t.getAudioURL(song.ID)
-		if err != nil {
-			lastErr = err.Error()
-			continue // VIP or unavailable, try next
-		}
-
-		proxyURL := audioURL
-		if t.audioBaseURL != "" {
-			proxyURL = fmt.Sprintf("%s/%d", t.audioBaseURL, song.ID)
-		}
-
-		output := fmt.Sprintf(
-			"🎵 Now playing: %s — %s\n\n"+
-				"Direct URL: %s\n"+
-				"Proxy URL: %s\n\n"+
-				"Use the proxy URL for playback in browsers (avoids CORS issues).",
-			song.Name, song.Artist, audioURL, proxyURL,
-		)
-		if i > 0 {
-			output = fmt.Sprintf("Top %d results require VIP, playing #%d instead.\n\n", i, i+1) + output
-		}
-		return agent.ToolResult{
-			Content:   output, // LLM 读
-			UserFacing: output, // 聊天界面展示（与 Content 一致）
-			Details: PlayDetails{
-				SongID:    song.ID,
-				SongName:  song.Name,
-				Artist:    song.Artist,
-				DirectURL: audioURL,
-				ProxyURL:  proxyURL,
-			},
-		}, nil
-	}
-
-	return agent.ToolResult{Content: fmt.Sprintf("None of the top 5 results can be played (last error: %s). Try a different query.", lastErr), IsError: true}, nil
+	// Mode 2: Query — search and try, with cross-source fallback
+	return t.playByQuery(ctx, p.Query, src)
 }
 
-func (t *PlayTool) playByID(songID int64) (agent.ToolResult, error) {
-	songName := fmt.Sprintf("Song #%d", songID)
-	artist := ""
-
-	detail, _ := t.client.GetSongDetail([]int64{songID})
-	if len(detail) > 0 {
-		songName = detail[0].Name
-		artist = detail[0].Artist
-	}
-
-	audioURL, err := t.getAudioURL(songID)
+func (t *PlayTool) playByID(ctx context.Context, songID string, isFallback bool) (agent.ToolResult, error) {
+	s, rawID, err := t.router.ByCompositeID(songID)
 	if err != nil {
-		return agent.ToolResult{
-			Content: fmt.Sprintf("Cannot play \"%s — %s\": %v\nThis song may require VIP. Try a different song_id.", songName, artist, err),
-			IsError: true,
-		}, nil
+		return agent.ToolResult{Content: fmt.Sprintf("Invalid song_id: %v", err), IsError: true}, nil
 	}
 
-	proxyURL := audioURL
-	if t.audioBaseURL != "" {
-		proxyURL = fmt.Sprintf("%s/%d", t.audioBaseURL, songID)
+	detail, err := s.GetSongByID(ctx, rawID)
+	if err != nil {
+		return agent.ToolResult{Content: fmt.Sprintf("获取歌曲信息失败: %v", err), IsError: true}, nil
 	}
 
-	output := fmt.Sprintf(
-		"🎵 Now playing: %s — %s\n\n"+
-			"Direct URL: %s\n"+
-			"Proxy URL: %s\n\n"+
-			"Use the proxy URL for playback in browsers (avoids CORS issues).",
-		songName, artist, audioURL, proxyURL,
-	)
+	audioURL, err := s.GetAudioURL(ctx, rawID)
+	if err != nil {
+		return agent.ToolResult{Content: fmt.Sprintf("获取播放链接失败: %v", err), IsError: true}, nil
+	}
+
+	// Cache the audio URL
+	src, _ := music.ParseSourceID(songID)
+	cacheKey := music.AudioKey(string(src), rawID)
+	t.cache.Set(cacheKey, audioURL, music.TTLAudio)
+
+	proxyURL := t.audioBaseURL + "/" + encodeCompositeID(songID)
+
+	out := "🎵 正在播放：\n"
+	out += fmt.Sprintf("  曲名：%s\n", detail.Name)
+	out += fmt.Sprintf("  歌手：%s\n", detail.Artist)
+	out += fmt.Sprintf("  时长：%s\n", formatDuration(detail.Duration))
+	if detail.Source == music.SourceBilibili {
+		out += "  来源：B站\n"
+	}
+	if isFallback {
+		out += "  ⚠️ 网易云播放失败，已自动切换到B站\n"
+	}
+	out += fmt.Sprintf("\n播放链接：%s\n", proxyURL)
+	out += fmt.Sprintf("封面：%s\n", detail.AlbumCover)
+
 	return agent.ToolResult{
-		Content:   output,
-		UserFacing: output,
+		Content: out,
 		Details: PlayDetails{
-			SongID:    songID,
-			SongName:  songName,
-			Artist:    artist,
-			DirectURL: audioURL,
-			ProxyURL:  proxyURL,
+			SongID:       songID,
+			SongName:     detail.Name,
+			Artist:       detail.Artist,
+			ProxyURL:     proxyURL,
+			Source:       string(detail.Source),
+			IsFallback:   isFallback,
 		},
 	}, nil
 }
 
-func (t *PlayTool) getAudioURL(songID int64) (string, error) {
-	cached := t.cache.Get(music.AudioKey(songID))
-	if cached != nil {
-		return cached.(string), nil
-	}
-
-	url, err := t.client.GetAudioURL(songID)
+func (t *PlayTool) playByQuery(ctx context.Context, query string, src music.Source) (agent.ToolResult, error) {
+	// Search in the preferred source
+	result, err := t.router.Search(ctx, query, 10, src)
 	if err != nil {
-		return "", err
+		return agent.ToolResult{Content: fmt.Sprintf("搜索失败: %v", err), IsError: true}, nil
+	}
+	if len(result.Songs) == 0 {
+		return agent.ToolResult{Content: "没有找到匹配的歌曲", IsError: true}, nil
 	}
 
-	t.cache.Set(music.AudioKey(songID), url, music.TTLAudio)
-	return url, nil
+	// Try each result in the preferred source
+	for i, song := range result.Songs {
+		if i >= 5 {
+			break
+		}
+		res, err := t.playByID(ctx, song.ID, false)
+		if err == nil && !res.IsError {
+			return res, nil
+		}
+	}
+
+	// All failed in preferred source — try cross-source fallback
+	if src == music.SourceNetease {
+		// Fallback to Bilibili
+		biliResult, biliErr := t.router.Search(ctx, query, 5, music.SourceBilibili)
+		if biliErr == nil && len(biliResult.Songs) > 0 {
+			res, err := t.playByID(ctx, biliResult.Songs[0].ID, true)
+			if err == nil && !res.IsError {
+				return res, nil
+			}
+		}
+	}
+
+	return agent.ToolResult{
+		Content: "播放失败：所有候选歌曲均不可播放",
+		IsError: true,
+	}, nil
 }
 
-// IsConcurrencySafe declares this tool is safe to run concurrently.
-func (t *PlayTool) IsConcurrencySafe(_ json.RawMessage) bool { return true }
+func encodeCompositeID(id string) string {
+	return strings.ReplaceAll(id, ":", "_")
+}

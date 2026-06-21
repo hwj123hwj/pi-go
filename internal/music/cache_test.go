@@ -32,14 +32,14 @@ func TestCacheExpiry(t *testing.T) {
 }
 
 func TestCacheKeyHelpers(t *testing.T) {
-	if k := AudioKey(12345); k != "audio:12345" {
-		t.Errorf("expected 'audio:12345', got %q", k)
+	if k := AudioKey("netease", "12345"); k != "audio:netease:12345" {
+		t.Errorf("expected 'audio:netease:12345', got %q", k)
 	}
-	if k := LyricsKey(0); k != "lyrics:0" {
-		t.Errorf("expected 'lyrics:0', got %q", k)
+	if k := LyricsKey("netease", "0"); k != "lyrics:netease:0" {
+		t.Errorf("expected 'lyrics:netease:0', got %q", k)
 	}
-	if k := AudioKey(9999999999); k != "audio:9999999999" {
-		t.Errorf("expected 'audio:9999999999', got %q", k)
+	if k := AudioKey("bilibili", "BV1qD4y1U7fs"); k != "audio:bilibili:BV1qD4y1U7fs" {
+		t.Errorf("expected 'audio:bilibili:BV1qD4y1U7fs', got %q", k)
 	}
 }
 

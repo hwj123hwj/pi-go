@@ -10,8 +10,8 @@ import (
 type searchResponse struct {
 	Result struct {
 		Songs []struct {
-			ID       int64  `json:"id"`
-			Name     string `json:"name"`
+			ID      int64  `json:"id"`
+			Name    string `json:"name"`
 			Artists []struct {
 				Name string `json:"name"`
 			} `json:"artists"`
@@ -34,8 +34,8 @@ func (c *Client) SearchSongs(query string, limit int) (*SearchResult, error) {
 	}
 
 	apiURL := fmt.Sprintf(
-		"http://music.163.com/api/search/get?s=%s&type=1&limit=%d",
-		url.QueryEscape(query), limit,
+		"%s/api/search/get?s=%s&type=1&limit=%d",
+		c.apiBase(), url.QueryEscape(query), limit,
 	)
 
 	body, err := c.doRequest(apiURL)
@@ -53,9 +53,11 @@ func (c *Client) SearchSongs(query string, limit int) (*SearchResult, error) {
 
 	songs := make([]Song, 0, len(resp.Result.Songs))
 	for _, s := range resp.Result.Songs {
-		artist := ""
-		if len(s.Artists) > 0 {
-			artist = s.Artists[0].Name
+		artists := make([]string, 0, len(s.Artists))
+		for _, a := range s.Artists {
+			if a.Name != "" {
+				artists = append(artists, a.Name)
+			}
 		}
 		cover := ""
 		if s.Album.PicURL != "" {
@@ -64,7 +66,8 @@ func (c *Client) SearchSongs(query string, limit int) (*SearchResult, error) {
 		songs = append(songs, Song{
 			ID:         s.ID,
 			Name:       s.Name,
-			Artist:     artist,
+			Artist:     JoinArtists(artists),
+			Artists:    artists,
 			AlbumName:  s.Album.Name,
 			AlbumCover: cover,
 			Duration:   s.Duration,

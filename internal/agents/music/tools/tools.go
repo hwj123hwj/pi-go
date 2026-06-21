@@ -3,14 +3,13 @@ package musictools
 import (
 	"github.com/earendil-works/pi-go/internal/agent"
 	"github.com/earendil-works/pi-go/internal/music"
-	"github.com/earendil-works/pi-go/internal/music/netease"
 )
 
 // ListOptions controls how the music-agent toolset is assembled.
 type ListOptions struct {
-	NetEaseClient *netease.Client
+	Router        *music.SourceRouter
 	Cache         *music.Cache
-	AudioBaseURL  string // e.g. "http://localhost:8081/music/audio"
+	AudioBaseURL  string
 	AllowedTools  []string
 	BlockedTools  []string
 }
@@ -23,12 +22,12 @@ func BaseToolNames() []string {
 // BuildList assembles the concrete music-agent toolset.
 func BuildList(opts ListOptions) []agent.Tool {
 	toolList := []agent.Tool{
-		NewSearchTool(opts.NetEaseClient),
-		NewPlayTool(opts.NetEaseClient, opts.Cache, opts.AudioBaseURL),
-		NewLyricsTool(opts.NetEaseClient, opts.Cache),
-		NewDetailTool(opts.NetEaseClient),
-		NewPlaylistTool(opts.NetEaseClient, opts.Cache, opts.AudioBaseURL),
-		NewRecommendTool(opts.NetEaseClient),
+		NewSearchTool(opts.Router),
+		NewPlayTool(opts.Router, opts.Cache, opts.AudioBaseURL),
+		NewLyricsTool(opts.Router),
+		NewDetailTool(opts.Router),
+		NewPlaylistTool(opts.Router),
+		NewRecommendTool(opts.Router),
 	}
 	return filterTools(toolList, opts.AllowedTools, opts.BlockedTools)
 }
@@ -37,7 +36,6 @@ func filterTools(tools []agent.Tool, allowed []string, blocked []string) []agent
 	if len(allowed) == 0 && len(blocked) == 0 {
 		return tools
 	}
-
 	allowedSet := make(map[string]bool, len(allowed))
 	for _, name := range allowed {
 		allowedSet[name] = true
@@ -46,7 +44,6 @@ func filterTools(tools []agent.Tool, allowed []string, blocked []string) []agent
 	for _, name := range blocked {
 		blockedSet[name] = true
 	}
-
 	var filtered []agent.Tool
 	for _, tool := range tools {
 		name := tool.Name()
@@ -59,4 +56,12 @@ func filterTools(tools []agent.Tool, allowed []string, blocked []string) []agent
 		filtered = append(filtered, tool)
 	}
 	return filtered
+}
+
+// ParseSource converts a source string to music.Source, defaulting to netease.
+func ParseSource(s string) music.Source {
+	if s == "" {
+		return music.SourceNetease
+	}
+	return music.Source(s)
 }

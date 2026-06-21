@@ -16,6 +16,7 @@ import (
 	"github.com/earendil-works/pi-go/internal/config"
 	"github.com/earendil-works/pi-go/internal/mode"
 	music "github.com/earendil-works/pi-go/internal/music"
+	"github.com/earendil-works/pi-go/internal/music/bilibili"
 	"github.com/earendil-works/pi-go/internal/music/netease"
 	"github.com/earendil-works/pi-go/internal/runtime"
 	"github.com/earendil-works/pi-go/internal/slashcmd"
@@ -64,7 +65,12 @@ func main() {
 
 	// Create music dependencies
 	neClient := netease.NewClient()
+	biliClient := bilibili.NewClient()
 	musicCache := music.NewCache()
+	musicRouter := music.NewSourceRouter(music.SourceNetease,
+		music.NewNetEaseAdapter(neClient),
+		music.NewBilibiliAdapter(biliClient),
+	)
 
 	// Create App (thin assembly layer) with both coding and music applications
 	application, err := app.New(app.AppOptions{
@@ -73,7 +79,7 @@ func main() {
 		Application: coding.NewCodingApplication(cfg),
 		Applications: map[string]runtime.Application{
 			"coding": coding.NewCodingApplication(cfg),
-			"music":  musicapp.NewMusicApplication(cfg, neClient, musicCache),
+			"music":  musicapp.NewMusicApplication(cfg, musicRouter, musicCache),
 		},
 	})
 	if err != nil {
@@ -99,7 +105,7 @@ func main() {
 	case "serve":
 		cmds := buildSlashRegistry()
 		// Music audio proxy routes
-		musicHandler := music.NewHandler(neClient, musicCache)
+		musicHandler := music.NewHandler(musicRouter, musicCache)
 		extraMux := http.NewServeMux()
 		musicHandler.RegisterRoutes(extraMux)
 		srv := mode.NewServeMode(application, cmds)

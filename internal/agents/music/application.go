@@ -8,35 +8,30 @@ import (
 	musictools "github.com/earendil-works/pi-go/internal/agents/music/tools"
 	"github.com/earendil-works/pi-go/internal/config"
 	"github.com/earendil-works/pi-go/internal/music"
-	"github.com/earendil-works/pi-go/internal/music/netease"
 	"github.com/earendil-works/pi-go/internal/runtime"
 )
 
 // MusicApplication implements runtime.Application for the music-agent.
-// It is the concrete application that gets injected into the Platform layer,
-// parallel to CodingApplication.
 type MusicApplication struct {
-	Cfg     config.Config
-	Client  *netease.Client
-	Cache   *music.Cache
+	Cfg    config.Config
+	Router *music.SourceRouter
+	Cache  *music.Cache
 }
 
-// NewMusicApplication creates a new MusicApplication.
-func NewMusicApplication(cfg config.Config, client *netease.Client, cache *music.Cache) MusicApplication {
+// NewMusicApplication creates a new MusicApplication with multi-source support.
+func NewMusicApplication(cfg config.Config, router *music.SourceRouter, cache *music.Cache) MusicApplication {
 	return MusicApplication{
 		Cfg:    cfg,
-		Client: client,
+		Router: router,
 		Cache:  cache,
 	}
 }
 
 // BuildTools assembles the music-agent toolset.
 func (a MusicApplication) BuildTools(opts runtime.ToolBuildOptions) []agent.Tool {
-	// Use the main server port (MusicApplication is now embedded in pi-agent,
-	// audio proxy is served on the same port as the main server).
 	audioBaseURL := fmt.Sprintf("http://%s:%d/music/audio", a.Cfg.Host, a.Cfg.Port)
 	return musictools.BuildList(musictools.ListOptions{
-		NetEaseClient: a.Client,
+		Router:        a.Router,
 		Cache:         a.Cache,
 		AudioBaseURL:  audioBaseURL,
 		AllowedTools:  opts.AllowedTools,
