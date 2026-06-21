@@ -340,4 +340,17 @@ export const en = {
   'mermaid.viewDiagram': 'View diagram',
   'mermaid.rendering': 'Rendering diagram…',
   'mermaid.error': 'Failed to render diagram',
+
+  // ── music ───────────────────────────────────────────────────────────────────
+  'music.unknownSong': 'Unknown song',
+  'music.noAudio': 'No audio available',
+  'music.loadFailed': 'Failed to load audio',
+  'music.play': 'Play',
+  'music.pause': 'Pause',
+  'music.volume': 'Volume',
+  'music.nowPlaying': 'Now playing: {name}',
+  'mode.coding': 'Coding',
+  'mode.music': 'Music',
+  'session.defaultTitle': 'New Session',
+  'session.musicTitle': '🎵 Music',
 };

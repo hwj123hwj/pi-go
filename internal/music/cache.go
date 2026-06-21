@@ -45,20 +45,6 @@ func (c *Cache) Set(key string, value any, ttl time.Duration) {
 	c.mu.Unlock()
 }
 
-// GetOrLoad retrieves from cache, or calls the loader function on miss and caches the result.
-func (c *Cache) GetOrLoad(key string, ttl time.Duration, loader func() (any, error)) (any, error) {
-	if v := c.Get(key); v != nil {
-		return v, nil
-	}
-
-	v, err := loader()
-	if err != nil {
-		return nil, err
-	}
-	c.Set(key, v, ttl)
-	return v, nil
-}
-
 // Cache key helpers.
 const (
 	TTLAudio  = 24 * time.Hour

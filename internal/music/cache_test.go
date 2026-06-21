@@ -31,40 +31,6 @@ func TestCacheExpiry(t *testing.T) {
 	}
 }
 
-func TestCacheGetOrLoad(t *testing.T) {
-	c := NewCache()
-	called := 0
-
-	loader := func() (any, error) {
-		called++
-		return "loaded", nil
-	}
-
-	// First call: cache miss, loader called
-	v, err := c.GetOrLoad("key1", time.Minute, loader)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if v != "loaded" {
-		t.Errorf("expected 'loaded', got %v", v)
-	}
-	if called != 1 {
-		t.Errorf("expected loader called once, got %d", called)
-	}
-
-	// Second call: cache hit, loader not called
-	v, err = c.GetOrLoad("key1", time.Minute, loader)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if v != "loaded" {
-		t.Errorf("expected 'loaded', got %v", v)
-	}
-	if called != 1 {
-		t.Errorf("expected loader still called once, got %d", called)
-	}
-}
-
 func TestCacheKeyHelpers(t *testing.T) {
 	if k := AudioKey(12345); k != "audio:12345" {
 		t.Errorf("expected 'audio:12345', got %q", k)

@@ -117,7 +117,7 @@ function ChatItemView({
       // Music tool special rendering
       if (item.title === 'music_play' && item.status === 'completed') {
         const text = item.content.map((c) => c.text).filter(Boolean).join('\n');
-        if (text) return <MusicPlayer resultText={text} />;
+        if (text) return <MusicPlayer resultText={text} details={item.details} />;
       }
       if (item.title === 'music_lyrics' && item.status === 'completed') {
         const text = item.content.map((c) => c.text).filter(Boolean).join('\n');

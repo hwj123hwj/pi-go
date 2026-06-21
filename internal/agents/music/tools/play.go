@@ -19,6 +19,16 @@ type PlayTool struct {
 	audioBaseURL string // e.g. "http://localhost:8080/music/audio"
 }
 
+// PlayDetails 是 music_play 工具的结构化结果，供前端渲染播放器（替代正则解析自由文本）。
+// 通过 ToolResult.Details 传递；UserFacing 仍保留人类可读文案给聊天界面展示。
+type PlayDetails struct {
+	SongID    int64  `json:"song_id"`     // 歌曲 ID（前端据此 fetch 歌词）
+	SongName  string `json:"song_name"`   // 歌名
+	Artist    string `json:"artist"`      // 歌手
+	DirectURL string `json:"direct_url"`  // 网易 CDN 直链（可能跨域受限）
+	ProxyURL  string `json:"proxy_url"`   // 本地代理 URL（前端优先用，避免 CORS）
+}
+
 func NewPlayTool(client *netease.Client, cache *music.Cache, audioBaseURL string) *PlayTool {
 	return &PlayTool{client: client, cache: cache, audioBaseURL: audioBaseURL}
 }
@@ -105,7 +115,17 @@ func (t *PlayTool) Execute(_ context.Context, params json.RawMessage, _ func(age
 		if i > 0 {
 			output = fmt.Sprintf("Top %d results require VIP, playing #%d instead.\n\n", i, i+1) + output
 		}
-		return agent.ToolResult{Content: output}, nil
+		return agent.ToolResult{
+			Content:   output, // LLM 读
+			UserFacing: output, // 聊天界面展示（与 Content 一致）
+			Details: PlayDetails{
+				SongID:    song.ID,
+				SongName:  song.Name,
+				Artist:    song.Artist,
+				DirectURL: audioURL,
+				ProxyURL:  proxyURL,
+			},
+		}, nil
 	}
 
 	return agent.ToolResult{Content: fmt.Sprintf("None of the top 5 results can be played (last error: %s). Try a different query.", lastErr), IsError: true}, nil
@@ -141,7 +161,17 @@ func (t *PlayTool) playByID(songID int64) (agent.ToolResult, error) {
 			"Use the proxy URL for playback in browsers (avoids CORS issues).",
 		songName, artist, audioURL, proxyURL,
 	)
-	return agent.ToolResult{Content: output}, nil
+	return agent.ToolResult{
+		Content:   output,
+		UserFacing: output,
+		Details: PlayDetails{
+			SongID:    songID,
+			SongName:  songName,
+			Artist:    artist,
+			DirectURL: audioURL,
+			ProxyURL:  proxyURL,
+		},
+	}, nil
 }
 
 func (t *PlayTool) getAudioURL(songID int64) (string, error) {
