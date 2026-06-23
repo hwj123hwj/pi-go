@@ -93,3 +93,10 @@
 - **Updated** `desktop-app.md` — Added path clicking (Markdown.tsx + store.ts two-layer detection), isFilePath validation, extractLocationsFromText 4 patterns, session history restoration on setActive, file pane operations
 - **Updated** `session-persistence.md` — Added session-manager to related pages
 - **Updated** `index.md` — Added source-project-root-v4, session-manager; updated descriptions for tool-lifecycle-hooks, server-websocket, desktop-app
+
+## [2026-06-23] ingest | Project Root (.) — v5: bilibili-primary music, global player, workspace layout
+- **Created** `source-project-root-v5.md` — Source summary: music source strategy pivot, global music player architecture, workspace layout overhaul, Markdown basePath resolution, NetEase audio fix, Bilibili cookie init
+- **Updated** `music-agent.md` — **MAJOR UPDATE**: Reversed primary/fallback (bilibili→netease, was netease→bilibili), updated Sources table with new roles, added Bilibili cookie initialization (SPI+search page), added NetEase audio URL strategy (GET+Range, multi-bitrate), added System Prompt v5 section, added source-project-root-v5 cross-reference
+- **Updated** `desktop-app.md` — **MAJOR UPDATE**: Added Workspace Layout v5 (right sidebar 4-icon rail, Views dropdown removed), Global Music Player architecture (GlobalMusicBar + store MusicState), Markdown link resolution (basePath), Backend Workspace APIs (list-dir, search-files, read-file), Electron IPC handlers
+- **Updated** `overview.md` — Updated music-agent description to "Bilibili 为主力 + NetEase 推荐", updated three application layers description
+- **Updated** `index.md` — Added source-project-root-v5, updated music-agent and desktop-app descriptions

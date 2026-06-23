@@ -1,7 +1,7 @@
 ---
 type: entity
-date: 2026-06-22
-tags: [desktop, electron, react, frontend, gui]
+date: 2026-06-23
+tags: [desktop, electron, react, frontend, gui, workspace, global-music-player]
 related: [[server-websocket]], [[config-system]], [[agent-guidance-system]]
 ---
 
@@ -122,7 +122,26 @@ The `WSService` class handles real-time events:
 - `grep` / `glob` / `find` → `'search'`
 - `fetch` / `http` / `web` → `'fetch'`
 
-## Pane System
+## Workspace Layout (v5)
+
+The Views dropdown has been **removed entirely**. The main area always shows Chat. Feature panels live in the right sidebar.
+
+### Right Sidebar Rail
+
+4-icon vertical rail (VSCode/Codex-style):
+
+| Icon | View | Description |
+|------|------|-------------|
+| Review | `review` | Git diff viewer |
+| Files | `files` | File browser (tree, tabs, search, highlighting) |
+| Plan | `plan` | Agent execution plan / TODO progress |
+| Tasks | `tasks` | In-flight + recent tool calls |
+
+`RightView` type: `'review' | 'files' | 'plan' | 'tasks'`
+
+Density toggle (summary/normal/verbose) moved from Views dropdown to toolbar inline buttons.
+
+## Pane System (pre-v5, deprecated)
 
 | Pane | Description |
 |------|-------------|
@@ -200,8 +219,78 @@ When `setActive(id)` is called and the session has no messages loaded:
 - `saveFile(id, path, content)` → `PUT /sessions/{id}/file?path=` → updates view
 - File pane is one of 6 pane kinds: chat, diff, plan, tasks, terminal, file
 
+## Global Music Player (v5)
+
+Music playback was refactored from per-session local audio to a **global, persistent player** that survives session switches.
+
+### Architecture
+
+```
+GlobalMusicBar.tsx (mounted in App.tsx, never unmounts)
+  └── <audio> element (single, persistent)
+      ↓ Zustand store: music state
+  MusicPlayer.tsx (inline in chat)
+  └── dispatches playMusic() to store
+      ↓ no own <audio> element
+```
+
+### Store State
+
+```typescript
+interface MusicState {
+  current: MusicTrack | null;
+  playing: boolean;
+  currentTime: number;
+  duration: number;
+  error: boolean;
+}
+```
+
+Actions: `playMusic(song)`, `toggleMusic()`, `clearMusic()`, `setMusicPlaying/Time/Duration/Error`
+
+### Floating Capsule Design
+
+- Bottom-center, `min-width: 420px`, `border-radius: 14px`
+- `backdrop-filter: blur(20px)` frosted glass
+- Slide-up entrance animation (`cubic-bezier(0.22, 1, 0.36, 1)`)
+- Close (✕) button to clear current track
+- `.app.music-active .main { padding-bottom: 56px }` — prevents overlap with prompt bar
+
+### Inline MusicPlayer
+
+Chat transcripts show `MusicPlayer` cards. Clicking ▶ dispatches `playMusic()` to global store. If the song is already the active global track, it toggles play/pause instead.
+
+## Markdown Link Resolution (v5)
+
+`Markdown.tsx` accepts optional `basePath` to resolve relative links:
+
+- **External links** (`http://`): `window.piAPI.openExternal()` in system browser
+- **Anchor links** (`#xxx`): default browser behavior
+- **Relative file links** (`file.md`, `../dir/file.md`): `resolveHref()` resolves against `basePath`, dispatches `open-file` event → `openFileTab()` in Files panel
+
+Passed from:
+- `ChatPane`: `basePath={cwd}` (session working directory)
+- `FilesPanel`: `basePath={path}` (file being viewed)
+- `SidePanes`: `basePath={open.path}` (open file)
+
+## Backend Workspace APIs (v5)
+
+New endpoints in `server.go`:
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/workspace/list-dir` | List directory entries (lazy tree) |
+| `GET` | `/workspace/search-files` | Fuzzy file search |
+| `GET` | `/workspace/read-file` | Read file content (text or base64) |
+
+Plus Electron IPC handlers for system integration:
+- `openInFinder(path)` — Reveal file in macOS Finder
+- `openInTerminal(path)` — Open Terminal at directory
+- `openExternal(url)` — Open URL in system browser
+
 ## Related
 
 - [[server-websocket]] — The Go backend that serves the desktop API
 - [[config-system]] — Environment variables for desktop mode
 - [[deployment-infrastructure]] — Server-side deployment (separate from desktop)
+- [[source-project-root-v5]] — Documents workspace layout + global music player changes
