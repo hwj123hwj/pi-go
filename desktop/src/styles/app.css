@@ -219,6 +219,13 @@ select {
 }
 
 /* ── Global music bar ── */
+
+/* When music is playing, reserve space at the bottom so the bar doesn't
+   overlap the prompt bar or chat content. */
+.app.music-active .main {
+  padding-bottom: 56px;
+}
+
 .global-music-bar {
   position: fixed;
   bottom: 12px;
