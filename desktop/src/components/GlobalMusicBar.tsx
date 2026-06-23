@@ -116,7 +116,7 @@ export function GlobalMusicBar() {
         <span className="gm-time">{formatTime(music.duration)}</span>
       </div>
 
-      {music.error && <div className="gm-error">{t('music.loadFailed')}</div>}
+      {music.error && <span className="gm-error">{t('music.loadFailed')}</span>}
     </div>
   );
 }
