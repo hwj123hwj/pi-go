@@ -56,6 +56,7 @@ type ToolResultMessage struct {
 	ToolCallID string `json:"tool_call_id"`
 	Content    string `json:"content"`
 	IsError    bool   `json:"is_error,omitempty"`
+	Details    any    `json:"details,omitempty"` // structured附加数据（如 PlayDetails），可选
 }
 
 func (ToolResultMessage) Role() Role     { return RoleTool }

@@ -206,7 +206,7 @@ export function FilePane({ view }: { view: SessionView }) {
             </div>
           ) : isMarkdown ? (
             <div style={{ padding: 16, overflow: 'auto' }}>
-              <Markdown text={open.content} />
+              <Markdown text={open.content} basePath={open.path} />
             </div>
           ) : (
             <pre style={{ margin: 0, padding: 16, fontFamily: 'var(--mono)', fontSize: 12.5, lineHeight: 1.55 }}>

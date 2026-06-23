@@ -8,19 +8,3 @@ createRoot(document.getElementById('root')!).render(
     <App />
   </React.StrictMode>,
 );
-
-declare global {
-  interface Window {
-    piAPI?: {
-      getServerUrl: () => Promise<string | null>;
-      startServer: () => Promise<{ url: string; port: number } | { error: string }>;
-      checkForUpdate: () => Promise<{
-        version: string;
-        downloadUrl: string;
-        releaseNotes: string;
-      } | null>;
-      openDownloadPage: (url: string) => Promise<void>;
-      pickFolder: () => Promise<string | null>;
-    };
-  }
-}

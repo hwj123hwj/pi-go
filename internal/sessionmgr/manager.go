@@ -27,6 +27,8 @@ type SessionInfo struct {
 	MessageCount int    `json:"message_count"`
 	LastActive   int64  `json:"last_active"`
 	Workspace    string `json:"workspace,omitempty"`
+	Title        string `json:"title,omitempty"`
+	Application  string `json:"application,omitempty"` // e.g. "coding", "music", "kb"
 }
 
 // NewManager creates a new session manager rooted at dataDir.
@@ -64,11 +66,14 @@ func (m *Manager) Create(ctx context.Context) (string, string, error) {
 	return id, sessionPath, nil
 }
 
-// SaveMeta writes session metadata (e.g. workspace) to meta.json in the session directory.
-func (m *Manager) SaveMeta(sessionID string, workspace string) error {
+// SaveMeta writes session metadata (e.g. workspace, application) to meta.json in the session directory.
+func (m *Manager) SaveMeta(sessionID string, workspace string, application string) error {
 	sessionDir := filepath.Join(m.SessionsDir(), sessionID)
 	metaPath := filepath.Join(sessionDir, "meta.json")
 	meta := map[string]string{"workspace": workspace}
+	if application != "" {
+		meta["application"] = application
+	}
 	data, err := json.Marshal(meta)
 	if err != nil {
 		return fmt.Errorf("marshal meta: %w", err)
@@ -77,19 +82,20 @@ func (m *Manager) SaveMeta(sessionID string, workspace string) error {
 }
 
 // readMeta reads session metadata from meta.json if it exists.
-func readMeta(sessionDir string) (workspace string) {
+func readMeta(sessionDir string) (workspace string, application string) {
 	metaPath := filepath.Join(sessionDir, "meta.json")
 	data, err := os.ReadFile(metaPath)
 	if err != nil {
-		return ""
+		return "", ""
 	}
 	var meta struct {
-		Workspace string `json:"workspace"`
+		Workspace   string `json:"workspace"`
+		Application string `json:"application"`
 	}
 	if json.Unmarshal(data, &meta) == nil {
-		return meta.Workspace
+		return meta.Workspace, meta.Application
 	}
-	return ""
+	return "", ""
 }
 
 // Open opens an existing session by ID.
@@ -192,16 +198,17 @@ func (m *Manager) List(ctx context.Context) ([]SessionInfo, error) {
 			info.LastActive = fi.ModTime().Unix()
 		}
 
-		// Read workspace from meta.json
-		info.Workspace = readMeta(filepath.Join(sessionsDir, id))
+		// Read workspace and application from meta.json
+		info.Workspace, info.Application = readMeta(filepath.Join(sessionsDir, id))
 
-		// Count messages by scanning JSONL
-		msgCount, lastActive, err := countMessages(sessionPath)
+		// Count messages and extract title by scanning JSONL
+		msgCount, lastActive, firstUserMsg, err := countMessages(sessionPath)
 		if err == nil {
 			info.MessageCount = msgCount
 			if lastActive > info.LastActive {
 				info.LastActive = lastActive
 			}
+			info.Title = firstUserMsg
 		}
 
 		infos = append(infos, info)
@@ -233,32 +240,50 @@ func (m *Manager) Exists(id string) bool {
 
 // countMessages counts message entries in a JSONL file.
 // It only counts entries with Type == "message", not leaf/compaction entries.
-// Also returns the latest timestamp found.
-func countMessages(path string) (int, int64, error) {
+// Also returns the latest timestamp found and the first user message content (for title).
+func countMessages(path string) (int, int64, string, error) {
 	file, err := os.Open(path)
 	if err != nil {
-		return 0, 0, err
+		return 0, 0, "", err
 	}
 	defer file.Close()
 
 	count := 0
 	var lastTS int64
+	var firstUserMsg string
 
 	scanner := bufio.NewScanner(file)
+	// Increase buffer size for large messages
+	scanner.Buffer(make([]byte, 0, 1024*1024), 1024*1024)
 	for scanner.Scan() {
 		var entry struct {
-			Type      string `json:"type"`
-			Timestamp int64  `json:"timestamp"`
+			Type string `json:"type"`
+			TS   int64  `json:"timestamp"`
+			// User messages have user.content as an array of {type, text}
+			User *struct {
+				Content []struct {
+					Type string `json:"type"`
+					Text string `json:"text"`
+				} `json:"content"`
+			} `json:"user,omitempty"`
 		}
 		if err := json.Unmarshal(scanner.Bytes(), &entry); err != nil {
 			continue
 		}
 		if entry.Type == "message" {
 			count++
+			if entry.User != nil && firstUserMsg == "" {
+				for _, c := range entry.User.Content {
+					if c.Type == "text" && c.Text != "" {
+						firstUserMsg = c.Text
+						break
+					}
+				}
+			}
 		}
-		if entry.Timestamp > lastTS {
-			lastTS = entry.Timestamp
+		if entry.TS > lastTS {
+			lastTS = entry.TS
 		}
 	}
-	return count, lastTS, scanner.Err()
+	return count, lastTS, firstUserMsg, scanner.Err()
 }

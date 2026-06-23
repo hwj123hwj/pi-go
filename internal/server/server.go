@@ -3,6 +3,7 @@ package server
 import (
 	"bufio"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -91,6 +92,10 @@ func (s *Server) Handler() http.Handler {
 	restMux.HandleFunc("GET /sessions/{id}/diff", s.getSessionDiff)
 	restMux.HandleFunc("GET /sessions/{id}/file", s.getSessionFile)
 	restMux.HandleFunc("PUT /sessions/{id}/file", s.writeFile)
+	restMux.HandleFunc("GET /workspace/list-dir", s.listDir)
+	restMux.HandleFunc("GET /workspace/search-files", s.searchFiles)
+	restMux.HandleFunc("GET /workspace/read-file", s.workspaceReadFile)
+	restMux.HandleFunc("GET /workspace/read-file-base64", s.workspaceReadFileBase64)
 
 	var restHandler http.Handler = restMux
 	restHandler = corsMiddleware(restHandler)
@@ -112,6 +117,7 @@ func (s *Server) Handler() http.Handler {
 	topMux.Handle("/models", restHandler)
 	topMux.Handle("/tools", restHandler)
 	topMux.Handle("/applications", restHandler)
+	topMux.Handle("/workspace/", restHandler)
 
 	// Register web UI routes (serves embedded static files at /)
 	web.RegisterRoutes(topMux)
@@ -287,10 +293,8 @@ func (s *Server) createSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Persist workspace metadata for session listing
-	if req.Cwd != "" {
-		_ = s.app.SessionManager().SaveMeta(sess.SessionID(), req.Cwd)
-	}
+	// Persist workspace and application metadata for session listing
+	_ = s.app.SessionManager().SaveMeta(sess.SessionID(), req.Cwd, req.Application)
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(SessionResponse{
@@ -334,6 +338,7 @@ func (s *Server) getSessionMessages(w http.ResponseWriter, r *http.Request) {
 		Thinking   string          `json:"thinking,omitempty"`
 		ToolCalls  []toolCallEntry `json:"tool_calls,omitempty"`
 		ToolCallID string          `json:"tool_call_id,omitempty"`
+		ToolDetails any            `json:"tool_details,omitempty"`
 		IsError    bool            `json:"is_error,omitempty"`
 	}
 
@@ -363,6 +368,7 @@ func (s *Server) getSessionMessages(w http.ResponseWriter, r *http.Request) {
 			entry.Content = m.Content
 			entry.ToolCallID = m.ToolCallID
 			entry.IsError = m.IsError
+			entry.ToolDetails = m.Details
 		}
 		result = append(result, entry)
 	}
@@ -968,6 +974,198 @@ func gitDiff(cwd string) ([]fileDiff, error) {
 	}
 
 	return files, nil
+}
+
+// ─── GET /workspace/list-dir?path=... ───────────────────────────────────────
+
+// DirEntry represents a single entry in a directory listing.
+type DirEntry struct {
+	Name  string `json:"name"`
+	Path  string `json:"path"`
+	IsDir bool   `json:"isDir"`
+}
+
+func (s *Server) listDir(w http.ResponseWriter, r *http.Request) {
+	dirPath := r.URL.Query().Get("path")
+	if dirPath == "" {
+		writeError(w, http.StatusBadRequest, "path is required")
+		return
+	}
+
+	entries, err := os.ReadDir(dirPath)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to read directory: "+err.Error())
+		return
+	}
+
+	// Hidden directories that should never appear in the file explorer.
+	hiddenDirs := map[string]bool{
+		"node_modules": true, ".git": true, ".svn": true, ".hg": true,
+		".DS_Store": true, "__pycache__": true, ".pytest_cache": true,
+		"dist": true, "build": true, "out": true, ".next": true,
+		".nuxt": true, ".turbo": true, ".cache": true, "vendor": true,
+		"target": true, ".gradle": true, ".idea": true, ".vscode": true,
+	}
+
+	var result []DirEntry
+	for _, entry := range entries {
+		name := entry.Name()
+
+		// Skip hidden files/dirs (starting with .) except some common config files
+		if strings.HasPrefix(name, ".") {
+			// Allow .env, .gitignore, .golangci.yml, etc (dotfiles that are useful)
+			// but skip .DS_Store
+			if name == ".DS_Store" || name == ".git" || name == ".svn" || name == ".hg" {
+				continue
+			}
+		}
+
+		// Skip known heavy directories
+		if hiddenDirs[name] {
+			continue
+		}
+
+		isDir := entry.IsDir()
+		result = append(result, DirEntry{
+			Name:  name,
+			Path:  filepath.Join(dirPath, name),
+			IsDir: isDir,
+		})
+	}
+
+	if result == nil {
+		result = []DirEntry{}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(result)
+}
+
+// ─── GET /workspace/search-files?path=... ────────────────────────────────────
+
+func (s *Server) searchFiles(w http.ResponseWriter, r *http.Request) {
+	rootPath := r.URL.Query().Get("path")
+	if rootPath == "" {
+		writeError(w, http.StatusBadRequest, "path is required")
+		return
+	}
+
+	// Collect all file paths under root, respecting ignore patterns.
+	var files []string
+
+	hiddenDirs := map[string]bool{
+		"node_modules": true, ".git": true, ".svn": true, ".hg": true,
+		"__pycache__": true, ".pytest_cache": true, "dist": true,
+		"build": true, "out": true, ".next": true, ".nuxt": true,
+		".turbo": true, ".cache": true, "vendor": true, "target": true,
+		".gradle": true, ".idea": true, ".vscode": true, ".DS_Store": true,
+	}
+
+	maxFiles := 20000 // safety limit to avoid scanning huge repos
+	var walk func(dir string) bool
+	walk = func(dir string) bool {
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			return false
+		}
+		for _, entry := range entries {
+			name := entry.Name()
+			if len(files) >= maxFiles {
+				return true // stop
+			}
+
+			// Skip hidden and known heavy directories
+			if hiddenDirs[name] {
+				continue
+			}
+			if strings.HasPrefix(name, ".") && name != ".gitignore" && name != ".env" {
+				continue
+			}
+
+			fullPath := filepath.Join(dir, name)
+			relPath, err := filepath.Rel(rootPath, fullPath)
+			if err != nil {
+				relPath = name
+			}
+
+			if entry.IsDir() {
+				if walk(fullPath) {
+					return true
+				}
+			} else {
+				files = append(files, relPath)
+			}
+		}
+		return false
+	}
+
+	_ = walk(rootPath)
+
+	if files == nil {
+		files = []string{}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(files)
+}
+
+// ─── GET /workspace/read-file?path=... ───────────────────────────────────────
+
+func (s *Server) workspaceReadFile(w http.ResponseWriter, r *http.Request) {
+	path := r.URL.Query().Get("path")
+	if path == "" {
+		writeError(w, http.StatusBadRequest, "path is required")
+		return
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "file not found: "+err.Error())
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]string{"content": string(data)})
+}
+
+// ─── GET /workspace/read-file-base64?path=... ────────────────────────────────
+
+func (s *Server) workspaceReadFileBase64(w http.ResponseWriter, r *http.Request) {
+	path := r.URL.Query().Get("path")
+	if path == "" {
+		writeError(w, http.StatusBadRequest, "path is required")
+		return
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "file not found: "+err.Error())
+		return
+	}
+
+	// Detect MIME type from extension
+	ext := strings.ToLower(filepath.Ext(path))
+	mimeType := "application/octet-stream"
+	switch ext {
+	case ".png":
+		mimeType = "image/png"
+	case ".jpg", ".jpeg":
+		mimeType = "image/jpeg"
+	case ".gif":
+		mimeType = "image/gif"
+	case ".webp":
+		mimeType = "image/webp"
+	case ".bmp":
+		mimeType = "image/bmp"
+	case ".svg":
+		mimeType = "image/svg+xml"
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]string{
+		"data":     base64.StdEncoding.EncodeToString(data),
+		"mimeType": mimeType,
+	})
 }
 
 func corsMiddleware(next http.Handler) http.Handler {

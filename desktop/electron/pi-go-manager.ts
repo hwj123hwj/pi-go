@@ -143,11 +143,19 @@ export class PiGoManager {
     });
 
     this.process.stdout?.on('data', (data: Buffer) => {
-      console.log(`[pi-go] ${data.toString().trim()}`);
+      try {
+        console.log(`[pi-go] ${data.toString().trim()}`);
+      } catch (e) {
+        // Ignore EPIPE when the process exits and the pipe breaks
+      }
     });
 
     this.process.stderr?.on('data', (data: Buffer) => {
-      console.error(`[pi-go] ${data.toString().trim()}`);
+      try {
+        console.error(`[pi-go] ${data.toString().trim()}`);
+      } catch (e) {
+        // Ignore EPIPE when the process exits and the pipe breaks
+      }
     });
 
     this.process.on('exit', (code) => {

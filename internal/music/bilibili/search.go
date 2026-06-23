@@ -27,6 +27,7 @@ func (c *Client) Search(query string, limit int) ([]VideoResult, error) {
 		"keyword":     query,
 		"order":       "totalrank",
 		"page":        "1",
+		"page_size":   "20",
 	}
 
 	body, err := c.signedRequest("/x/web-interface/wbi/search/type", params)

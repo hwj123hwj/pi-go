@@ -55,7 +55,17 @@ export type IconName =
   | 'copy'
   | 'maximize'
   | 'minimize'
-  | 'code';
+  | 'code'
+  // workspace / browser / files
+  | 'arrow-left'
+  | 'arrow-right'
+  | 'rotate'
+  | 'home'
+  | 'lock'
+  | 'external-link'
+  | 'panel-bottom'
+  | 'panel-right'
+  | 'split';
 
 /** Path/shape markup for each icon, drawn on a 24×24 canvas. */
 const PATHS: Record<IconName, string> = {
@@ -143,6 +153,15 @@ const PATHS: Record<IconName, string> = {
   minimize:
     '<path d="M4 14h6v6"/><path d="M20 10h-6V4"/><path d="m14 10 7-7"/><path d="m3 21 7-7"/>',
   code: '<path d="m16 18 6-6-6-6"/><path d="m8 6-6 6 6 6"/>',
+  'arrow-left': '<path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>',
+  'arrow-right': '<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>',
+  rotate: '<path d="M3 12a9 9 0 1 0 9-9c-2.52 0-4.93 1-6.74 2.74L3 8"/><path d="M3 3v5h5"/>',
+  home: '<path d="M3 9.5 12 2l9 7.5"/><path d="M5 10v10a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V10"/>',
+  lock: '<rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 1 1 8 0v4"/>',
+  'external-link': '<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/>',
+  'panel-bottom': '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 15h18"/>',
+  'panel-right': '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M15 3v18"/>',
+  split: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M12 3v18"/>',
 };
 
 export interface IconProps {
