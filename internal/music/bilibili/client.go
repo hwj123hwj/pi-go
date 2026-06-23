@@ -7,6 +7,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"net/http/cookiejar"
 	"net/url"
 	"sort"
 	"strconv"
@@ -42,17 +43,89 @@ type Client struct {
 	mu        sync.RWMutex
 	mixinKey  string
 	keyExpiry time.Time
+
+	// ensures cookies (buvid3) are fetched once
+	initOnce sync.Once
+	initErr  error
 }
 
 // NewClient creates a new Bilibili API client.
 func NewClient() *Client {
+	jar, _ := cookiejar.New(nil)
 	return &Client{
-		httpClient: &http.Client{Timeout: 15 * time.Second},
+		httpClient: &http.Client{
+			Timeout: 15 * time.Second,
+			Jar:     jar,
+		},
 	}
+}
+
+// ensureCookies fetches buvid3 and other required cookies from Bilibili.
+// This is necessary since the search API started rejecting requests without
+// valid fingerprint cookies (returns v_voucher instead of results).
+func (c *Client) ensureCookies() {
+	c.initOnce.Do(func() {
+		// 1. Visit the main site to get basic cookies
+		req, err := http.NewRequest("GET", siteURL, nil)
+		if err == nil {
+			req.Header.Set("User-Agent", userAgent)
+			resp, err := c.httpClient.Do(req)
+			if err == nil {
+				_, _ = io.Copy(io.Discard, resp.Body)
+				resp.Body.Close()
+			}
+		}
+
+		// 2. Fetch buvid3/buvid4 from the SPI endpoint
+		spiURL := apiBase + "/x/frontend/finger/spi"
+		req, err = http.NewRequest("GET", spiURL, nil)
+		if err == nil {
+			req.Header.Set("User-Agent", userAgent)
+			req.Header.Set("Referer", siteURL)
+			resp, err := c.httpClient.Do(req)
+			if err == nil {
+				body, _ := io.ReadAll(resp.Body)
+				resp.Body.Close()
+
+				var spi struct {
+					Data struct {
+						B3 string `json:"b_3"`
+						B4 string `json:"b_4"`
+					} `json:"data"`
+				}
+				if json.Unmarshal(body, &spi) == nil && spi.Data.B3 != "" {
+					// Manually set buvid cookies on the API domain
+					apiURL, _ := url.Parse(apiBase)
+					c.httpClient.Jar.SetCookies(apiURL, []*http.Cookie{
+						{Name: "buvid3", Value: spi.Data.B3, Path: "/", Domain: ".bilibili.com"},
+						{Name: "buvid4", Value: spi.Data.B4, Path: "/", Domain: ".bilibili.com"},
+						{Name: "b_nut", Value: strconv.FormatInt(time.Now().Unix(), 10), Path: "/", Domain: ".bilibili.com"},
+					})
+					slog.Debug("bilibili: set buvid cookies", "b3", spi.Data.B3[:8]+"...")
+				}
+			}
+		}
+
+		// 3. Visit the search page — this triggers additional cookie
+		// generation (b_lsid, _uuid, etc.) that the search API now requires.
+		searchPageURL := "https://search.bilibili.com/all?keyword=1"
+		req, err = http.NewRequest("GET", searchPageURL, nil)
+		if err == nil {
+			req.Header.Set("User-Agent", userAgent)
+			req.Header.Set("Referer", siteURL)
+			resp, err := c.httpClient.Do(req)
+			if err == nil {
+				_, _ = io.Copy(io.Discard, resp.Body)
+				resp.Body.Close()
+			}
+		}
+	})
 }
 
 // doRequest performs a signed GET request to the Bilibili API.
 func (c *Client) doRequest(apiURL string) ([]byte, error) {
+	c.ensureCookies()
+
 	req, err := http.NewRequest("GET", apiURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("bilibili: create request: %w", err)

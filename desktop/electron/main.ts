@@ -1,6 +1,7 @@
 // main.ts — Electron main process for pi-go desktop client.
 import { app, BrowserWindow, ipcMain, shell, dialog } from 'electron';
 import * as path from 'path';
+import { spawn } from 'child_process';
 import { PiGoManager } from './pi-go-manager';
 import { checkForUpdate } from './update-checker';
 
@@ -71,6 +72,57 @@ ipcMain.handle('pick-folder', async () => {
   });
   if (result.canceled || result.filePaths.length === 0) return null;
   return result.filePaths[0];
+});
+
+// Reveal a file in the OS file manager (Finder on macOS, Explorer on Windows).
+ipcMain.handle('reveal-in-folder', async (_event, filePath: string) => {
+  try {
+    if (process.platform === 'darwin') {
+      // On macOS, open the parent folder with the file selected.
+      shell.showItemInFolder(filePath);
+    } else {
+      // On Windows/Linux, open the containing directory.
+      const dir = path.dirname(filePath);
+      await shell.openPath(dir);
+    }
+  } catch {
+    // best-effort
+  }
+});
+
+// Open a terminal at the given directory.
+ipcMain.handle('open-in-terminal', async (_event, dir: string) => {
+  try {
+    if (process.platform === 'darwin') {
+      // macOS: open Terminal.app at the directory
+      spawn('open', ['-a', 'Terminal', dir]);
+    } else if (process.platform === 'win32') {
+      // Windows: open cmd/PowerShell
+      spawn('cmd', ['/c', 'start', 'cmd', '/k', `cd /d ${dir}`], { shell: true });
+    } else {
+      // Linux: try common terminal emulators
+      const terminals = ['gnome-terminal', 'konsole', 'xfce4-terminal', 'xterm'];
+      for (const term of terminals) {
+        try {
+          spawn(term, ['--working-directory', dir]);
+          return;
+        } catch {
+          // try next
+        }
+      }
+    }
+  } catch {
+    // best-effort
+  }
+});
+
+// Open a URL in the system default browser.
+ipcMain.handle('open-external', async (_event, url: string) => {
+  try {
+    await shell.openExternal(url);
+  } catch {
+    // best-effort
+  }
 });
 
 // App lifecycle

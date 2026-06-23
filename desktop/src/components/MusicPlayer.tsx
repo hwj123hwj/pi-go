@@ -1,13 +1,16 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useStore } from '../store';
 import { useT } from '../i18n/useT';
+import { getBaseUrl } from '../store';
 
 /** music_play 的结构化结果（后端 PlayDetails 的 JSON 镜像） */
 interface MusicPlayDetails {
-  song_id?: number;
+  song_id?: string;
   song_name?: string;
   artist?: string;
   direct_url?: string;
   proxy_url?: string;
+  source?: string;
+  is_fallback?: boolean;
 }
 
 interface MusicPlayerProps {
@@ -35,15 +38,40 @@ function parsePlayResult(text: string) {
   };
 }
 
-function formatTime(seconds: number): string {
-  if (!isFinite(seconds) || seconds < 0) return '0:00';
-  const m = Math.floor(seconds / 60);
-  const s = Math.floor(seconds % 60);
-  return `${m}:${s.toString().padStart(2, '0')}`;
+/**
+ * Rewrite a stored audio proxy URL to use the current server's base URL.
+ * Historical sessions may contain URLs with old ports (from previous app launches).
+ * The path portion (e.g. /music/audio/netease_576466) remains valid since it
+ * identifies the resource, so we just replace the origin.
+ */
+function rewriteAudioURL(storedURL: string): string {
+  if (!storedURL) return storedURL;
+  try {
+    const currentBase = getBaseUrl();
+    const storedUrl = new URL(storedURL);
+    const currentUrl = new URL(currentBase);
+    // Only rewrite if the origin differs (port changed after restart)
+    if (storedUrl.origin !== currentUrl.origin) {
+      storedUrl.protocol = currentUrl.protocol;
+      storedUrl.hostname = currentUrl.hostname;
+      storedUrl.port = currentUrl.port;
+    }
+    return storedUrl.toString();
+  } catch {
+    // If URL parsing fails, return as-is
+    return storedURL;
+  }
 }
 
+/**
+ * Inline music card — shown inside chat transcripts.
+ * Clicking play dispatches the song to the global player (GlobalMusicBar),
+ * so the audio keeps playing even when switching sessions.
+ */
 export function MusicPlayer({ resultText, details }: MusicPlayerProps) {
   const t = useT();
+  const playMusic = useStore((s) => s.playMusic);
+  const globalMusic = useStore((s) => s.music);
 
   // 优先用结构化 details，缺失则 fallback 正则解析文本
   const det = details as MusicPlayDetails | undefined;
@@ -52,61 +80,10 @@ export function MusicPlayer({ resultText, details }: MusicPlayerProps) {
   const artist = det?.artist || parsed.artist;
   const directURL = det?.direct_url || parsed.directURL;
   const proxyURL = det?.proxy_url || parsed.proxyURL;
-  const audioURL = proxyURL || directURL;
+  const audioURL = rewriteAudioURL(proxyURL) || directURL;
 
-  const audioRef = useRef<HTMLAudioElement>(null);
-  const [playing, setPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const [volume, setVolume] = useState(0.8);
-  const [error, setError] = useState(false);
-
-  useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
-
-    const onTime = () => setCurrentTime(audio.currentTime);
-    const onDuration = () => setDuration(audio.duration);
-    const onEnded = () => setPlaying(false);
-    const onError = () => setError(true);
-
-    audio.addEventListener('timeupdate', onTime);
-    audio.addEventListener('loadedmetadata', onDuration);
-    audio.addEventListener('ended', onEnded);
-    audio.addEventListener('error', onError);
-
-    return () => {
-      audio.removeEventListener('timeupdate', onTime);
-      audio.removeEventListener('loadedmetadata', onDuration);
-      audio.removeEventListener('ended', onEnded);
-      audio.removeEventListener('error', onError);
-    };
-  }, [audioURL]);
-
-  const togglePlay = useCallback(() => {
-    const audio = audioRef.current;
-    if (!audio || error) return;
-    if (playing) {
-      audio.pause();
-      setPlaying(false);
-    } else {
-      audio.play().then(() => setPlaying(true)).catch(() => setError(true));
-    }
-  }, [playing, error]);
-
-  const seek = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const audio = audioRef.current;
-    if (!audio) return;
-    const time = parseFloat(e.target.value);
-    audio.currentTime = time;
-    setCurrentTime(time);
-  }, []);
-
-  const changeVolume = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const v = parseFloat(e.target.value);
-    setVolume(v);
-    if (audioRef.current) audioRef.current.volume = v;
-  }, []);
+  // Is this song currently the active global track?
+  const isActive = globalMusic.current?.audioURL === audioURL;
 
   if (!audioURL) {
     return (
@@ -117,10 +94,20 @@ export function MusicPlayer({ resultText, details }: MusicPlayerProps) {
     );
   }
 
+  const handlePlay = () => {
+    // If already the active track, toggle play/pause
+    if (isActive) {
+      useStore.getState().toggleMusic();
+    } else {
+      // Otherwise, load this song into the global player
+      playMusic({ songName, artist, audioURL });
+    }
+  };
+
+  const showPause = isActive && globalMusic.playing;
+
   return (
     <div className="music-player">
-      <audio ref={audioRef} src={audioURL} preload="metadata" />
-
       <div className="music-player-info">
         <span className="music-player-icon">🎵</span>
         <div className="music-player-meta">
@@ -132,41 +119,32 @@ export function MusicPlayer({ resultText, details }: MusicPlayerProps) {
       <div className="music-player-controls">
         <button
           className="music-player-btn"
-          onClick={togglePlay}
-          disabled={error}
-          title={playing ? t('music.pause') : t('music.play')}
+          onClick={handlePlay}
+          disabled={isActive && globalMusic.error}
+          title={showPause ? t('music.pause') : t('music.play')}
         >
-          {error ? '✗' : playing ? '⏸' : '▶'}
+          {isActive && globalMusic.error ? '✗' : showPause ? '⏸' : '▶'}
         </button>
 
-        <span className="music-player-time">{formatTime(currentTime)}</span>
-
-        <input
-          className="music-player-progress"
-          type="range"
-          min={0}
-          max={duration || 0}
-          step={0.1}
-          value={currentTime}
-          onChange={seek}
-          disabled={error}
-        />
-
-        <span className="music-player-time">{formatTime(duration)}</span>
-
-        <span className="music-player-vol-icon" title={t('music.volume')}>🔊</span>
-        <input
-          className="music-player-volume"
-          type="range"
-          min={0}
-          max={1}
-          step={0.05}
-          value={volume}
-          onChange={changeVolume}
-        />
+        {isActive && (
+          <>
+            <span className="music-player-time">
+              {formatTime(globalMusic.currentTime)} / {formatTime(globalMusic.duration)}
+            </span>
+          </>
+        )}
       </div>
 
-      {error && <div className="music-player-error-bar">{t('music.loadFailed')}</div>}
+      {isActive && globalMusic.error && (
+        <div className="music-player-error-bar">{t('music.loadFailed')}</div>
+      )}
     </div>
   );
+}
+
+function formatTime(seconds: number): string {
+  if (!isFinite(seconds) || seconds < 0) return '0:00';
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${s.toString().padStart(2, '0')}`;
 }

@@ -6,12 +6,36 @@ import { Mermaid } from './Mermaid';
  * in agent transcripts: fenced code blocks, inline code, headings, bold/italic,
  * links, ordered/unordered lists, and paragraphs. Everything is escaped by
  * React (we only build elements, never dangerouslySetInnerHTML).
+ *
+ * `basePath` — when provided, relative links like `[text](file.md)` are
+ * resolved against this directory and dispatched as `open-file` events so they
+ * open in the file viewer instead of a new browser window.
  */
-export function Markdown({ text }: { text: string }) {
-  return <div className="md">{renderBlocks(text)}</div>;
+export function Markdown({ text, basePath }: { text: string; basePath?: string }) {
+  return <div className="md">{renderBlocks(text, basePath)}</div>;
 }
 
-function renderBlocks(src: string): ReactNode[] {
+/** Resolve a possibly-relative href to an absolute path. */
+function resolveHref(href: string, basePath?: string): string {
+  // Already absolute path or an external URL — return as-is.
+  if (href.startsWith('/') || /^https?:\/\//i.test(href) || href.startsWith('#')) {
+    return href;
+  }
+  if (!basePath) return href;
+  // Resolve relative to the markdown file's directory.
+  const dir = basePath.replace(/\/[^/]*$/, '');
+  // Strip any leading ./
+  const clean = href.replace(/^\.\//, '');
+  // Handle ../
+  const parts = dir.split('/');
+  for (const seg of clean.split('/')) {
+    if (seg === '..') parts.pop();
+    else if (seg !== '.') parts.push(seg);
+  }
+  return parts.join('/');
+}
+
+function renderBlocks(src: string, basePath?: string): ReactNode[] {
   const out: ReactNode[] = [];
   const lines = src.split('\n');
   let i = 0;
@@ -48,7 +72,7 @@ function renderBlocks(src: string): ReactNode[] {
     if (heading) {
       const level = heading[1].length;
       const Tag = (`h${Math.min(level, 3)}` as 'h1' | 'h2' | 'h3');
-      out.push(<Tag key={key++}>{renderInline(heading[2])}</Tag>);
+      out.push(<Tag key={key++}>{renderInline(heading[2], basePath)}</Tag>);
       i++;
       continue;
     }
@@ -63,7 +87,7 @@ function renderBlocks(src: string): ReactNode[] {
       out.push(
         <ul key={key++}>
           {items.map((it, idx) => (
-            <li key={idx}>{renderInline(it)}</li>
+            <li key={idx}>{renderInline(it, basePath)}</li>
           ))}
         </ul>,
       );
@@ -80,7 +104,7 @@ function renderBlocks(src: string): ReactNode[] {
       out.push(
         <ol key={key++}>
           {items.map((it, idx) => (
-            <li key={idx}>{renderInline(it)}</li>
+            <li key={idx}>{renderInline(it, basePath)}</li>
           ))}
         </ol>,
       );
@@ -105,7 +129,7 @@ function renderBlocks(src: string): ReactNode[] {
               <tr>
                 {header.map((cell, idx) => (
                   <th key={idx} style={{ textAlign: align(idx) }}>
-                    {renderInline(cell)}
+                    {renderInline(cell, basePath)}
                   </th>
                 ))}
               </tr>
@@ -115,7 +139,7 @@ function renderBlocks(src: string): ReactNode[] {
                 <tr key={ridx}>
                   {header.map((_, idx) => (
                     <td key={idx} style={{ textAlign: align(idx) }}>
-                      {renderInline(row[idx] ?? '')}
+                      {renderInline(row[idx] ?? '', basePath)}
                     </td>
                   ))}
                 </tr>
@@ -147,7 +171,7 @@ function renderBlocks(src: string): ReactNode[] {
       para.push(lines[i]);
       i++;
     }
-    out.push(<p key={key++}>{renderInline(para.join('\n'))}</p>);
+    out.push(<p key={key++}>{renderInline(para.join('\n'), basePath)}</p>);
   }
 
   return out;
@@ -208,7 +232,7 @@ function isTableStart(lines: string[], i: number): boolean {
 }
 
 /** Inline: `code`, **bold**, *italic*, [text](url). */
-function renderInline(text: string): ReactNode[] {
+function renderInline(text: string, basePath?: string): ReactNode[] {
   const nodes: ReactNode[] = [];
   // Split on inline code first to avoid formatting inside it.
   const parts = text.split(/(`[^`]+`)/g);
@@ -224,19 +248,19 @@ function renderInline(text: string): ReactNode[] {
             className="file-path-link"
             onClick={(e) => {
               e.preventDefault();
-              // Dispatch a custom event to open the file in FilePane
-              window.dispatchEvent(new CustomEvent('open-file', { detail: { path: codeContent } }));
+              const resolved = resolveHref(codeContent, basePath);
+              window.dispatchEvent(new CustomEvent('open-file', { detail: { path: resolved } }));
             }}
             style={{ cursor: 'pointer', textDecoration: 'underline' }}
           >
             {codeContent}
-          </code>
+          </code>,
         );
       } else {
         nodes.push(<code key={key++}>{codeContent}</code>);
       }
     } else {
-      nodes.push(<Fragment key={key++}>{renderEmphasis(part)}</Fragment>);
+      nodes.push(<Fragment key={key++}>{renderEmphasis(part, basePath)}</Fragment>);
     }
   }
   return nodes;
@@ -253,16 +277,17 @@ function isFilePath(text: string): boolean {
   // Exclude URLs
   if (/^https?:\/\//i.test(text)) return false;
   // Known extensions (covers most source/config/doc files)
-  if (/^~?\/[^\s]+\.(md|txt|json|js|ts|go|py|yaml|yml|toml|xml|html|css|sh|bash|rs|java|c|cpp|h|rb|php|sql|graphql|proto|tf|vue|svelte|jsx|tsx|mdx|csv|log|cfg|conf|ini|env|lock|sum|mod)$/i.test(text)) return true;
-  // Directory path (ends with / and has ≥2 segments)
+  const extRe = /^~?\/[^\s]+\.(md|txt|json|js|ts|go|py|yaml|yml|toml|xml|html|css|sh|bash|rs|java|c|cpp|h|rb|php|sql|graphql|proto|tf|vue|svelte|jsx|tsx|mdx|csv|log|cfg|conf|ini|env|lock|sum|mod)$/i;
+  if (extRe.test(text)) return true;
+  // Directory path (ends with / and has >=2 segments)
   if (/\/$/.test(text) && stripped.split('/').filter(Boolean).length >= 2) return true;
-  // File/dir with ≥2 segments, no extension in last segment (e.g. /Users/foo/bar/something)
+  // File/dir with >=2 segments, no extension in last segment
   const lastSegment = stripped.split('/').pop() || '';
   if (stripped.split('/').filter(Boolean).length >= 2 && !lastSegment.includes('.')) return true;
   return false;
 }
 
-function renderEmphasis(text: string): ReactNode[] {
+function renderEmphasis(text: string, basePath?: string): ReactNode[] {
   const nodes: ReactNode[] = [];
   // Image `![alt](src)` must come before the link alternative so the leading
   // `!` is consumed as part of the image rather than left as literal text.
@@ -271,7 +296,7 @@ function renderEmphasis(text: string): ReactNode[] {
   let m: RegExpExecArray | null;
   let key = 0;
   while ((m = re.exec(text)) !== null) {
-    if (m.index > last) nodes.push(...renderTextWithFilePaths(text.slice(last, m.index), key));
+    if (m.index > last) nodes.push(...renderTextWithFilePaths(text.slice(last, m.index), key, basePath));
     key += 100; // reserve keyspace for path nodes
     const token = m[0];
     if (token.startsWith('![')) {
@@ -295,32 +320,63 @@ function renderEmphasis(text: string): ReactNode[] {
     } else {
       const lm = token.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
       if (lm) {
-        nodes.push(
-          <a
-            key={key++}
-            href={lm[2]}
-            onClick={(e) => {
-              e.preventDefault();
-              void window.open(lm[2], '_blank');
-            }}
-          >
-            {lm[1]}
-          </a>,
-        );
+        const href = lm[2];
+        const isExternal = /^https?:\/\//i.test(href);
+        const isAnchor = href.startsWith('#');
+
+        if (isExternal) {
+          // External link: open in system browser
+          nodes.push(
+            <a
+              key={key++}
+              href={href}
+              onClick={(e) => {
+                e.preventDefault();
+                void window.piAPI?.openExternal(href);
+              }}
+            >
+              {lm[1]}
+            </a>,
+          );
+        } else if (isAnchor) {
+          // Anchor link: just render as-is (in-page navigation)
+          nodes.push(
+            <a key={key++} href={href}>
+              {lm[1]}
+            </a>,
+          );
+        } else {
+          // Relative file link: resolve and open in file viewer
+          const resolved = resolveHref(href, basePath);
+          nodes.push(
+            <a
+              key={key++}
+              href="#"
+              className="md-file-link"
+              title={resolved}
+              onClick={(e) => {
+                e.preventDefault();
+                window.dispatchEvent(new CustomEvent('open-file', { detail: { path: resolved } }));
+              }}
+            >
+              {lm[1]}
+            </a>,
+          );
+        }
       } else {
         nodes.push(<Fragment key={key++}>{token}</Fragment>);
       }
     }
     last = m.index + token.length;
   }
-  if (last < text.length) nodes.push(...renderTextWithFilePaths(text.slice(last), key));
+  if (last < text.length) nodes.push(...renderTextWithFilePaths(text.slice(last), key, basePath));
   return nodes;
 }
 
 // Scan plain text for file paths and make them clickable.
 const PATH_RE = /(\/(?:[^\s\n]*\/)+[^\s\n/.]+)/g;
 
-function renderTextWithFilePaths(text: string, baseKey: number): ReactNode[] {
+function renderTextWithFilePaths(text: string, baseKey: number, basePath?: string): ReactNode[] {
   const nodes: ReactNode[] = [];
   let last = 0;
   let m: RegExpExecArray | null;
@@ -336,7 +392,8 @@ function renderTextWithFilePaths(text: string, baseKey: number): ReactNode[] {
         className="file-path-link"
         onClick={(e) => {
           e.preventDefault();
-          window.dispatchEvent(new CustomEvent('open-file', { detail: { path } }));
+          const resolved = resolveHref(path, basePath);
+          window.dispatchEvent(new CustomEvent('open-file', { detail: { path: resolved } }));
         }}
         style={{ cursor: 'pointer', textDecoration: 'underline' }}
       >

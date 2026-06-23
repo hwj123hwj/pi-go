@@ -33,7 +33,7 @@ export function setBaseUrl(url: string): void {
   baseUrl = url;
 }
 
-function getBaseUrl(): string {
+export function getBaseUrl(): string {
   return baseUrl;
 }
 
@@ -212,6 +212,42 @@ export type ViewDensity = 'normal' | 'verbose' | 'summary';
 
 export type PaneKind = 'chat' | 'diff' | 'plan' | 'tasks' | 'terminal' | 'file';
 
+/** Which feature the right workspace sidebar is showing. */
+export type RightView = 'review' | 'files' | 'plan' | 'tasks';
+
+/**
+ * Global workspace layout — the right feature sidebar + the bottom terminal.
+ * App-level (NOT per-session) so the chosen layout survives session switches.
+ * Persisted to localStorage.
+ */
+export interface WorkspaceUiState {
+  /** Whether the left session-list sidebar is expanded (vs. collapsed). */
+  sidebarOpen: boolean;
+  /** Width (px) of the left session-list sidebar. */
+  sidebarWidth: number;
+  rightOpen: boolean;
+  /**
+   * Which feature panel is open, or null for "launcher" mode: the right rail
+   * is shown with full labels and no content panel.
+   */
+  rightView: RightView | null;
+  bottomOpen: boolean;
+  rightWidth: number;
+  bottomHeight: number;
+  fileTreeWidth: number;
+  /** Absolute paths of files open in the Files panel (VSCode-style tabs). */
+  fileTabs: string[];
+  activeFileTab?: string;
+}
+
+/** Clamp ranges for the draggable regions. */
+export const WORKSPACE_SIZE_LIMITS = {
+  sidebarWidth: { min: 200, max: 480, default: 260 },
+  rightWidth: { min: 340, max: 900, default: 520 },
+  bottomHeight: { min: 120, max: 720, default: 280 },
+  fileTreeWidth: { min: 160, max: 480, default: 220 },
+} as const;
+
 export type ChatItem =
   | { kind: 'user'; id: string; text: string }
   | { kind: 'assistant'; id: string; text: string }
@@ -265,6 +301,17 @@ interface StoreState {
   downloadUpdate: () => Promise<void>;
   snoozeUpdate: () => void;
 
+  // ── Workspace layout ──
+  workspace: WorkspaceUiState;
+  toggleSidebar: () => void;
+  toggleWorkspaceRight: () => void;
+  toggleWorkspaceBottom: () => void;
+  openWorkspaceView: (view: RightView) => void;
+  setWorkspaceSize: (key: keyof typeof WORKSPACE_SIZE_LIMITS, value: number) => void;
+  openFileTab: (path: string) => void;
+  closeFileTab: (path: string) => void;
+  setActiveFileTab: (path: string) => void;
+
   init: () => Promise<void>;
   refreshSessions: () => Promise<void>;
   setActive: (id: string) => Promise<void>;
@@ -278,6 +325,30 @@ interface StoreState {
   refreshDiff: (id: string) => Promise<void>;
   openFile: (id: string, path: string) => Promise<void>;
   saveFile: (id: string, path: string, content: string) => Promise<boolean>;
+
+  // ── Global music player ──
+  music: MusicState;
+  playMusic: (song: MusicTrack) => void;
+  setMusicPlaying: (playing: boolean) => void;
+  setMusicTime: (time: number) => void;
+  setMusicDuration: (duration: number) => void;
+  setMusicError: (error: boolean) => void;
+  toggleMusic: () => void;
+}
+
+export interface MusicTrack {
+  songName: string;
+  artist: string;
+  audioURL: string;
+  sessionId?: string;
+}
+
+export interface MusicState {
+  current: MusicTrack | null;
+  playing: boolean;
+  currentTime: number;
+  duration: number;
+  error: boolean;
 }
 
 // Cached models from backend (shared across all sessions)
@@ -324,6 +395,70 @@ async function fetchModels(): Promise<void> {
   }
 }
 
+// ── Workspace layout persistence ────────────────────────────────────────────
+
+const WORKSPACE_KEY = 'pi-go.workspace';
+
+function clampSize(v: unknown, key: keyof typeof WORKSPACE_SIZE_LIMITS): number {
+  const { min, max, default: dflt } = WORKSPACE_SIZE_LIMITS[key];
+  if (typeof v !== 'number' || !Number.isFinite(v)) return dflt;
+  return Math.min(max, Math.max(min, v));
+}
+
+function loadWorkspaceUi(): WorkspaceUiState {
+  const base: WorkspaceUiState = {
+    sidebarOpen: true,
+    sidebarWidth: WORKSPACE_SIZE_LIMITS.sidebarWidth.default,
+    rightOpen: false,
+    rightView: null,
+    bottomOpen: false,
+    rightWidth: WORKSPACE_SIZE_LIMITS.rightWidth.default,
+    bottomHeight: WORKSPACE_SIZE_LIMITS.bottomHeight.default,
+    fileTreeWidth: WORKSPACE_SIZE_LIMITS.fileTreeWidth.default,
+    fileTabs: [],
+  };
+  try {
+    const raw = localStorage.getItem(WORKSPACE_KEY);
+    if (raw) {
+      const p = JSON.parse(raw) as Partial<WorkspaceUiState>;
+      return {
+        ...base,
+        sidebarOpen: p.sidebarOpen ?? true,
+        sidebarWidth: clampSize(p.sidebarWidth, 'sidebarWidth'),
+        rightOpen: !!p.rightOpen,
+        rightView: p.rightView ?? null,
+        bottomOpen: !!p.bottomOpen,
+        rightWidth: clampSize(p.rightWidth, 'rightWidth'),
+        bottomHeight: clampSize(p.bottomHeight, 'bottomHeight'),
+        fileTreeWidth: clampSize(p.fileTreeWidth, 'fileTreeWidth'),
+      };
+    }
+  } catch {
+    /* localStorage unavailable / malformed */
+  }
+  return base;
+}
+
+function persistWorkspaceUi(w: WorkspaceUiState): void {
+  try {
+    localStorage.setItem(
+      WORKSPACE_KEY,
+      JSON.stringify({
+        sidebarOpen: w.sidebarOpen,
+        sidebarWidth: w.sidebarWidth,
+        rightOpen: w.rightOpen,
+        rightView: w.rightView,
+        bottomOpen: w.bottomOpen,
+        rightWidth: w.rightWidth,
+        bottomHeight: w.bottomHeight,
+        fileTreeWidth: w.fileTreeWidth,
+      }),
+    );
+  } catch {
+    /* best-effort */
+  }
+}
+
 export const useStore = create<StoreState>((set, get) => ({
   ready: false,
   connected: false,
@@ -331,6 +466,7 @@ export const useStore = create<StoreState>((set, get) => ({
   order: [],
   models: [],
   currentModel: undefined,
+  workspace: loadWorkspaceUi(),
   pickFolder: async () => {
     return await window.piAPI?.pickFolder() ?? null;
   },
@@ -345,17 +481,30 @@ export const useStore = create<StoreState>((set, get) => ({
     set({ theme });
   },
 
+  // ── Global music player ──
+  music: { current: null, playing: false, currentTime: 0, duration: 0, error: false },
+  playMusic: (song) => {
+    set((s) => ({
+      music: { ...s.music, current: song, playing: true, currentTime: 0, duration: 0, error: false },
+    }));
+  },
+  setMusicPlaying: (playing) => set((s) => ({ music: { ...s.music, playing } })),
+  setMusicTime: (time) => set((s) => ({ music: { ...s.music, currentTime: time } })),
+  setMusicDuration: (duration) => set((s) => ({ music: { ...s.music, duration } })),
+  setMusicError: (error) => set((s) => ({ music: { ...s.music, error } })),
+  toggleMusic: () => set((s) => ({ music: { ...s.music, playing: !s.music.playing } })),
+
   update: null,
   checkUpdate: async () => {
     try {
       const info = await window.piAPI?.checkForUpdate();
       if (info) {
-        set({ update: { supported: true, phase: 'available', info, currentVersion: '0.2.0' } });
+        set({ update: { supported: true, phase: 'available', info, currentVersion: __APP_VERSION__ } });
       } else {
-        set({ update: { supported: true, phase: 'idle', info: null, currentVersion: '0.2.0' } });
+        set({ update: { supported: true, phase: 'idle', info: null, currentVersion: __APP_VERSION__ } });
       }
     } catch {
-      set({ update: { supported: true, phase: 'error', error: 'Check failed', currentVersion: '0.2.0' } });
+      set({ update: { supported: true, phase: 'error', error: 'Check failed', currentVersion: __APP_VERSION__ } });
     }
   },
   downloadUpdate: async () => {
@@ -367,6 +516,75 @@ export const useStore = create<StoreState>((set, get) => ({
   },
   snoozeUpdate: () =>
     set((s) => (s.update ? { update: { ...s.update, snoozed: true } } : {})),
+
+  // ── Workspace layout actions ──
+  toggleSidebar: () => {
+    set((s) => {
+      const workspace = { ...s.workspace, sidebarOpen: !s.workspace.sidebarOpen };
+      persistWorkspaceUi(workspace);
+      return { workspace };
+    });
+  },
+  toggleWorkspaceRight: () => {
+    set((s) => {
+      // When opening, default to 'files' if no view is selected yet.
+      const rightOpen = !s.workspace.rightOpen;
+      const rightView = rightOpen ? (s.workspace.rightView ?? 'files') : s.workspace.rightView;
+      const workspace: WorkspaceUiState = { ...s.workspace, rightOpen, rightView };
+      persistWorkspaceUi(workspace);
+      return { workspace };
+    });
+  },
+  toggleWorkspaceBottom: () => {
+    set((s) => {
+      const workspace = { ...s.workspace, bottomOpen: !s.workspace.bottomOpen };
+      persistWorkspaceUi(workspace);
+      return { workspace };
+    });
+  },
+  openWorkspaceView: (view) => {
+    set((s) => {
+      const workspace = { ...s.workspace, rightOpen: true, rightView: view };
+      persistWorkspaceUi(workspace);
+      return { workspace };
+    });
+  },
+  setWorkspaceSize: (key, value) => {
+    set((s) => {
+      const clamped = clampSize(value, key);
+      const workspace = { ...s.workspace, [key]: clamped };
+      persistWorkspaceUi(workspace);
+      return { workspace };
+    });
+  },
+  openFileTab: (path) => {
+    set((s) => {
+      const tabs = s.workspace.fileTabs.includes(path)
+        ? s.workspace.fileTabs
+        : [...s.workspace.fileTabs, path];
+      const workspace: WorkspaceUiState = { ...s.workspace, fileTabs: tabs, activeFileTab: path, rightOpen: true, rightView: 'files' as RightView };
+      persistWorkspaceUi(workspace);
+      return { workspace };
+    });
+  },
+  closeFileTab: (path) => {
+    set((s) => {
+      const tabs = s.workspace.fileTabs.filter((t) => t !== path);
+      const activeFileTab = s.workspace.activeFileTab === path
+        ? (tabs[tabs.length - 1] ?? undefined)
+        : s.workspace.activeFileTab;
+      const workspace: WorkspaceUiState = { ...s.workspace, fileTabs: tabs, activeFileTab };
+      persistWorkspaceUi(workspace);
+      return { workspace };
+    });
+  },
+  setActiveFileTab: (path) => {
+    set((s) => {
+      const workspace = { ...s.workspace, activeFileTab: path };
+      persistWorkspaceUi(workspace);
+      return { workspace };
+    });
+  },
 
   init: async () => {
     if (initialized) return;
@@ -534,20 +752,38 @@ export const useStore = create<StoreState>((set, get) => ({
           // Preserve existing cwd if the backend doesn't provide one
           const existingCwd = s.sessions[sess.id]?.meta.cwd;
           const cwd = sess.workspace || existingCwd || '';
+          // Derive title: prefer backend title, then existing local title, then fallback
+          const backendTitle = sess.title ? deriveTitleFromMessage(sess.title) : undefined;
+          const existingTitle = s.sessions[sess.id]?.meta.title;
+          // If existing title is the auto-generated fallback, prefer backend title
+          const isFallback = !existingTitle || existingTitle.startsWith('Session ');
+          const title = isFallback ? (backendTitle || existingTitle || `Session ${sess.id.slice(-6)}`) : existingTitle;
+          // Read application from backend, fallback to existing
+          const application = sess.application || s.sessions[sess.id]?.meta.application;
           const meta: SessionMeta = {
             id: sess.id,
-            title: s.sessions[sess.id]?.meta.title || `Session ${sess.id.slice(-6)}`,
+            title,
             cwd,
             status: 'idle' as SessionRunStatus,
             model: s.sessions[sess.id]?.meta.model,
+            application,
             availableModels: defaultModels(),
             createdAt: sess.created_at || 0,
             updatedAt: sess.last_active || 0,
           };
           newSessions[sess.id] = s.sessions[sess.id] ?? emptyView(meta);
-          // Update meta for existing sessions (in case cwd was loaded from backend)
+          // Update meta for existing sessions (in case cwd/title/application was loaded from backend)
           if (s.sessions[sess.id]) {
-            newSessions[sess.id] = { ...s.sessions[sess.id], meta: { ...s.sessions[sess.id].meta, cwd, updatedAt: sess.last_active || 0 } };
+            newSessions[sess.id] = {
+              ...s.sessions[sess.id],
+              meta: {
+                ...s.sessions[sess.id].meta,
+                cwd,
+                title,
+                application,
+                updatedAt: sess.last_active || 0,
+              },
+            };
           }
         }
         return { sessions: newSessions, order: sessions.map((s) => s.id) };
@@ -585,6 +821,7 @@ export const useStore = create<StoreState>((set, get) => ({
                 );
                 const resultText = resultMsg?.content || '';
                 const isError = resultMsg?.is_error || false;
+                const toolDetails = resultMsg?.tool_details ?? undefined;
                 items.push({
                   kind: 'tool',
                   id: newId(),
@@ -593,6 +830,7 @@ export const useStore = create<StoreState>((set, get) => ({
                   toolKind,
                   status: isError ? 'failed' : 'completed',
                   content: [{ text: resultText }],
+                  details: toolDetails,
                   rawInput: tc.args ? (() => { try { return JSON.parse(tc.args); } catch { return undefined; } })() : undefined,
                 });
               }

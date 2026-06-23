@@ -18,6 +18,8 @@
   },
   "dependencies": {
     "@types/semver": "^7.7.1",
+    "fuzzysort": "^3.1.0",
+    "highlight.js": "^11.11.1",
     "mermaid": "^11.15.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

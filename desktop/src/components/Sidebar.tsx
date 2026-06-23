@@ -91,7 +91,16 @@ export function Sidebar() {
 
   const handleNew = async (application?: string) => {
     setShowNewMenu(false);
-    await createSession(application ? { application } : undefined);
+    // If current active session belongs to a project, create new session in same project
+    const currentCwd = active ? sessions[active]?.meta.cwd : undefined;
+    const opts: { cwd?: string; application?: string } = {};
+    if (currentCwd) opts.cwd = currentCwd;
+    if (application) opts.application = application;
+    await createSession(Object.keys(opts).length > 0 ? opts : undefined);
+  };
+
+  const handleNewInProject = async (cwd: string) => {
+    await createSession({ cwd });
   };
 
   const handleNewProject = async () => {
@@ -248,16 +257,25 @@ export function Sidebar() {
             <div className="group-label">{t('sidebar.projects') || 'Projects'}</div>
             {projects.map((g) => (
               <div key={g.cwd} className="project-group">
-                <button
-                  className="project-header"
-                  title={g.cwd}
-                  onClick={() => toggleCollapse(g.cwd)}
-                >
-                  <Icon name={collapsed.has(g.cwd) ? 'chevron-right' : 'chevron-down'} size={14} />
-                  <Icon name="folder" size={14} />
-                  <span className="project-name">{g.name}</span>
-                  <span className="project-count">{g.views.length}</span>
-                </button>
+                <div className="project-header-row">
+                  <button
+                    className="project-header"
+                    title={g.cwd}
+                    onClick={() => toggleCollapse(g.cwd)}
+                  >
+                    <Icon name={collapsed.has(g.cwd) ? 'chevron-right' : 'chevron-down'} size={14} />
+                    <Icon name="folder" size={14} />
+                    <span className="project-name">{g.name}</span>
+                    <span className="project-count">{g.views.length}</span>
+                  </button>
+                  <button
+                    className="project-new-btn"
+                    title={t('sidebar.newInProject') || 'New conversation in project'}
+                    onClick={(e) => { e.stopPropagation(); void handleNewInProject(g.cwd); }}
+                  >
+                    <Icon name="plus" size={12} />
+                  </button>
+                </div>
                 {!collapsed.has(g.cwd) && g.views.map((v) => renderCard(v, true))}
               </div>
             ))}
