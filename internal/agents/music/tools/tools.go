@@ -58,10 +58,10 @@ func filterTools(tools []agent.Tool, allowed []string, blocked []string) []agent
 	return filtered
 }
 
-// ParseSource converts a source string to music.Source, defaulting to netease.
+// ParseSource converts a source string to music.Source, defaulting to bilibili.
 func ParseSource(s string) music.Source {
 	if s == "" {
-		return music.SourceNetease
+		return music.SourceBilibili
 	}
 	return music.Source(s)
 }

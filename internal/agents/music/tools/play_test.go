@@ -108,6 +108,8 @@ func (f *fakeNetease) newPlayTool() *PlayTool {
 	c.SetBaseURL(f.srv.URL)
 	c.SetHTTPClient(f.srv.Client())
 	cache := music.NewCache()
+	// Router with netease as default for backward-compat with existing tests.
+	// Production uses bilibili as default (set in tools.go ParseSource).
 	router := music.NewSourceRouter(music.SourceNetease, music.NewNetEaseAdapter(c))
 	return NewPlayTool(router, cache, "http://localhost:0/music/audio")
 }
@@ -137,7 +139,8 @@ func TestPlay_OriginalPlayable(t *testing.T) {
 		{ID: 1, Name: "七里香", Artists: []string{"周杰伦"}},
 		{ID: 2, Name: "七里香", Artists: []string{"张学友"}},
 	}, nil)
-	res := mustExecute(t, f.newPlayTool(), map[string]any{"query": "周杰伦 七里香"})
+	// Explicitly use netease source (production default is now bilibili)
+	res := mustExecute(t, f.newPlayTool(), map[string]any{"query": "周杰伦 七里香", "source": "netease"})
 	if res.IsError {
 		t.Fatalf("unexpected error: %s", res.Content)
 	}
