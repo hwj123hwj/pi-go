@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/earendil-works/pi-go/internal/ai"
+	"github.com/hwj123hwj/pi-go/internal/ai"
 )
 
 // OpenAIProvider 通过 HTTP 调用 OpenAI Chat Completions API。

@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/earendil-works/pi-go/internal/ai"
+	"github.com/hwj123hwj/pi-go/internal/ai"
 	"github.com/stretchr/testify/assert"
 )
 

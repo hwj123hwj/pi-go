@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/earendil-works/pi-go/internal/ai"
+	"github.com/hwj123hwj/pi-go/internal/ai"
 )
 
 type headerProvider interface {

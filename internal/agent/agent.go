@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/earendil-works/pi-go/internal/ai"
-	"github.com/earendil-works/pi-go/internal/ai/providers"
-	"github.com/earendil-works/pi-go/internal/compaction"
-	"github.com/earendil-works/pi-go/internal/session"
+	"github.com/hwj123hwj/pi-go/internal/ai"
+	"github.com/hwj123hwj/pi-go/internal/ai/providers"
+	"github.com/hwj123hwj/pi-go/internal/compaction"
+	"github.com/hwj123hwj/pi-go/internal/session"
 )
 
 type EventHandler func(ctx context.Context, event AgentEvent)

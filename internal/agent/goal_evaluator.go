@@ -11,8 +11,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/earendil-works/pi-go/internal/ai"
-	"github.com/earendil-works/pi-go/internal/ai/providers"
+	"github.com/hwj123hwj/pi-go/internal/ai"
+	"github.com/hwj123hwj/pi-go/internal/ai/providers"
 )
 
 // GoalEvalResult is the structured output from the goal completion evaluator.

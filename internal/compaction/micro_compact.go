@@ -1,7 +1,7 @@
 package compaction
 
 import (
-	"github.com/earendil-works/pi-go/internal/ai"
+	"github.com/hwj123hwj/pi-go/internal/ai"
 )
 
 // clearedPlaceholder 替换旧 tool result 内容的占位符。

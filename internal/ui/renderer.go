@@ -1,7 +1,7 @@
 package ui
 
 import (
-	"github.com/earendil-works/pi-go/internal/agent"
+	"github.com/hwj123hwj/pi-go/internal/agent"
 )
 
 // TUIRenderer is an abstraction for terminal UI rendering.

@@ -11,7 +11,7 @@ import (
 	"time"
 
 	md "github.com/JohannesKaufmann/html-to-markdown"
-	"github.com/earendil-works/pi-go/internal/agent"
+	"github.com/hwj123hwj/pi-go/internal/agent"
 )
 
 // WebFetchTool 抓取给定 URL 的内容并转为 markdown。
@@ -121,7 +121,7 @@ func (t *WebFetchTool) Execute(ctx context.Context, raw json.RawMessage, onUpdat
 	if err != nil {
 		return agent.ToolResult{IsError: true}, err
 	}
-	req.Header.Set("User-Agent", "pi-go-agent/1.0 (+https://github.com/earendil-works/pi-go)")
+	req.Header.Set("User-Agent", "pi-go-agent/1.0 (+https://github.com/hwj123hwj/pi-go)")
 
 	resp, err := t.client.Do(req)
 	if err != nil {

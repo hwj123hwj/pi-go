@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/earendil-works/pi-go/internal/ai"
-	"github.com/earendil-works/pi-go/internal/ai/providers"
+	"github.com/hwj123hwj/pi-go/internal/ai"
+	"github.com/hwj123hwj/pi-go/internal/ai/providers"
 )
 
 // mockEvalProvider returns a fixed text response for testing goal evaluation.

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/earendil-works/pi-go/internal/runtime"
+	"github.com/hwj123hwj/pi-go/internal/runtime"
 )
 
 // PrintMode handles one-shot prompt execution (non-interactive).

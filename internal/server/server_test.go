@@ -7,8 +7,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/earendil-works/pi-go/internal/app"
-	"github.com/earendil-works/pi-go/internal/config"
+	"github.com/hwj123hwj/pi-go/internal/app"
+	"github.com/hwj123hwj/pi-go/internal/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

@@ -8,13 +8,13 @@ import (
 	"net/http"
 	"os"
 
-	musicagent "github.com/earendil-works/pi-go/internal/agents/music"
-	"github.com/earendil-works/pi-go/internal/app"
-	"github.com/earendil-works/pi-go/internal/config"
-	"github.com/earendil-works/pi-go/internal/mode"
-	"github.com/earendil-works/pi-go/internal/music"
-	"github.com/earendil-works/pi-go/internal/music/bilibili"
-	"github.com/earendil-works/pi-go/internal/music/netease"
+	musicagent "github.com/hwj123hwj/pi-go/internal/agents/music"
+	"github.com/hwj123hwj/pi-go/internal/app"
+	"github.com/hwj123hwj/pi-go/internal/config"
+	"github.com/hwj123hwj/pi-go/internal/mode"
+	"github.com/hwj123hwj/pi-go/internal/music"
+	"github.com/hwj123hwj/pi-go/internal/music/bilibili"
+	"github.com/hwj123hwj/pi-go/internal/music/netease"
 )
 
 func main() {

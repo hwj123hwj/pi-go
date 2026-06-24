@@ -1,11 +1,11 @@
 package kb
 
 import (
-	"github.com/earendil-works/pi-go/internal/agent"
-	kbprompt "github.com/earendil-works/pi-go/internal/agents/kb/prompt"
-	kbtools "github.com/earendil-works/pi-go/internal/agents/kb/tools"
-	"github.com/earendil-works/pi-go/internal/config"
-	"github.com/earendil-works/pi-go/internal/runtime"
+	"github.com/hwj123hwj/pi-go/internal/agent"
+	kbprompt "github.com/hwj123hwj/pi-go/internal/agents/kb/prompt"
+	kbtools "github.com/hwj123hwj/pi-go/internal/agents/kb/tools"
+	"github.com/hwj123hwj/pi-go/internal/config"
+	"github.com/hwj123hwj/pi-go/internal/runtime"
 )
 
 // KBApplication implements runtime.Application for the knowledge-base agent.

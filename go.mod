@@ -1,4 +1,4 @@
-module github.com/earendil-works/pi-go
+module github.com/hwj123hwj/pi-go
 
 go 1.24.2
 

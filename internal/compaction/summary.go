@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/earendil-works/pi-go/internal/ai"
-	"github.com/earendil-works/pi-go/internal/ai/providers"
+	"github.com/hwj123hwj/pi-go/internal/ai"
+	"github.com/hwj123hwj/pi-go/internal/ai/providers"
 )
 
 // LLMSummarizer 返回一个使用 LLM 生成摘要的 SummarizeFunc。

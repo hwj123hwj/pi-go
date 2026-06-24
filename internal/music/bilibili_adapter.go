@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/earendil-works/pi-go/internal/music/bilibili"
+	"github.com/hwj123hwj/pi-go/internal/music/bilibili"
 )
 
 // ────────────────────────────────────────────────────────────────────────────

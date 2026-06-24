@@ -3,7 +3,7 @@ package extensions
 import (
 	"context"
 
-	"github.com/earendil-works/pi-go/internal/agent"
+	"github.com/hwj123hwj/pi-go/internal/agent"
 )
 
 // CommandDef defines a slash command contributed by an extension.

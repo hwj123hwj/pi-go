@@ -9,7 +9,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/earendil-works/pi-go/internal/agent"
+	"github.com/hwj123hwj/pi-go/internal/agent"
 )
 
 // SearchTool searches knowledge cards in the agent-lessons repository.

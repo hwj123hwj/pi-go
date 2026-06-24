@@ -7,8 +7,8 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/earendil-works/pi-go/internal/agent"
-	"github.com/earendil-works/pi-go/internal/operations"
+	"github.com/hwj123hwj/pi-go/internal/agent"
+	"github.com/hwj123hwj/pi-go/internal/operations"
 )
 
 type BashTool struct {

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/earendil-works/pi-go/internal/slashcmd"
+	"github.com/hwj123hwj/pi-go/internal/slashcmd"
 )
 
 // RegisterBuiltins registers coding-agent slash commands into the shared framework registry.

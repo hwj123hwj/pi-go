@@ -10,17 +10,17 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/earendil-works/pi-go/internal/agents/coding"
-	kbapp "github.com/earendil-works/pi-go/internal/agents/kb"
-	musicapp "github.com/earendil-works/pi-go/internal/agents/music"
-	"github.com/earendil-works/pi-go/internal/app"
-	"github.com/earendil-works/pi-go/internal/config"
-	"github.com/earendil-works/pi-go/internal/mode"
-	music "github.com/earendil-works/pi-go/internal/music"
-	"github.com/earendil-works/pi-go/internal/music/bilibili"
-	"github.com/earendil-works/pi-go/internal/music/netease"
-	"github.com/earendil-works/pi-go/internal/runtime"
-	"github.com/earendil-works/pi-go/internal/slashcmd"
+	"github.com/hwj123hwj/pi-go/internal/agents/coding"
+	kbapp "github.com/hwj123hwj/pi-go/internal/agents/kb"
+	musicapp "github.com/hwj123hwj/pi-go/internal/agents/music"
+	"github.com/hwj123hwj/pi-go/internal/app"
+	"github.com/hwj123hwj/pi-go/internal/config"
+	"github.com/hwj123hwj/pi-go/internal/mode"
+	music "github.com/hwj123hwj/pi-go/internal/music"
+	"github.com/hwj123hwj/pi-go/internal/music/bilibili"
+	"github.com/hwj123hwj/pi-go/internal/music/netease"
+	"github.com/hwj123hwj/pi-go/internal/runtime"
+	"github.com/hwj123hwj/pi-go/internal/slashcmd"
 )
 
 func main() {

@@ -1,13 +1,13 @@
 package coding
 
 import (
-	"github.com/earendil-works/pi-go/internal/agent"
-	"github.com/earendil-works/pi-go/internal/agents/coding/profile"
-	codingprompt "github.com/earendil-works/pi-go/internal/agents/coding/prompt"
-	codingtools "github.com/earendil-works/pi-go/internal/agents/coding/tools"
-	"github.com/earendil-works/pi-go/internal/config"
-	"github.com/earendil-works/pi-go/internal/runtime"
-	"github.com/earendil-works/pi-go/internal/slashcmd"
+	"github.com/hwj123hwj/pi-go/internal/agent"
+	"github.com/hwj123hwj/pi-go/internal/agents/coding/profile"
+	codingprompt "github.com/hwj123hwj/pi-go/internal/agents/coding/prompt"
+	codingtools "github.com/hwj123hwj/pi-go/internal/agents/coding/tools"
+	"github.com/hwj123hwj/pi-go/internal/config"
+	"github.com/hwj123hwj/pi-go/internal/runtime"
+	"github.com/hwj123hwj/pi-go/internal/slashcmd"
 )
 
 // CodingApplication implements runtime.Application for the coding-agent.

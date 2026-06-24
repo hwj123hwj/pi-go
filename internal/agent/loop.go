@@ -7,8 +7,8 @@ import (
 	"log/slog"
 	"sync"
 
-	"github.com/earendil-works/pi-go/internal/ai"
-	"github.com/earendil-works/pi-go/internal/compaction"
+	"github.com/hwj123hwj/pi-go/internal/ai"
+	"github.com/hwj123hwj/pi-go/internal/compaction"
 )
 
 // consumeStreamFunc 定义如何消费 LLM 事件流。

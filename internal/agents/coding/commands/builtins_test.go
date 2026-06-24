@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/earendil-works/pi-go/internal/slashcmd"
+	"github.com/hwj123hwj/pi-go/internal/slashcmd"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

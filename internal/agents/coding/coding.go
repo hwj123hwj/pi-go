@@ -1,10 +1,10 @@
 package coding
 
 import (
-	codingtools "github.com/earendil-works/pi-go/internal/agents/coding/tools"
-	codingdeepv "github.com/earendil-works/pi-go/internal/agents/coding/deepv"
-	codingcommands "github.com/earendil-works/pi-go/internal/agents/coding/commands"
-	"github.com/earendil-works/pi-go/internal/slashcmd"
+	codingtools "github.com/hwj123hwj/pi-go/internal/agents/coding/tools"
+	codingdeepv "github.com/hwj123hwj/pi-go/internal/agents/coding/deepv"
+	codingcommands "github.com/hwj123hwj/pi-go/internal/agents/coding/commands"
+	"github.com/hwj123hwj/pi-go/internal/slashcmd"
 )
 
 func BaseToolNames(enableBash bool) []string {

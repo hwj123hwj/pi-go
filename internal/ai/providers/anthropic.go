@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/earendil-works/pi-go/internal/ai"
+	"github.com/hwj123hwj/pi-go/internal/ai"
 )
 
 // AnthropicProvider 通过 HTTP 直接调用 Anthropic Messages API。

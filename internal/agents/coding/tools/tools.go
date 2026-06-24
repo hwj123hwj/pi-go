@@ -1,9 +1,9 @@
 package tools
 
 import (
-	"github.com/earendil-works/pi-go/internal/agent"
-	"github.com/earendil-works/pi-go/internal/operations"
-	basetools "github.com/earendil-works/pi-go/internal/tools"
+	"github.com/hwj123hwj/pi-go/internal/agent"
+	"github.com/hwj123hwj/pi-go/internal/operations"
+	basetools "github.com/hwj123hwj/pi-go/internal/tools"
 )
 
 // ListOptions controls how the coding-agent toolset is assembled.

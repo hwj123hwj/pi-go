@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/earendil-works/pi-go/internal/agents/coding/profile"
-	"github.com/earendil-works/pi-go/internal/runtime"
+	"github.com/hwj123hwj/pi-go/internal/agents/coding/profile"
+	"github.com/hwj123hwj/pi-go/internal/runtime"
 )
 
 // CodingSessionExt implements runtime.SessionExt for the coding-agent.

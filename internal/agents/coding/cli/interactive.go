@@ -7,11 +7,11 @@ import (
 	"os"
 	"time"
 
-	"github.com/earendil-works/pi-go/internal/agent"
-	"github.com/earendil-works/pi-go/internal/app"
-	"github.com/earendil-works/pi-go/internal/runtime"
-	"github.com/earendil-works/pi-go/internal/slashcmd"
-	"github.com/earendil-works/pi-go/internal/ui"
+	"github.com/hwj123hwj/pi-go/internal/agent"
+	"github.com/hwj123hwj/pi-go/internal/app"
+	"github.com/hwj123hwj/pi-go/internal/runtime"
+	"github.com/hwj123hwj/pi-go/internal/slashcmd"
+	"github.com/hwj123hwj/pi-go/internal/ui"
 )
 
 // clearScreen clears the terminal display using ANSI escape sequences.

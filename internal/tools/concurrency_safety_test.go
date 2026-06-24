@@ -1,7 +1,7 @@
 package tools
 
 import (
-	"github.com/earendil-works/pi-go/internal/agent"
+	"github.com/hwj123hwj/pi-go/internal/agent"
 )
 
 // 编译期断言：只读工具实现 ConcurrencySafeChecker

@@ -6,15 +6,15 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/earendil-works/pi-go/internal/agent"
-	"github.com/earendil-works/pi-go/internal/agents/coding"
-	"github.com/earendil-works/pi-go/internal/ai/providers"
-	"github.com/earendil-works/pi-go/internal/config"
-	"github.com/earendil-works/pi-go/internal/extensions"
-	"github.com/earendil-works/pi-go/internal/operations"
-	"github.com/earendil-works/pi-go/internal/runtime"
-	"github.com/earendil-works/pi-go/internal/sessionmgr"
-	"github.com/earendil-works/pi-go/internal/slashcmd"
+	"github.com/hwj123hwj/pi-go/internal/agent"
+	"github.com/hwj123hwj/pi-go/internal/agents/coding"
+	"github.com/hwj123hwj/pi-go/internal/ai/providers"
+	"github.com/hwj123hwj/pi-go/internal/config"
+	"github.com/hwj123hwj/pi-go/internal/extensions"
+	"github.com/hwj123hwj/pi-go/internal/operations"
+	"github.com/hwj123hwj/pi-go/internal/runtime"
+	"github.com/hwj123hwj/pi-go/internal/sessionmgr"
+	"github.com/hwj123hwj/pi-go/internal/slashcmd"
 )
 
 // App is the thin assembly layer for the agent.

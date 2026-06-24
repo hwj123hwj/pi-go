@@ -6,9 +6,9 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/earendil-works/pi-go/internal/ai"
-	"github.com/earendil-works/pi-go/internal/ai/providers"
-	"github.com/earendil-works/pi-go/internal/compaction"
+	"github.com/hwj123hwj/pi-go/internal/ai"
+	"github.com/hwj123hwj/pi-go/internal/ai/providers"
+	"github.com/hwj123hwj/pi-go/internal/compaction"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

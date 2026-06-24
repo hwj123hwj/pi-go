@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/earendil-works/pi-go/internal/agent"
-	"github.com/earendil-works/pi-go/internal/music"
+	"github.com/hwj123hwj/pi-go/internal/agent"
+	"github.com/hwj123hwj/pi-go/internal/music"
 )
 
 // PlayTool plays a song from any source with cross-source fallback.

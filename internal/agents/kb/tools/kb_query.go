@@ -10,7 +10,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/earendil-works/pi-go/internal/agent"
+	"github.com/hwj123hwj/pi-go/internal/agent"
 )
 
 // QueryTool performs cross-module search across the agent-lessons repository.

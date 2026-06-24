@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/earendil-works/pi-go/internal/music/netease"
+	"github.com/hwj123hwj/pi-go/internal/music/netease"
 )
 
 // ────────────────────────────────────────────────────────────────────────────

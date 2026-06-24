@@ -3,9 +3,9 @@ package mode
 import (
 	"net/http"
 
-	"github.com/earendil-works/pi-go/internal/app"
-	"github.com/earendil-works/pi-go/internal/server"
-	"github.com/earendil-works/pi-go/internal/slashcmd"
+	"github.com/hwj123hwj/pi-go/internal/app"
+	"github.com/hwj123hwj/pi-go/internal/server"
+	"github.com/hwj123hwj/pi-go/internal/slashcmd"
 )
 
 // ServeMode handles the HTTP server mode.

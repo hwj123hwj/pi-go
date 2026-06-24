@@ -3,7 +3,7 @@ package compaction
 import (
 	"strings"
 
-	"github.com/earendil-works/pi-go/internal/ai"
+	"github.com/hwj123hwj/pi-go/internal/ai"
 )
 
 // EstimateTokens 估算消息列表的 token 数。

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/earendil-works/pi-go/internal/agent"
+	"github.com/hwj123hwj/pi-go/internal/agent"
 )
 
 // DisplayEvent is a structured representation of an agent event,

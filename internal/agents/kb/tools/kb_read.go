@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/earendil-works/pi-go/internal/agent"
+	"github.com/hwj123hwj/pi-go/internal/agent"
 )
 
 // ReadTool reads a file from the agent-lessons repository.

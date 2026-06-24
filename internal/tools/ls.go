@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/earendil-works/pi-go/internal/agent"
-	"github.com/earendil-works/pi-go/internal/operations"
+	"github.com/hwj123hwj/pi-go/internal/agent"
+	"github.com/hwj123hwj/pi-go/internal/operations"
 )
 
 // LsTool 列出目录内容，显示文件/目录名称、大小和修改时间。

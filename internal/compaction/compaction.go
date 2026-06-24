@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/earendil-works/pi-go/internal/ai"
+	"github.com/hwj123hwj/pi-go/internal/ai"
 )
 
 // Settings 控制上下文压缩行为。

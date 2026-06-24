@@ -3,10 +3,10 @@ package runtime
 import (
 	"context"
 
-	"github.com/earendil-works/pi-go/internal/agent"
-	"github.com/earendil-works/pi-go/internal/operations"
-	"github.com/earendil-works/pi-go/internal/prompt"
-	"github.com/earendil-works/pi-go/internal/skill"
+	"github.com/hwj123hwj/pi-go/internal/agent"
+	"github.com/hwj123hwj/pi-go/internal/operations"
+	"github.com/hwj123hwj/pi-go/internal/prompt"
+	"github.com/hwj123hwj/pi-go/internal/skill"
 )
 
 // Application is the interface that an agent application must implement.
