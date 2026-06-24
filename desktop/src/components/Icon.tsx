@@ -65,7 +65,13 @@ export type IconName =
   | 'external-link'
   | 'panel-bottom'
   | 'panel-right'
-  | 'split';
+  | 'split'
+  | 'book'
+  | 'database'
+  | 'activity'
+  | 'tag'
+  | 'alert-circle'
+  | 'stethoscope';
 
 /** Path/shape markup for each icon, drawn on a 24×24 canvas. */
 const PATHS: Record<IconName, string> = {
@@ -162,6 +168,12 @@ const PATHS: Record<IconName, string> = {
   'panel-bottom': '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 15h18"/>',
   'panel-right': '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M15 3v18"/>',
   split: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M12 3v18"/>',
+  book: '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>',
+  database: '<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/><path d="M3 12c0 1.66 4 3 9 3s9-1.34 9-3"/>',
+  activity: '<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',
+  tag: '<path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r=".5" fill="currentColor"/>',
+  'alert-circle': '<circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/>',
+  stethoscope: '<path d="M4.8 2.3A.3.3 0 0 0 4.6 2H3a1 1 0 0 0-1 1v3a5 5 0 0 0 5 5h.5"/><path d="M20 2v3a5 5 0 0 1-5 5h-.5"/><path d="M20 6h2"/><path d="M4 6H2"/><path d="M19 12.5V16a6 6 0 0 1-12 0v-3"/><circle cx="12" cy="17" r="3"/>',
 };
 
 export interface IconProps {

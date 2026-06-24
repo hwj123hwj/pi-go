@@ -213,7 +213,7 @@ export type ViewDensity = 'normal' | 'verbose' | 'summary';
 export type PaneKind = 'chat' | 'diff' | 'plan' | 'tasks' | 'terminal' | 'file';
 
 /** Which feature the right workspace sidebar is showing. */
-export type RightView = 'review' | 'files' | 'plan' | 'tasks';
+export type RightView = 'review' | 'files' | 'plan' | 'tasks' | 'kb';
 
 /**
  * Global workspace layout — the right feature sidebar + the bottom terminal.
@@ -1003,6 +1003,10 @@ function updateView(
 
 function inferToolKind(name: string): AcpToolKind {
   const lower = name.toLowerCase();
+  // KB agent tools — must check before generic patterns
+  if (lower === 'kb_search' || lower === 'kb_list' || lower === 'kb_maintain') return 'search';
+  if (lower === 'kb_read') return 'read';
+  if (lower === 'kb_save') return 'edit';
   if (lower.includes('read') || lower.includes('cat') || lower.includes('view')) return 'read';
   if (lower.includes('edit') || lower.includes('write') || lower.includes('replace')) return 'edit';
   if (lower.includes('delete') || lower.includes('remove') || lower.includes('rm')) return 'delete';

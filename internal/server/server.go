@@ -97,6 +97,9 @@ func (s *Server) Handler() http.Handler {
 	restMux.HandleFunc("GET /workspace/read-file", s.workspaceReadFile)
 	restMux.HandleFunc("GET /workspace/read-file-base64", s.workspaceReadFileBase64)
 
+	// Knowledge base browser endpoints
+	s.registerKBRoutes(restMux)
+
 	var restHandler http.Handler = restMux
 	restHandler = corsMiddleware(restHandler)
 	restHandler = recoveryMiddleware(restHandler)

@@ -12,11 +12,12 @@ import { ReviewPanel } from './ReviewPanel';
 import { FilesPanel } from './FilesPanel';
 import { PlanPanel } from './PlanPanel';
 import { TasksPanel } from './TasksPanel';
+import { KbPanel } from './KbPanel';
 
 interface RailItem {
   key: string;
   icon: IconName;
-  labelKey: 'workspace.review' | 'workspace.files' | 'workspace.plan' | 'workspace.tasks';
+  labelKey: 'workspace.review' | 'workspace.files' | 'workspace.plan' | 'workspace.tasks' | 'workspace.kb';
   shortcut: string;
   view: RightView;
 }
@@ -26,6 +27,7 @@ const RAIL: RailItem[] = [
   { key: 'files', icon: 'folder', labelKey: 'workspace.files', shortcut: 'P', view: 'files' },
   { key: 'plan', icon: 'plan', labelKey: 'workspace.plan', shortcut: '', view: 'plan' },
   { key: 'tasks', icon: 'tasks', labelKey: 'workspace.tasks', shortcut: '', view: 'tasks' },
+  { key: 'kb', icon: 'book', labelKey: 'workspace.kb', shortcut: '', view: 'kb' },
 ];
 
 export function RightSidebar() {
@@ -39,6 +41,7 @@ export function RightSidebar() {
   else if (rightView === 'files') content = <FilesPanel />;
   else if (rightView === 'plan') content = <PlanPanel />;
   else if (rightView === 'tasks') content = <TasksPanel />;
+  else if (rightView === 'kb') content = <KbPanel />;
 
   const hasContent = rightView != null;
 
