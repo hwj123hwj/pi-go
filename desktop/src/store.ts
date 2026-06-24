@@ -119,6 +119,8 @@ class WSService {
   private ws: WebSocket | null = null;
   private handlers: Map<string, MessageHandler[]> = new Map();
   private _connected = false;
+  private reconnectAttempts = 0;
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
   get connected(): boolean {
     return this._connected;
@@ -134,6 +136,7 @@ class WSService {
     this.ws.onopen = () => {
       console.log('[ws] Connected');
       this._connected = true;
+      this.reconnectAttempts = 0; // reset backoff on successful connection
       this.emit('connected', {});
     };
 
@@ -141,8 +144,10 @@ class WSService {
       console.log('[ws] Disconnected');
       this._connected = false;
       this.emit('disconnected', {});
-      // Auto-reconnect
-      setTimeout(() => this.connect(url), 2000);
+      // Auto-reconnect (exponential backoff: 2s → 4s → 8s, max 30s)
+      const delay = Math.min(2000 * Math.pow(2, this.reconnectAttempts), 30000);
+      this.reconnectAttempts++;
+      this.reconnectTimer = setTimeout(() => this.connect(url), delay);
     };
 
     this.ws.onerror = () => {
@@ -178,6 +183,10 @@ class WSService {
   }
 
   disconnect(): void {
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
     if (this.ws) {
       this.ws.onclose = null;
       this.ws.close();

@@ -2,6 +2,10 @@
 
 > Chronological record of wiki operations.
 
+## [2026-06-25] ingest | Project Root (.) — v10: Desktop race condition & memory leak fixes
+- **Created** `source-project-root-v10.md` — Source summary: React unmount race conditions in FilesPanel/KbPanel, WebSocket exponential backoff, empty dir fallback, debounce timer race
+- **Updated** `index.md` — Added source-project-root-v10, updated desktop-app description
+
 ## [2026-06-25] ingest | Project Root (.) — v9: KB panel hardening (CSS, security, UX)
 - **Created** `source-project-root-v9.md` — Source summary: undefined CSS var fix, path traversal fix, entry sorting, search debounce, stale selection fix
 - **Updated** `kb-agent.md` — Expanded bug fixes section with v9 hardening details (6 items)

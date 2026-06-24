@@ -203,7 +203,7 @@ function FileToolbar({ root, file, t }: { root: string; file: string; t: TFunc }
     };
   }, [menuOpen]);
 
-  const dir = file.replace(/[\\/][^\\/]*$/, '');
+  const dir = file.replace(/[\\/][^\\/]*$/, '') || file;
 
   return (
     <div className="file-toolbar">
@@ -281,13 +281,16 @@ function FileTree({
   }, [root]);
 
   const searching = query.trim().length > 0;
+  // Loading entries when filters change
   useEffect(() => {
     if (!searching || files !== null || loading) return;
+    let alive = true;
     setLoading(true);
     void searchFiles(root)
-      .then((list) => setFiles(list))
-      .catch(() => setFiles([]))
-      .finally(() => setLoading(false));
+      .then((list) => alive && setFiles(list))
+      .catch(() => alive && setFiles([]))
+      .finally(() => alive && setLoading(false));
+    return () => { alive = false; };
   }, [searching, files, loading, root]);
 
   const results = useMemo(() => {
@@ -376,11 +379,13 @@ function TreeNode({
 
   useEffect(() => {
     if (!isDir || !open || children) return;
+    let alive = true;
     setLoading(true);
     void listDir(path)
-      .then((entries) => setChildren(entries))
-      .catch(() => setChildren([]))
-      .finally(() => setLoading(false));
+      .then((entries) => alive && setChildren(entries))
+      .catch(() => alive && setChildren([]))
+      .finally(() => alive && setLoading(false));
+    return () => { alive = false; };
   }, [isDir, open, children, path]);
 
   const active = !isDir && activeTab === path;

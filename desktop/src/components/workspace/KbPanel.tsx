@@ -225,9 +225,11 @@ function KbBrowseView() {
 
   // Load categories
   useEffect(() => {
+    let alive = true;
     void fetchCategories()
-      .then(setCategories)
-      .catch(() => setCategories([]));
+      .then((c) => alive && setCategories(c))
+      .catch(() => alive && setCategories([]));
+    return () => { alive = false; };
   }, []);
 
   // Load entries when filters change
@@ -237,10 +239,12 @@ function KbBrowseView() {
     setLoadingEntries(true);
     setSelectedEntry(null);
     const timer = setTimeout(() => {
+      let alive = true;
       void fetchEntries(activeCategory ?? undefined, undefined, query.trim() || undefined)
-        .then((e) => setEntries(e))
-        .catch(() => setEntries([]))
-        .finally(() => setLoadingEntries(false));
+        .then((e) => alive && setEntries(e))
+        .catch(() => alive && setEntries([]))
+        .finally(() => alive && setLoadingEntries(false));
+      return () => { alive = false; };
     }, 300);
     return () => clearTimeout(timer);
   }, [activeCategory, query]);
@@ -385,16 +389,20 @@ function KbTagsView() {
   const [selectedEntry, setSelectedEntry] = useState<KbEntry | null>(null);
 
   useEffect(() => {
+    let alive = true;
     void fetchTags()
-      .then(setTags)
-      .catch(() => setTags([]));
+      .then((t) => alive && setTags(t))
+      .catch(() => alive && setTags([]));
+    return () => { alive = false; };
   }, []);
 
   useEffect(() => {
     if (!activeTag) return;
+    let alive = true;
     void fetchEntries(undefined, activeTag)
-      .then(setEntries)
-      .catch(() => setEntries([]));
+      .then((e) => alive && setEntries(e))
+      .catch(() => alive && setEntries([]));
+    return () => { alive = false; };
   }, [activeTag]);
 
   // Reset selected entry when tag changes

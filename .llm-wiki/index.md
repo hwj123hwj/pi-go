@@ -12,6 +12,7 @@
 - [[source-project-root-v7]] — Re-ingest v7: mock removed, provider required, test infrastructure cleanup (2026-06-24)
 - [[source-project-root-v8]] — Re-ingest v8: KB panel crash fix, route registration, null tags guard (2026-06-25)
 - [[source-project-root-v9]] — Re-ingest v9: KB panel hardening (CSS var fix, path traversal fix, debounce, sorting) (2026-06-25)
+- [[source-project-root-v10]] — Re-ingest v10: Desktop race condition & memory leak fixes (React unmount guards, WS backoff, empty dir fallback) (2026-06-25)
 
 ## Entities
 - [[agent-core]] — Agent state machine and execution engine
@@ -26,7 +27,7 @@
 - [[tool-lifecycle-hooks]] — 9-step execution flow, Before/After hooks, confirmation gate, session observer hooks
 - [[extension-system]] — Plugin-style tools/commands/hooks
 - [[skill-system]] — Markdown skill loading from `.claude/skills/`
-- [[desktop-app]] — Electron + React GUI client (global music player, workspace layout, KB panel, path clicking)
+- [[desktop-app]] — Electron + React GUI client (global music player, workspace layout, KB panel, path clicking, v10 race condition fixes)
 - [[feishu-integration]] — Lark/Feishu bot bridge
 - [[server-websocket]] — HTTP REST + SSE + WebSocket server (protocol, file endpoints, KB endpoints, gateway models)
 - [[config-system]] — Environment-driven configuration (PI_GO_* env priority, LoadDotEnv no-override, provider required v7)
