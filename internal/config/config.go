@@ -141,14 +141,21 @@ func (c *Config) LoadFromEnv() {
 		c.AnthropicBaseURL = v
 	}
 
-	// OpenAI
-	if v := os.Getenv("OPENAI_API_KEY"); v != "" {
+	// OpenAI-compatible gateway
+	// PI_GO_API_KEY is the preferred name; OPENAI_API_KEY is also accepted (fallback)
+	if v := os.Getenv("PI_GO_API_KEY"); v != "" {
+		c.OpenAIAPIKey = v
+	} else if v := os.Getenv("OPENAI_API_KEY"); v != "" {
 		c.OpenAIAPIKey = v
 	}
-	if v := os.Getenv("OPENAI_MODEL"); v != "" {
+	if v := os.Getenv("PI_GO_MODEL"); v != "" {
+		c.OpenAIModel = v
+	} else if v := os.Getenv("OPENAI_MODEL"); v != "" {
 		c.OpenAIModel = v
 	}
-	if v := os.Getenv("OPENAI_BASE_URL"); v != "" {
+	if v := os.Getenv("PI_GO_BASE_URL"); v != "" {
+		c.OpenAIBaseURL = v
+	} else if v := os.Getenv("OPENAI_BASE_URL"); v != "" {
 		c.OpenAIBaseURL = v
 	}
 
@@ -200,7 +207,7 @@ func (c *Config) LoadFromEnv() {
 }
 
 // LoadDotEnv 从 .env 文件读取键值对，设置到环境变量中。
-// .env 文件中的值会覆盖已有的环境变量。
+// 已有的环境变量不会被覆盖（即环境变量优先级 > .env 文件）。
 func LoadDotEnv(path string) error {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -217,7 +224,10 @@ func LoadDotEnv(path string) error {
 		}
 		key := strings.TrimSpace(parts[0])
 		value := strings.TrimSpace(parts[1])
-		_ = os.Setenv(key, value)
+		// 不覆盖已有环境变量
+		if os.Getenv(key) == "" {
+			_ = os.Setenv(key, value)
+		}
 	}
 	return nil
 }
