@@ -16,9 +16,10 @@ type Entry struct {
 	Path     string   // absolute path
 	RelPath  string   // path relative to repo root
 	Title    string   // first heading or frontmatter title
-	Category string   // from frontmatter, or top-level directory name
-	Tags     []string // from frontmatter or #tags in body
-	Summary  string   // first paragraph after title, or frontmatter summary
+	Category string   // from frontmatter, > 分类 line, or directory name
+	Tags     []string // from frontmatter, ## 标签 section, or inline tags
+	Summary  string   // from frontmatter, ## 摘要 section, or first paragraph
+	Source   string   // > 来源：... metadata line
 	Modified time.Time
 }
 
@@ -30,11 +31,29 @@ type Index struct {
 
 // indexCache caches the index for a short duration to avoid repeated scans.
 var (
-	cachedIndex    *Index
-	cachedAt       time.Time
-	cacheMu        sync.Mutex
-	cacheDuration  = 30 * time.Second
+	cachedIndex   *Index
+	cachedAt      time.Time
+	cacheMu       sync.Mutex
+	cacheDuration = 30 * time.Second
 )
+
+// skipFiles are filenames that should not be indexed (auto-generated or non-knowledge).
+var skipFiles = map[string]bool{
+	"INDEX.md":           true,
+	"KNOWLEDGE_BASE.md":  true,
+	"tags-index.json":    true,
+	"by-project.md":      true,
+	"USER-CHANGELOG.md":  true,
+}
+
+// skipDirs are directory prefixes that should not be indexed.
+var skipDirs = []string{
+	"scripts/",
+	"hooks/",
+	".claude/",
+	".git/",
+	"devops/",
+}
 
 // GetIndex builds (or returns cached) an index of all .md files in the repo.
 func GetIndex(repoPath string) (*Index, error) {
@@ -56,10 +75,24 @@ func GetIndex(repoPath string) (*Index, error) {
 		if !strings.HasSuffix(path, ".md") {
 			return nil
 		}
-		// Skip README at root (it's the repo description, not a knowledge entry)
+
 		relPath, _ := filepath.Rel(repoPath, path)
+		relPath = filepath.ToSlash(relPath)
+
+		// Skip root README
 		if relPath == "README.md" {
 			return nil
+		}
+		// Skip auto-generated index files
+		baseName := filepath.Base(path)
+		if skipFiles[baseName] {
+			return nil
+		}
+		// Skip certain directories
+		for _, skipDir := range skipDirs {
+			if strings.HasPrefix(relPath, skipDir) {
+				return nil
+			}
 		}
 
 		entry := parseEntry(path, repoPath)
@@ -87,9 +120,12 @@ func ClearCache() {
 // ── Parsing ───────────────────────────────────────────────────────────────
 
 // parseEntry reads a markdown file and extracts metadata.
-// It supports two formats:
-//   - YAML frontmatter (---\ntitle: ...\ntags: [a, b]\n---)
-//   - Legacy markdown (# Title\n\nbody...)
+// It supports multiple formats found in the agent-lessons repo:
+//   - YAML frontmatter (issues/: ---\ntitle: ...\ntags: [...]\n---)
+//   - doubao-knowledge cards (# Title\n> 来源...\n## 关键要点\n## 摘要\n## 标签)
+//   - chatgpt-export/doubao-export conversations (# Title\n> URL...\n## 👤 User)
+//   - project-journals (# Title\n> 自动生成于...)
+//   - Legacy markdown (# Title\n\n**Tags**: a, b\n\nbody)
 func parseEntry(absPath, repoPath string) Entry {
 	info, _ := os.Stat(absPath)
 	entry := Entry{
@@ -97,12 +133,8 @@ func parseEntry(absPath, repoPath string) Entry {
 		Modified: modTime(info),
 	}
 
-	// Category from top-level directory
-	dir := filepath.Dir(absPath)
-	if relDir, err := filepath.Rel(repoPath, dir); err == nil && relDir != "." {
-		parts := strings.SplitN(relDir, string(filepath.Separator), 2)
-		entry.Category = parts[0]
-	}
+	// Category from directory structure
+	entry.Category = deriveCategory(absPath, repoPath)
 
 	content, err := os.ReadFile(absPath)
 	if err != nil {
@@ -112,44 +144,75 @@ func parseEntry(absPath, repoPath string) Entry {
 
 	// Try YAML frontmatter first
 	if fm, body, ok := parseFrontmatter(text); ok {
-		if fm["title"] != "" {
-			entry.Title = unquote(fm["title"])
+		if v := unquote(fm["title"]); v != "" {
+			entry.Title = v
 		}
-		if fm["summary"] != "" {
-			entry.Summary = unquote(fm["summary"])
+		if v := unquote(fm["summary"]); v != "" {
+			entry.Summary = v
 		}
-		if fm["category"] != "" {
-			entry.Category = unquote(fm["category"])
+		if v := unquote(fm["category"]); v != "" {
+			entry.Category = v
 		}
 		if tags, ok := fm["tags"]; ok {
 			entry.Tags = parseTagsValue(tags)
 		}
-		// If title not in frontmatter, extract from body
+		// Fallbacks from body
 		if entry.Title == "" {
 			entry.Title = extractTitle(body)
 		}
-		// If summary not in frontmatter, extract from body
 		if entry.Summary == "" {
-			entry.Summary = extractSummary(body)
+			entry.Summary = extractSectionBody(body, "摘要")
 		}
-		// Extract #tags from body if no frontmatter tags
 		if len(entry.Tags) == 0 {
-			entry.Tags = extractInlineTags(body)
+			entry.Tags = extractSectionTags(body)
 		}
 		return entry
 	}
 
-	// No frontmatter — parse legacy format
+	// No frontmatter — parse markdown body
 	entry.Title = extractTitle(text)
-	entry.Summary = extractSummary(text)
-	entry.Tags = extractInlineTags(text)
+	entry.Source = extractSourceLine(text)
+
+	// doubao-knowledge format: ## 摘要 and ## 标签 sections
+	entry.Summary = extractSectionBody(text, "摘要")
+	entry.Tags = extractSectionTags(text)
+
+	// Fallback: legacy **Tags**: line
+	if len(entry.Tags) == 0 {
+		entry.Tags = extractInlineTags(text)
+	}
+	// Fallback: first paragraph as summary
+	if entry.Summary == "" {
+		entry.Summary = extractSummary(text)
+	}
 	return entry
+}
+
+// deriveCategory determines the category from the file's directory path.
+// For doubao-knowledge/tech/ → "tech", doubao-knowledge/life/ → "life", etc.
+// For issues/ → "issues", project-journals/ → "project-journals", etc.
+func deriveCategory(absPath, repoPath string) string {
+	relDir, err := filepath.Rel(repoPath, filepath.Dir(absPath))
+	if err != nil || relDir == "." {
+		return ""
+	}
+	relDir = filepath.ToSlash(relDir)
+	parts := strings.SplitN(relDir, "/", 2)
+
+	// doubao-knowledge has meaningful sub-directories as categories
+	if parts[0] == "doubao-knowledge" && len(parts) > 1 {
+		return parts[1] // "tech", "life", "english", "work", "writing", "other"
+	}
+	// Also handle chatgpt-export/doubao-export sub-dirs if any
+	if (parts[0] == "chatgpt-export" || parts[0] == "doubao-export") && len(parts) > 1 {
+		return parts[1]
+	}
+	return parts[0]
 }
 
 // parseFrontmatter extracts YAML frontmatter (key: value) from the top of a markdown file.
 // Returns (metadata map, body without frontmatter, true) if frontmatter exists.
 func parseFrontmatter(text string) (map[string]string, string, bool) {
-	// Must start with ---
 	trimmed := strings.TrimLeft(text, "\n\r\t ")
 	if !strings.HasPrefix(trimmed, "---") {
 		return nil, text, false
@@ -159,7 +222,6 @@ func parseFrontmatter(text string) (map[string]string, string, bool) {
 		return nil, text, false
 	}
 
-	// Find closing ---
 	endLine := -1
 	for i := 1; i < len(lines); i++ {
 		if strings.TrimSpace(lines[i]) == "---" {
@@ -222,18 +284,148 @@ func extractTitle(text string) string {
 	return "(无标题)"
 }
 
+// extractSourceLine extracts the "> 来源：..." or "> URL: ..." metadata line.
+func extractSourceLine(text string) string {
+	scanner := bufio.NewScanner(strings.NewReader(text))
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if strings.HasPrefix(line, "> 来源") || strings.HasPrefix(line, "> URL:") {
+			return strings.TrimSpace(strings.TrimPrefix(line, ">"))
+		}
+	}
+	return ""
+}
+
+// extractSectionBody extracts the content under a "## {heading}" section.
+// For example, extractSectionBody(text, "摘要") finds "## 摘要" and returns
+// the text until the next "## " heading.
+func extractSectionBody(text, heading string) string {
+	scanner := bufio.NewScanner(strings.NewReader(text))
+	inSection := false
+	var lines []string
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		trimmed := strings.TrimSpace(line)
+
+		// Check if we're entering the target section
+		if !inSection {
+			if strings.HasPrefix(trimmed, "## ") {
+				h := strings.TrimSpace(strings.TrimPrefix(trimmed, "## "))
+				if strings.EqualFold(h, heading) {
+					inSection = true
+				}
+			}
+			continue
+		}
+
+		// We're in the section — check for end conditions
+		if strings.HasPrefix(trimmed, "## ") || strings.HasPrefix(trimmed, "---") {
+			break // next section or horizontal rule
+		}
+		if trimmed == "" && len(lines) == 0 {
+			continue // skip leading blank lines
+		}
+		if trimmed != "" {
+			lines = append(lines, trimmed)
+		}
+	}
+
+	if len(lines) == 0 {
+		return ""
+	}
+	summary := strings.Join(lines, " ")
+	if len(summary) > 200 {
+		summary = summary[:200] + "..."
+	}
+	return summary
+}
+
+// extractSectionTags extracts tags from a "## 标签" section.
+// Handles multiple formats:
+//
+//	tag1, tag2, tag3
+//	`tag1` `tag2` `tag3`
+//	- tag1
+//	- tag2
+func extractSectionTags(text string) []string {
+	scanner := bufio.NewScanner(strings.NewReader(text))
+	inSection := false
+	var tags []string
+	seen := make(map[string]bool)
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		trimmed := strings.TrimSpace(line)
+
+		if !inSection {
+			if strings.HasPrefix(trimmed, "## ") {
+				h := strings.TrimSpace(strings.TrimPrefix(trimmed, "## "))
+				if strings.EqualFold(h, "标签") || strings.EqualFold(h, "Tags") {
+					inSection = true
+				}
+			}
+			continue
+		}
+
+		// End of section
+		if strings.HasPrefix(trimmed, "## ") || strings.HasPrefix(trimmed, "---") {
+			break
+		}
+		if trimmed == "" {
+			continue
+		}
+
+		// Parse tags from this line
+		// Format 1: `tag1` `tag2` `tag3`  (backtick-wrapped)
+		if strings.Contains(trimmed, "`") {
+			for _, part := range strings.Split(trimmed, "`") {
+				part = strings.TrimSpace(part)
+				if part != "" && !seen[part] {
+					tags = append(tags, part)
+					seen[part] = true
+				}
+			}
+			continue
+		}
+		// Format 2: - tag1 (list item)
+		if strings.HasPrefix(trimmed, "- ") {
+			tag := strings.TrimSpace(strings.TrimPrefix(trimmed, "- "))
+			if tag != "" && !seen[tag] {
+				tags = append(tags, tag)
+				seen[tag] = true
+			}
+			continue
+		}
+		// Format 3: tag1, tag2, tag3 (comma-separated)
+		for _, tag := range strings.Split(trimmed, ",") {
+			tag = strings.TrimSpace(tag)
+			tag = strings.Trim(tag, "`*")
+			if tag != "" && !seen[tag] {
+				tags = append(tags, tag)
+				seen[tag] = true
+			}
+		}
+	}
+	return tags
+}
+
 // extractSummary returns the first non-heading, non-empty paragraph.
+// Used as fallback when no ## 摘要 section exists.
 func extractSummary(text string) string {
 	scanner := bufio.NewScanner(strings.NewReader(text))
 	var lines []string
 	started := false
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
-		// Skip headings, frontmatter markers, empty lines
 		if strings.HasPrefix(line, "#") || line == "---" || line == "" {
 			if started {
-				break // end of paragraph
+				break
 			}
+			continue
+		}
+		// Skip metadata lines (> ...)
+		if strings.HasPrefix(line, ">") {
 			continue
 		}
 		started = true
@@ -249,14 +441,13 @@ func extractSummary(text string) string {
 	return summary
 }
 
-// extractInlineTags finds #tag patterns in text (not markdown headings).
+// extractInlineTags finds tag patterns in legacy format (**Tags**: or #tag).
 func extractInlineTags(text string) []string {
 	scanner := bufio.NewScanner(strings.NewReader(text))
 	var tags []string
 	seen := make(map[string]bool)
 	for scanner.Scan() {
 		line := scanner.Text()
-		// Look for **Tags**: go, concurrency  or  **标签**: go
 		lower := strings.ToLower(line)
 		if strings.Contains(lower, "**tags**") || strings.Contains(lower, "**标签**") {
 			idx := strings.Index(line, ":")
@@ -271,13 +462,11 @@ func extractInlineTags(text string) []string {
 				}
 			}
 		}
-		// Inline #tags at end of line: word #tag1 #tag2
 		words := strings.Fields(line)
 		for _, w := range words {
 			if len(w) > 1 && strings.HasPrefix(w, "#") && !strings.HasPrefix(w, "##") {
 				tag := strings.TrimPrefix(w, "#")
 				tag = strings.TrimRight(tag, ".,;!?")
-				// Must look like a tag (letters/numbers), not a heading
 				if isTagLike(tag) && !seen[tag] {
 					tags = append(tags, tag)
 					seen[tag] = true

@@ -18,7 +18,7 @@ The KB agent is a [[runtime-application-interface|Application]] implementation t
 | Layer | System | Purpose | Data |
 |-------|--------|---------|------|
 | **Code facts** | `.llm-wiki/` + `/wiki` commands | What the current codebase looks like | Auto-ingested from source code |
-| **Personal experience** | KB Agent (`agent-lessons`) | Cross-project lessons, pitfalls, tips | Manually/AI-written knowledge cards |
+| **Personal experience** | KB Agent (`agent-lessons`) | Cross-project lessons, pitfalls, tips, conversation knowledge | doubao-knowledge (518 cards), chatgpt-export (98), doubao-export (96), issues, project-journals (84), personal |
 | **Project decisions** | `docs/` | Why decisions were made, where the project is going | Human-written design docs |
 
 The KB agent specifically owns the **Personal experience** layer.

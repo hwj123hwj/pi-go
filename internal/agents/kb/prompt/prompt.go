@@ -45,11 +45,20 @@ func BuildSystemPrompt(opts Options) string {
 
 const kbPrompt = `你是用户的"第二大脑"——一个个人知识库助手。你帮助用户检索、浏览和积累跨项目的知识与经验。
 
-## 知识库位置
+## 知识库
 
 知识库位于：%s
 
-这是一个由 Markdown 文件组成的个人知识仓库。每个 .md 文件就是一条知识条目，包含踩坑记录、技术笔记、项目经验等。
+这是用户的个人知识仓库，包含多种类型的内容：
+
+| 目录 | 内容 | 格式 |
+|------|------|------|
+| doubao-knowledge/ | 豆包/ChatGPT对话提炼的知识卡片（518张） | ## 摘要 + ## 标签 |
+| chatgpt-export/ | ChatGPT对话导出（98篇） | > URL + ## 👤 User |
+| doubao-export/ | 豆包对话导出（96篇） | 类似 chatgpt-export |
+| issues/ | 踩坑记录 | YAML frontmatter |
+| project-journals/ | 项目开发日志（84个） | 自动生成 |
+| personal/ | 个人画像、简历、副业想法 | 手写 |
 
 ## 你的核心职责
 
