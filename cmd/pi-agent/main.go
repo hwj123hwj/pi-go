@@ -73,10 +73,10 @@ func main() {
 		music.NewBilibiliAdapter(biliClient),
 	)
 
-	// Determine agent-lessons repo path (default: ~/agent-lessons)
-	homeDir, _ := os.UserHomeDir()
-	kbRepoPath := os.Getenv("PI_GO_KB_REPO_PATH")
+	// Resolve KB repo path from config (default: ~/agent-lessons)
+	kbRepoPath := cfg.KBRepoPath
 	if kbRepoPath == "" {
+		homeDir, _ := os.UserHomeDir()
 		kbRepoPath = homeDir + "/agent-lessons"
 	}
 

@@ -1,59 +1,85 @@
 ---
 type: entity
 date: 2026-06-24
-tags: [kb, agent, application, knowledge-base, second-brain, search, retrieval, save]
+tags: [kb, agent, application, knowledge-base, second-brain, search, retrieval, save, maintain, stewardship]
 related: [[runtime-application-interface]], [[coding-application]], [[music-agent]], [[four-layer-architecture]], [[agent-core]], [[personal-assistant-roadmap]], [[skill-system]]
 ---
 
 # KB Agent (知识库 Agent / 第二大脑)
 
-> The third application layer in pi-go, providing a **personal second-brain** — search, browse, read, and write knowledge across a personal `agent-lessons` repository. Parallel to [[coding-application]] and [[music-agent]] in the [[four-layer-architecture]].
+> The third application layer in pi-go, providing a **personal second-brain** — search, browse, read, write, and **maintain** knowledge across a configurable personal repository. Parallel to [[coding-application]] and [[music-agent]] in the [[four-layer-architecture]].
 
 ## Overview
 
-The KB agent is a [[runtime-application-interface|Application]] implementation that turns the `agent-lessons` repo into an AI-queryable "second brain." Unlike the previous read-only version, it now supports **writing** new knowledge entries, making it a true read-write knowledge assistant.
+The KB agent is a [[runtime-application-interface|Application]] implementation that acts as the **owner and steward** of the user's "second brain." It's not just a passive search engine — it actively maintains the knowledge base's health, structure, and growth.
+
+### Three Core Responsibilities
+
+| Responsibility | What | Tools |
+|---------------|------|-------|
+| **Retrieve** | Search, browse, and read knowledge | `kb_search`, `kb_list`, `kb_read` |
+| **Accumulate** | Persist new knowledge from conversations | `kb_save` |
+| **Maintain** | Keep the knowledge base healthy and organized | `kb_maintain` |
 
 ### Design Philosophy: Three Knowledge Layers
 
 | Layer | System | Purpose | Data |
 |-------|--------|---------|------|
 | **Code facts** | `.llm-wiki/` + `/wiki` commands | What the current codebase looks like | Auto-ingested from source code |
-| **Personal experience** | KB Agent (`agent-lessons`) | Cross-project lessons, pitfalls, tips, conversation knowledge | doubao-knowledge (518 cards), chatgpt-export (98), doubao-export (96), issues, project-journals (84), personal |
+| **Personal experience** | KB Agent (`agent-lessons`) | Cross-project lessons, pitfalls, tips, conversation knowledge | doubao-knowledge, exports, issues, journals, personal |
 | **Project decisions** | `docs/` | Why decisions were made, where the project is going | Human-written design docs |
 
 The KB agent specifically owns the **Personal experience** layer.
 
-## Architecture (v2)
+## Architecture (v3)
 
 ```
-┌───────────────────────────────────────────────────────┐
-│  KBApplication (implements runtime.Application)        │
-├───────────────────────────────────────────────────────┤
-│  4 KB Tools                                            │
-│  kb_search / kb_read / kb_list / kb_save               │
-├───────────────────────────────────────────────────────┤
-│  Auto-Index Engine (index.go)                          │
-│  Scans repo → in-memory index (cached 30s)             │
-│  Parses YAML frontmatter + legacy markdown             │
-├───────────────────────────────────────────────────────┤
-│  agent-lessons Repository (~/agent-lessons)            │
-│  Flat or nested directories of .md files               │
-│  issues/  tech/  work/  life/  ...                     │
-└───────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────┐
+│  KBApplication (implements runtime.Application)            │
+├───────────────────────────────────────────────────────────┤
+│  5 KB Tools (Atomic Operations)                            │
+│  kb_search / kb_read / kb_list / kb_save / kb_maintain     │
+├───────────────────────────────────────────────────────────┤
+│  Capability Layer (internal, pluggable)                    │
+│  ┌─────────────┐  ┌──────────────┐  ┌──────────────────┐  │
+│  │ Index Engine │  │ Search Strategy│  │ Maintenance Engine│  │
+│  │ (index.go)  │  │ (search.go)  │  │ (maintain.go)    │  │
+│  │ scan+cache  │  │ pluggable    │  │ dedup+tags+health│  │
+│  └─────────────┘  └──────────────┘  └──────────────────┘  │
+├───────────────────────────────────────────────────────────┤
+│  Knowledge Repository (path configurable)                  │
+│  Default: ~/agent-lessons (PI_GO_KB_REPO_PATH override)    │
+│  issues/  tech/  work/  life/  ...                         │
+└───────────────────────────────────────────────────────────┘
 ```
 
-### Key Change: No External Index File
+### Key Architectural Principles (v3)
 
-The old version depended on a pre-built `tags-index.json`. The new version builds an **in-memory index automatically** by scanning all `.md` files in the repo. This means:
+1. **Pluggable Search**: The `SearchStrategy` interface decouples *how* we search from *what* we search. Today it's keyword matching; tomorrow it can be vector similarity without touching the tool layer.
 
-- No pre-processing step required
-- Works with any directory structure
-- Supports both YAML frontmatter and legacy markdown formats
-- 30-second cache to balance freshness vs performance
+2. **Configurable Path**: The repo path is no longer hardcoded. It flows from `Config.KBRepoPath` → `PI_GO_KB_REPO_PATH` env → default `~/agent-lessons`.
+
+3. **Stewardship**: KB Agent is the knowledge base **owner**, not just a visitor. It has maintenance tools to keep the second brain healthy.
+
+4. **Atomic Capabilities**: Each tool is a thin wrapper over a capability. The intelligence is in the capability layer, not the tool layer.
+
+## Configurable Path
+
+```go
+// internal/config/config.go
+type Config struct {
+    ...
+    KBRepoPath string  // path to personal knowledge repo
+}
+```
+
+Resolution order:
+1. `Config.KBRepoPath` (set from `PI_GO_KB_REPO_PATH` env)
+2. Default: `~/agent-lessons`
 
 ## Auto-Index Engine (`index.go`)
 
-The core innovation of v2. Walks the repository and builds `[]Entry`:
+Walks the repository and builds `[]Entry` with 30-second caching:
 
 ```go
 type Entry struct {
@@ -61,33 +87,37 @@ type Entry struct {
     RelPath  string    // relative to repo root
     Title    string    // first heading or frontmatter title
     Category string    // frontmatter category or top-level dir
-    Tags     []string  // frontmatter tags or #tags / **Tags**: in body
-    Summary  string    // first paragraph or frontmatter summary
+    Tags     []string  // frontmatter tags or body tags
+    Summary  string    // ## 摘要 section or first paragraph
+    Source   string    // > 来源 metadata line
     Modified time.Time // file mtime
 }
 ```
 
-### Dual Format Parsing
+### Multi-Format Parsing
 
-| Format | Structure | Example |
-|--------|-----------|---------|
-| **YAML frontmatter** | `---\ntitle: ...\ntags: [...]\n---` | Modern entries with structured metadata |
-| **Legacy markdown** | `# Title\n\n**Tags**: a, b\n\nbody` | Older entries without frontmatter |
+| Format | Structure | Detected By |
+|--------|-----------|-------------|
+| **YAML frontmatter** | `---\ntitle: ...\ntags: [...]\n---` | Leading `---` |
+| **Doubao knowledge cards** | `# Title\n> 来源...\n## 摘要\n## 标签` | `> 来源` line + `## 摘要` section |
+| **Chat/Doubao exports** | `# Title\n> URL...\n## 👤 User` | `> URL` line |
+| **Project journals** | `# Title\n> 自动生成于...` | `> 自动生成于` line |
+| **Legacy markdown** | `# Title\n\n**Tags**: a, b` | `**Tags**` line |
 
-Both formats are auto-detected and normalized into `Entry`.
+All formats auto-detected and normalized into `Entry`.
 
-## Tools (4)
+## Search Strategy (`search.go`)
 
-| Tool | File | Mode | Description |
-|------|------|------|-------------|
-| `kb_search` | `kb_search.go` | Read | Weighted full-text search across title/tags/summary/path |
-| `kb_read` | `kb_read.go` | Read | Read file content with offset/limit pagination |
-| `kb_list` | `kb_list.go` | Read | Browse all entries, filter by category/tag, sort by recent/title |
-| `kb_save` | `kb_save.go` | **Write** | Save a new knowledge entry with auto-generated frontmatter |
+```go
+type SearchStrategy interface {
+    Name() string
+    Search(entries []Entry, q SearchQuery) []SearchResult
+}
+```
 
-### kb_search — Weighted Full-Text Search
+### KeywordSearcher (default)
 
-No longer depends on `tags-index.json`. Uses the auto-index. Weighted scoring:
+Weighted full-text matching:
 
 | Match Location | Weight |
 |---------------|--------|
@@ -97,55 +127,84 @@ No longer depends on `tags-index.json`. Uses the auto-index. Weighted scoring:
 | Summary contains keyword | 2.0 |
 | File path contains keyword | 1.0 |
 
-Supports combinable filters: `query` + `tag` + `category`.
+### Extension Point
 
-### kb_list — Structured Browser (replaces kb_query)
+Future strategies (e.g., `VectorSearcher`) implement the same interface. The `SearchTool` accepts any strategy via `NewSearchToolWithStrategy()`.
 
-The old `kb_query` was a grep-based cross-module search. It's been replaced by `kb_list` which provides a structured overview:
+## Maintenance Engine (`maintain.go`)
 
-- Browse all entries grouped by category
-- Filter by `category` or `tag`
-- Sort by `recent` (mtime) or `title`
-- Configurable `limit`
+This is the v3 innovation. The KB agent can now **diagnose and maintain** knowledge base health.
 
-### kb_save — Second Brain Write Capability (NEW)
+### HealthReport
 
-The most significant addition. The AI can now **persist knowledge** to the repo:
+```go
+type HealthReport struct {
+    TotalEntries          int
+    Categories            int
+    Tags                  int
+    EntriesMissingSummary []Entry
+    EntriesMissingTags    []Entry
+    EntriesMissingTitle   []Entry
+    DuplicateGroups       []DuplicateGroup
+    TagClusters           []TagCluster
+}
+```
 
-- Auto-generates YAML frontmatter (title, date, category, tags)
-- Auto-generates filename: `YYYY-MM-DD-slug.md` (hash-based slug for non-ASCII titles)
-- Supports category-based directory routing (`issues/`, `tech/`, etc.)
-- Collision avoidance (appends -2, -3, ...)
-- Invalidates index cache after save
-- Designed for "记住这个" / "记录一下" / "save this" user intents
+### Maintenance Capabilities
 
-### kb_read — File Reader (enhanced)
+| Capability | Function | What it does |
+|-----------|----------|-------------|
+| **Health check** | `GenerateHealthReport()` | Full report: metadata gaps, duplicates, tag clusters |
+| **Duplicate detection** | `detectDuplicateTitles()` | Finds entries with normalized-identical titles |
+| **Tag clustering** | `detectTagClusters()` | Finds tags differing only in case/trivial variations |
+| **Category overview** | `CategoryOverview()` | Category distribution |
+| **Tag overview** | `TagOverview()` | Tag frequency analysis |
 
-Same core functionality but with improved path resolution:
-- Accepts relative paths (resolved against repo root)
-- Accepts absolute paths
-- Pagination via offset/limit
-- 8K char truncation for LLM context safety
+All maintenance operations are **read-only** — they produce recommendations. The AI reviews and acts.
+
+## Tools (5)
+
+| Tool | File | Mode | Description |
+|------|------|------|-------------|
+| `kb_search` | `kb_search.go` | Read | Delegates to pluggable SearchStrategy (default: keyword) |
+| `kb_read` | `kb_read.go` | Read | Read file content with offset/limit pagination |
+| `kb_list` | `kb_list.go` | Read | Browse entries, filter by category/tag, sort |
+| `kb_save` | `kb_save.go` | **Write** | Save new knowledge entry with auto-generated frontmatter |
+| `kb_maintain` | `kb_maintain.go` | **Maintain** | Health check, dedup, tag analysis, stats (NEW) |
+
+### kb_maintain — Stewardship Tool (NEW)
+
+Four actions via the `action` parameter:
+
+| Action | Description |
+|--------|-------------|
+| `health` | Full health report: metadata gaps + duplicates + tag clusters |
+| `duplicates` | Find entries with near-identical titles |
+| `tags` | Tag usage frequency + normalization suggestions |
+| `stats` | Category and tag distribution overview |
 
 ## System Prompt
 
-The prompt was rewritten from scratch. Key changes:
-- Removed all hardcoded data numbers (507 cards, 38 projects, etc.) — the AI discovers content dynamically
-- Removed references to non-existent directories (`doubao-knowledge/`, `doubao-export/`, etc.)
-- Positioned as "第二大脑" (second brain) rather than just a retrieval tool
-- Added kb_save workflow guidance (proactive knowledge accumulation)
+The prompt positions the KB agent as the **steward** of the second brain with three core duties:
+1. **检索 (Retrieve)** — search and read knowledge
+2. **积累 (Accumulate)** — proactively save valuable knowledge
+3. **维护 (Maintain)** — keep the knowledge base healthy
 
 ## Source
 
 - `internal/agents/kb/application.go` — KBApplication
 - `internal/agents/kb/session_ext.go` — KBSessionExt
 - `internal/agents/kb/prompt/prompt.go` — System prompt builder
-- `internal/agents/kb/tools/index.go` — Auto-index engine (NEW)
-- `internal/agents/kb/tools/kb_search.go` — Weighted search (rewritten)
-- `internal/agents/kb/tools/kb_read.go` — File reader (enhanced)
-- `internal/agents/kb/tools/kb_list.go` — Structured browser (NEW, replaces kb_query)
-- `internal/agents/kb/tools/kb_save.go` — Knowledge writer (NEW)
+- `internal/agents/kb/tools/index.go` — Auto-index engine
+- `internal/agents/kb/tools/search.go` — Search strategy interface + KeywordSearcher (NEW)
+- `internal/agents/kb/tools/maintain.go` — Maintenance engine (NEW)
+- `internal/agents/kb/tools/kb_search.go` — Search tool (refactored to use strategy)
+- `internal/agents/kb/tools/kb_read.go` — File reader
+- `internal/agents/kb/tools/kb_list.go` — Structured browser
+- `internal/agents/kb/tools/kb_save.go` — Knowledge writer
+- `internal/agents/kb/tools/kb_maintain.go` — Maintenance tool (NEW)
 - `internal/agents/kb/tools/tools.go` — Toolset assembly
+- `internal/config/config.go` — `KBRepoPath` config field
 
 ## Related
 

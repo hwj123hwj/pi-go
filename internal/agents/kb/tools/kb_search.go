@@ -5,22 +5,36 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
-	"sort"
 	"strings"
 
 	"github.com/hwj123hwj/pi-go/internal/agent"
 )
 
 // SearchTool searches across all knowledge entries in the repository.
-// Unlike the old version, it does NOT depend on a pre-built tags-index.json.
-// Instead, it builds an in-memory index on-the-fly (cached) and does weighted
-// full-text search across title, tags, summary, and file path.
+//
+// It delegates the actual retrieval to a pluggable SearchStrategy
+// (default: KeywordSearcher). The tool itself is a thin wrapper that
+// handles parameter parsing, result formatting, and error handling.
 type SearchTool struct {
 	repoPath string
+	strategy SearchStrategy
 }
 
+// NewSearchTool creates a SearchTool with the default keyword strategy.
 func NewSearchTool(repoPath string) *SearchTool {
-	return &SearchTool{repoPath: repoPath}
+	return &SearchTool{
+		repoPath: repoPath,
+		strategy: KeywordSearcher{},
+	}
+}
+
+// NewSearchToolWithStrategy creates a SearchTool with a custom strategy.
+// This is the extension point for future vector/hybrid search.
+func NewSearchToolWithStrategy(repoPath string, strategy SearchStrategy) *SearchTool {
+	return &SearchTool{
+		repoPath: repoPath,
+		strategy: strategy,
+	}
 }
 
 func (t *SearchTool) Name() string { return "kb_search" }
@@ -61,11 +75,6 @@ func (t *SearchTool) Validate(params json.RawMessage) (json.RawMessage, error) {
 	return params, nil
 }
 
-type scoredEntry struct {
-	entry Entry
-	score float64
-}
-
 func (t *SearchTool) Execute(_ context.Context, params json.RawMessage, _ func(agent.PartialResult)) (agent.ToolResult, error) {
 	var p struct {
 		Query    string  `json:"query"`
@@ -89,64 +98,27 @@ func (t *SearchTool) Execute(_ context.Context, params json.RawMessage, _ func(a
 		}, nil
 	}
 
-	keywords := strings.Fields(p.Query)
-
-	var results []scoredEntry
-	for _, entry := range idx.Entries {
-		// Category filter
-		if p.Category != "" && !strings.EqualFold(entry.Category, p.Category) {
-			continue
-		}
-		// Tag filter
-		if p.Tag != "" {
-			found := false
-			for _, tag := range entry.Tags {
-				if strings.EqualFold(tag, p.Tag) {
-					found = true
-					break
-				}
-			}
-			if !found {
-				continue
-			}
-		}
-
-		// Score
-		var score float64
-		if len(keywords) > 0 {
-			score = scoreEntry(entry, keywords)
-			if score == 0 {
-				continue
-			}
-		} else {
-			score = 1.0 // no query → return all (filtered by tag/category)
-		}
-
-		results = append(results, scoredEntry{entry: entry, score: score})
-	}
+	// Delegate to search strategy
+	results := t.strategy.Search(idx.Entries, SearchQuery{
+		Query:    p.Query,
+		Tag:      p.Tag,
+		Category: p.Category,
+		Limit:    limit,
+	})
 
 	if len(results) == 0 {
 		msg := "没有找到匹配的条目"
-		if len(keywords) > 0 {
+		if strings.TrimSpace(p.Query) != "" {
 			msg = fmt.Sprintf("没有找到包含「%s」的条目", p.Query)
 		}
 		return agent.ToolResult{Content: msg}, nil
-	}
-
-	// Sort by score descending
-	sort.Slice(results, func(i, j int) bool {
-		return results[i].score > results[j].score
-	})
-
-	if len(results) > limit {
-		results = results[:limit]
 	}
 
 	// Format output
 	var b strings.Builder
 	b.WriteString(fmt.Sprintf("📚 找到 %d 条记录（知识库共 %d 条）：\n\n", len(results), len(idx.Entries)))
 	for i, r := range results {
-		e := r.entry
+		e := r.Entry
 		b.WriteString(fmt.Sprintf("%d. **%s**\n", i+1, e.Title))
 		// Metadata line
 		var meta []string
@@ -167,39 +139,6 @@ func (t *SearchTool) Execute(_ context.Context, params json.RawMessage, _ func(a
 	b.WriteString("使用 kb_read 工具读取完整内容，参数 path 填上面的文件路径。")
 
 	return agent.ToolResult{Content: b.String()}, nil
-}
-
-// scoreEntry computes a weighted relevance score for an entry against keywords.
-// Matching areas (by weight): title > tags > summary > path > category
-func scoreEntry(entry Entry, keywords []string) float64 {
-	var total float64
-	for _, kw := range keywords {
-		kwLower := strings.ToLower(kw)
-		if kwLower == "" {
-			continue
-		}
-		// Title match (weight 5)
-		if strings.Contains(strings.ToLower(entry.Title), kwLower) {
-			total += 5.0
-		}
-		// Tag match (weight 3)
-		for _, tag := range entry.Tags {
-			if strings.EqualFold(tag, kw) {
-				total += 3.0
-			} else if strings.Contains(strings.ToLower(tag), kwLower) {
-				total += 2.0
-			}
-		}
-		// Summary match (weight 2)
-		if strings.Contains(strings.ToLower(entry.Summary), kwLower) {
-			total += 2.0
-		}
-		// Path match (weight 1)
-		if strings.Contains(strings.ToLower(entry.RelPath), kwLower) {
-			total += 1.0
-		}
-	}
-	return total
 }
 
 // resolvePath converts a relative path to absolute, used by other tools.

@@ -55,6 +55,9 @@ type Config struct {
 
 	// Music
 	MusicPort int // Port for the music-agent server (default 8081)
+
+	// Knowledge base (second-brain)
+	KBRepoPath string // path to the personal knowledge repo (default: ~/agent-lessons)
 }
 
 func Default() Config {
@@ -84,6 +87,8 @@ func Default() Config {
 		MaxOutputLen: 30000,
 
 		MusicPort: 8081,
+
+		KBRepoPath: "", // empty → defaults to ~/agent-lessons at runtime
 	}
 }
 
@@ -203,6 +208,11 @@ func (c *Config) LoadFromEnv() {
 		if p, err := strconv.Atoi(v); err == nil && p > 0 {
 			c.MusicPort = p
 		}
+	}
+
+	// Knowledge base
+	if v := os.Getenv("PI_GO_KB_REPO_PATH"); v != "" {
+		c.KBRepoPath = v
 	}
 }
 
