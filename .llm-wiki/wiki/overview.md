@@ -42,7 +42,7 @@ See [[four-layer-architecture]] for the Skills vs Application decision framework
 | 桌面客户端 | Electron + React ([[desktop-app]]) | ✅ |
 | 飞书桥接 | 独立服务接入飞书群聊 ([[feishu-integration]]) | ✅ |
 | [[music-agent\|音乐助手]] | 多源音乐（Bilibili 为主力 + NetEase 推荐），6 个专用工具，质量过滤 | ✅ |
-| [[kb-agent\|知识库助手]] | 个人知识库检索（agent-lessons），3 个只读工具 | ✅ |
+| [[kb-agent\|知识库助手]] | 个人知识库检索+维护（agent-lessons），5 个工具，桌面 KB 面板 | ✅ |
 | 外部工具 | HTTP 回调注册 ([[external-tools]]) | ✅ |
 | AI Agent 指导 | CLAUDE.md / AGENTS.md 编码规范 ([[agent-guidance-system]]) | ✅ |
 
@@ -56,7 +56,7 @@ See [[four-layer-architecture]] for the Skills vs Application decision framework
 
 1. **Coding Agent** — 代码编辑助手（主要应用）([[coding-application]])
 2. **Music Agent** — 多源音乐助手（Bilibili 播放主力 + NetEase 推荐，质量过滤，跨源降级，全局播放器）([[music-agent]])
-3. **KB Agent** — 个人知识库检索（507 张知识卡片 + 38 个项目日志，3 个只读工具）([[kb-agent]])
+3. **KB Agent** — 个人知识库检索+维护（806 张知识卡片，5 个工具，桌面 KB 面板）([[kb-agent]])
 
 ## 技术栈
 

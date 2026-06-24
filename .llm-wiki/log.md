@@ -2,6 +2,13 @@
 
 > Chronological record of wiki operations.
 
+## [2026-06-25] ingest | Project Root (.) — v8: KB panel crash fix, route registration, null tags guard
+- **Created** `source-project-root-v8.md` — Source summary: KB route registration bug, null tags guard, desktop KB panel, 806 knowledge cards
+- **Updated** `server-websocket.md` — Added 6 KB REST API endpoints (stats, entries, categories, tags, health, read)
+- **Updated** `kb-agent.md` — Added Desktop KB Panel section (3 views, 6 backend endpoints, bug fixes), updated source list with kb_handler.go and KbPanel.tsx
+- **Updated** `desktop-app.md` — Added KB icon to right sidebar rail (5-icon), added Knowledge Base Panel section
+- **Updated** `index.md` — Added source-project-root-v8, updated kb-agent, desktop-app, server-websocket descriptions
+
 ## [2026-06-24] ingest | Project Root (.) — v7: mock removed, provider required, test infrastructure cleanup
 - **Created** `source-project-root-v7.md` — Source summary: mock provider deletion, registerProviders error on empty, runtime mock fallback removal, test infra updates
 - **Updated** `llm-provider-system.md` — Marked Mock as ❌ Removed (v7), updated config section to note PI_GO_PROVIDER is now required

@@ -190,6 +190,35 @@ The prompt positions the KB agent as the **steward** of the second brain with th
 2. **积累 (Accumulate)** — proactively save valuable knowledge
 3. **维护 (Maintain)** — keep the knowledge base healthy
 
+## Desktop KB Panel (NEW)
+
+The desktop client now includes a **Knowledge Base Browser Panel** in the right sidebar, providing visual access to the second brain.
+
+### Features
+
+| View | Description |
+|------|-------------|
+| **Browse** | Category chips + entry list + entry detail (Markdown preview) |
+| **Tags** | Tag cloud with usage counts, click to filter |
+| **Health** | Visual dashboard of KB health report |
+
+### Backend API Endpoints
+
+| Endpoint | Purpose |
+|----------|---------|
+| `GET /kb/stats` | Total entries, categories, tags count |
+| `GET /kb/entries` | List entries with optional category/tag/query filters |
+| `GET /kb/categories` | Category distribution |
+| `GET /kb/tags` | Tag frequency analysis |
+| `GET /kb/health` | Full health report (missing metadata, duplicates, tag clusters) |
+| `GET /kb/read?path=` | Read entry content |
+
+### Bug Fixes (v8)
+
+1. **Route Registration**: `/kb/*` endpoints were registered on `restMux` but not `topMux`, causing requests to hit the web UI catch-all and return HTML instead of JSON.
+
+2. **Null Tags Guard**: `entryToJSON()` now ensures `tags` field returns `[]` instead of `null` when Go slice is nil, preventing frontend `TypeError`.
+
 ## Source
 
 - `internal/agents/kb/application.go` — KBApplication
@@ -205,6 +234,8 @@ The prompt positions the KB agent as the **steward** of the second brain with th
 - `internal/agents/kb/tools/kb_maintain.go` — Maintenance tool (NEW)
 - `internal/agents/kb/tools/tools.go` — Toolset assembly
 - `internal/config/config.go` — `KBRepoPath` config field
+- `internal/server/kb_handler.go` — KB REST API handlers (NEW)
+- `desktop/src/components/workspace/KbPanel.tsx` — Desktop KB panel component (NEW)
 
 ## Related
 
@@ -213,3 +244,5 @@ The prompt positions the KB agent as the **steward** of the second brain with th
 - [[music-agent]] — Parallel application layer (second)
 - [[four-layer-architecture]] — KB agent lives in Application layer
 - [[personal-assistant-roadmap]] — KB agent is the second-brain foundation
+- [[server-websocket]] — KB REST API endpoints
+- [[desktop-app]] — KB panel in right sidebar

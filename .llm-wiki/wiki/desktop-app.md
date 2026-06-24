@@ -128,7 +128,7 @@ The Views dropdown has been **removed entirely**. The main area always shows Cha
 
 ### Right Sidebar Rail
 
-4-icon vertical rail (VSCode/Codex-style):
+5-icon vertical rail (VSCode/Codex-style):
 
 | Icon | View | Description |
 |------|------|-------------|
@@ -136,8 +136,20 @@ The Views dropdown has been **removed entirely**. The main area always shows Cha
 | Files | `files` | File browser (tree, tabs, search, highlighting) |
 | Plan | `plan` | Agent execution plan / TODO progress |
 | Tasks | `tasks` | In-flight + recent tool calls |
+| KB | `kb` | Knowledge base browser (NEW) |
 
-`RightView` type: `'review' | 'files' | 'plan' | 'tasks'`
+`RightView` type: `'review' | 'files' | 'plan' | 'tasks' | 'kb'`
+
+### Knowledge Base Panel (NEW)
+
+The KB panel provides visual access to the second brain (`~/agent-lessons`).
+
+**Three views:**
+- **Browse**: Category chips + entry list + entry detail (Markdown preview)
+- **Tags**: Tag cloud with usage counts, click to filter entries
+- **Health**: Visual dashboard showing metadata gaps, duplicates, tag clusters
+
+**Backend endpoints:** See [[kb-agent#Desktop KB Panel]] for API details.
 
 Density toggle (summary/normal/verbose) moved from Views dropdown to toolbar inline buttons.
 

@@ -54,6 +54,12 @@ AgentSession
 | `GET` | `/applications` | List available applications |
 | `POST` | `/tools/register` | Register external tool |
 | `GET` | `/ws` | WebSocket connection |
+| `GET` | `/kb/stats` | Knowledge base statistics |
+| `GET` | `/kb/entries` | List KB entries (with category/tag/query filters) |
+| `GET` | `/kb/categories` | List KB categories with counts |
+| `GET` | `/kb/tags` | List KB tags with counts |
+| `GET` | `/kb/health` | KB health report (missing metadata, duplicates, tag clusters) |
+| `GET` | `/kb/read?path=` | Read KB entry content |
 
 ## CreateSession Request
 
