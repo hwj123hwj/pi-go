@@ -163,9 +163,6 @@ func (s *AgentSession) ModelInfo() (string, string) {
 	if providerName == "openai" {
 		modelID = s.cfg.OpenAIModel
 	}
-	if providerName == "deepv" {
-		modelID = s.cfg.DeepVModel
-	}
 	if providerName == "mock" || modelID == "" {
 		modelID = "mock"
 		providerName = "mock"
@@ -195,14 +192,12 @@ func (s *AgentSession) SwitchModel(ctx context.Context, modelID string, provider
 	switch providerName {
 	case "openai":
 		s.cfg.OpenAIModel = modelID
-	case "deepv":
-		s.cfg.DeepVModel = modelID
 	case "anthropic":
 		s.cfg.AnthropicModel = modelID
 	default:
-		s.cfg.Provider = "deepv"
-		s.cfg.DeepVModel = modelID
-		providerName = "deepv"
+		s.cfg.Provider = "openai"
+		s.cfg.OpenAIModel = modelID
+		providerName = "openai"
 	}
 
 	// Rebuild agent with new model
@@ -314,9 +309,6 @@ func (s *AgentSession) buildAgent(ctx context.Context, registry *providers.Regis
 	providerName := cfg.Provider
 	if providerName == "openai" {
 		modelID = cfg.OpenAIModel
-	}
-	if providerName == "deepv" {
-		modelID = cfg.DeepVModel
 	}
 	if providerName == "mock" || modelID == "" {
 		modelID = "mock"

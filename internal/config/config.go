@@ -29,12 +29,6 @@ type Config struct {
 	OpenAIModel   string
 	OpenAIBaseURL string
 
-	// DeepV Server
-	DeepVEnabled   bool
-	DeepVServerURL string
-	DeepVModel     string
-	DeepVWorkDir   string
-
 	// Tool sandbox
 	Workspace          string
 	EnableBash         bool
@@ -79,9 +73,7 @@ func Default() Config {
 
 		OpenAIAPIKey:  "sk-local-gateway-hwj123hwj",
 		OpenAIBaseURL: "http://localhost:4001",
-		OpenAIModel:   "mimo-opus",
-
-		DeepVServerURL: "https://api-code.deepvlab.ai",
+		OpenAIModel:   "longcat-opus",
 
 		Workspace:          "", // empty = use cwd
 		EnableBash:         false,
@@ -158,20 +150,6 @@ func (c *Config) LoadFromEnv() {
 	}
 	if v := os.Getenv("OPENAI_BASE_URL"); v != "" {
 		c.OpenAIBaseURL = v
-	}
-
-	// DeepV Server
-	if v := os.Getenv("DEEPV_ENABLED"); v != "" {
-		c.DeepVEnabled = strings.ToLower(v) == "true" || v == "1"
-	}
-	if v := os.Getenv("DEEPV_SERVER_URL"); v != "" {
-		c.DeepVServerURL = v
-	}
-	if v := os.Getenv("DEEPV_MODEL"); v != "" {
-		c.DeepVModel = v
-	}
-	if v := os.Getenv("DEEPV_WORK_DIR"); v != "" {
-		c.DeepVWorkDir = v
 	}
 
 	// Tool output

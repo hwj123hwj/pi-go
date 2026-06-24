@@ -16,7 +16,7 @@ const DEFAULT_ENV_CONTENT = `# Pi-Go Configuration
 
 # Use OpenAI-compatible provider to connect to local gateway
 PI_GO_PROVIDER=openai
-OPENAI_API_KEY=sk-local-gateway-hwj123hwj
+OPENAI_API_KEY=
 OPENAI_BASE_URL=http://localhost:4001
 OPENAI_MODEL=mimo-opus
 
@@ -131,7 +131,7 @@ export class PiGoManager {
       spawnCwd = path.resolve(__dirname, '..', '..', '..');
 
       envVars.PI_GO_PROVIDER = process.env.PI_GO_PROVIDER || 'openai';
-      envVars.OPENAI_API_KEY = process.env.OPENAI_API_KEY || 'sk-local-gateway-hwj123hwj';
+      envVars.OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
       envVars.OPENAI_BASE_URL = process.env.OPENAI_BASE_URL || 'http://localhost:4001';
       envVars.OPENAI_MODEL = process.env.OPENAI_MODEL || 'mimo-opus';
     }

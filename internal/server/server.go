@@ -276,8 +276,6 @@ func (s *Server) createSession(w http.ResponseWriter, r *http.Request) {
 		switch cfg.Provider {
 		case "openai":
 			cfg.OpenAIModel = req.Model
-		case "deepv":
-			cfg.DeepVModel = req.Model
 		case "anthropic":
 			cfg.AnthropicModel = req.Model
 		}
@@ -453,8 +451,6 @@ func (s *Server) listModels(w http.ResponseWriter, r *http.Request) {
 	switch provider {
 	case "openai":
 		modelID = cfg.OpenAIModel
-	case "deepv":
-		modelID = cfg.DeepVModel
 	case "anthropic":
 		modelID = cfg.AnthropicModel
 	}

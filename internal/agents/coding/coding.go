@@ -2,7 +2,6 @@ package coding
 
 import (
 	codingtools "github.com/hwj123hwj/pi-go/internal/agents/coding/tools"
-	codingdeepv "github.com/hwj123hwj/pi-go/internal/agents/coding/deepv"
 	codingcommands "github.com/hwj123hwj/pi-go/internal/agents/coding/commands"
 	"github.com/hwj123hwj/pi-go/internal/slashcmd"
 )
@@ -16,6 +15,4 @@ func RegisterCommands(registry *slashcmd.Registry) {
 	codingcommands.RegisterWikiCommands(registry)
 }
 
-func NewDeepVHeaderProvider(workDir string) interface{ Headers() map[string]string } {
-	return codingdeepv.HeaderProvider{WorkDir: workDir}
-}
+

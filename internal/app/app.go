@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"os"
 
 	"github.com/hwj123hwj/pi-go/internal/agent"
 	"github.com/hwj123hwj/pi-go/internal/agents/coding"
@@ -288,22 +287,11 @@ func registerProviders(registry *providers.Registry, cfg config.Config) error {
 			return nil
 		}
 		return fmt.Errorf("PI_GO_PROVIDER=openai but OPENAI_API_KEY is empty")
-	case "deepv":
-		if cfg.DeepVEnabled {
-			workDir := cfg.DeepVWorkDir
-			if workDir == "" {
-				workDir, _ = os.Getwd()
-			}
-			registry.Register(providers.NewDeepVProvider(cfg.DeepVServerURL, coding.NewDeepVHeaderProvider(workDir)))
-			slog.Info("registered deepv provider", "model", cfg.DeepVModel, "server", cfg.DeepVServerURL)
-			return nil
-		}
-		return fmt.Errorf("PI_GO_PROVIDER=deepv but DEEPV_ENABLED is not true")
 	case "mock":
 		slog.Info("using mock provider")
 		return nil
 	default:
-		return fmt.Errorf("unknown PI_GO_PROVIDER %q (valid values: mock, anthropic, openai, deepv)", cfg.Provider)
+		return fmt.Errorf("unknown PI_GO_PROVIDER %q (valid values: mock, anthropic, openai)", cfg.Provider)
 	}
 }
 

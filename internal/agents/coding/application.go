@@ -71,10 +71,6 @@ func (CodingApplication) AvailableModels() []slashcmd.ModelInfo {
 		{Provider: "anthropic", ModelID: "claude-sonnet-4"},
 		{Provider: "openai", ModelID: "gpt-4o"},
 		{Provider: "openai", ModelID: "gpt-4o-mini"},
-		{Provider: "deepv", ModelID: "glm-5"},
-		{Provider: "deepv", ModelID: "deepseek-v4-flash"},
-		{Provider: "deepv", ModelID: "deepseek-v4-pro"},
-		{Provider: "deepv", ModelID: "kimi-k2.6"},
 		{Provider: "mock", ModelID: "mock"},
 	}
 }
