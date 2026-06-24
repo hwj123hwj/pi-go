@@ -13,6 +13,7 @@ func BaseToolNames(enableBash bool) []string {
 
 func RegisterCommands(registry *slashcmd.Registry) {
 	codingcommands.RegisterBuiltins(registry)
+	codingcommands.RegisterWikiCommands(registry)
 }
 
 func NewDeepVHeaderProvider(workDir string) interface{ Headers() map[string]string } {

@@ -91,6 +91,13 @@ func BuildSystemPrompt(opts Options) string {
 		b.WriteString("\n")
 	}
 
+	// Wiki context injection — if .llm-wiki/index.md exists, inject wiki awareness
+	if wikiCtx := buildWikiContext(opts.CWD); wikiCtx != "" {
+		b.WriteString("\n")
+		b.WriteString(wikiCtx)
+		b.WriteString("\n")
+	}
+
 	// Goal injection — if a session goal is set, include it in the system prompt
 	if opts.Goal != "" {
 		b.WriteString("\n## Current Goal\n\n")
@@ -230,6 +237,49 @@ func formatParameters(toolName string, params map[string]any) string {
 		b.WriteString("\n")
 	}
 	b.WriteString("\n")
+	return b.String()
+}
+
+// buildWikiContext returns wiki context text if .llm-wiki/index.md exists.
+// Returns empty string if wiki is not initialized.
+func buildWikiContext(cwd string) string {
+	if cwd == "" {
+		return ""
+	}
+	indexPath := filepath.Join(cwd, ".llm-wiki", "index.md")
+	if _, err := os.Stat(indexPath); os.IsNotExist(err) {
+		return ""
+	}
+
+	var b strings.Builder
+	b.WriteString("\n# LLM Wiki\n\n")
+	b.WriteString("This project has a curated LLM Wiki knowledge base at `.llm-wiki/`. It contains\n")
+	b.WriteString("distilled, AI-maintained knowledge about this codebase — architecture,\n")
+	b.WriteString("key modules, conventions, and gotchas.\n\n")
+
+	// Inject index.md content so the model knows what pages exist without an extra tool call.
+	if idx, err := os.ReadFile(indexPath); err == nil && len(idx) > 0 {
+		b.WriteString("## Wiki Index\n\n")
+		b.WriteString(string(idx))
+		b.WriteString("\n\n")
+	}
+
+	b.WriteString("## Consult it proactively\n")
+	b.WriteString("- Before exploring the codebase or answering questions about how something works,\n")
+	b.WriteString("  consult `.llm-wiki/index.md` first to see if a relevant page already exists.\n")
+	b.WriteString("- Prefer reading the matching `.llm-wiki/wiki/*.md` page over re-deriving the same\n")
+	b.WriteString("  knowledge by broad code search. Use it to orient yourself, then dig into source.\n")
+	b.WriteString("- Treat the wiki as a strong hint, not absolute truth: if a page looks stale or\n")
+	b.WriteString("  conflicts with the current code, trust the code and consider updating the wiki.\n\n")
+	b.WriteString("## Maintain it when asked\n")
+	b.WriteString("When the user asks you to \"save to wiki\", \"learn into wiki\", \"update wiki\", or similar:\n")
+	b.WriteString("1. Read `.llm-wiki/index.md` to understand the current structure.\n")
+	b.WriteString("2. Create or update pages in `.llm-wiki/wiki/` with YAML frontmatter (`type`, `date`, `tags`).\n")
+	b.WriteString("3. Use `[[wikilinks]]` for cross-references between pages.\n")
+	b.WriteString("4. Update `.llm-wiki/index.md` to reflect new/changed pages.\n")
+	b.WriteString("5. Append an entry to `.llm-wiki/log.md`.\n")
+	b.WriteString("6. Never modify files in `.llm-wiki/raw/` — those are immutable sources.\n\n")
+	b.WriteString("The user can also use `/wiki` slash commands for structured operations.\n")
 	return b.String()
 }
 
