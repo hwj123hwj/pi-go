@@ -95,12 +95,16 @@ func (s *Server) resolveKBRepoPath() string {
 
 // entryToJSON converts a kbtools.Entry to the JSON response type.
 func entryToJSON(e kbtools.Entry) kbEntryJSON {
+	tags := e.Tags
+	if tags == nil {
+		tags = []string{}
+	}
 	return kbEntryJSON{
 		Path:     e.Path,
 		RelPath:  e.RelPath,
 		Title:    e.Title,
 		Category: e.Category,
-		Tags:     e.Tags,
+		Tags:     tags,
 		Summary:  e.Summary,
 		Source:   e.Source,
 		Modified: e.Modified,

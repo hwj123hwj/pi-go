@@ -121,6 +121,7 @@ func (s *Server) Handler() http.Handler {
 	topMux.Handle("/tools", restHandler)
 	topMux.Handle("/applications", restHandler)
 	topMux.Handle("/workspace/", restHandler)
+	topMux.Handle("/kb/", restHandler)
 
 	// Register web UI routes (serves embedded static files at /)
 	web.RegisterRoutes(topMux)
