@@ -9,6 +9,7 @@ interface MusicPlayDetails {
   artist?: string;
   direct_url?: string;
   proxy_url?: string;
+  duration?: number; // seconds
   source?: string;
   is_fallback?: boolean;
 }
@@ -100,7 +101,7 @@ export function MusicPlayer({ resultText, details }: MusicPlayerProps) {
       useStore.getState().toggleMusic();
     } else {
       // Otherwise, load this song into the global player
-      playMusic({ songName, artist, audioURL });
+      playMusic({ songName, artist, audioURL, duration: det?.duration || 0 });
     }
   };
 
@@ -129,7 +130,7 @@ export function MusicPlayer({ resultText, details }: MusicPlayerProps) {
         {isActive && (
           <>
             <span className="music-player-time">
-              {formatTime(globalMusic.currentTime)} / {formatTime(globalMusic.duration)}
+              {formatTime(globalMusic.currentTime)}{globalMusic.duration ? ` / ${formatTime(globalMusic.duration)}` : ''}
             </span>
           </>
         )}

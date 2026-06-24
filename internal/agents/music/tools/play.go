@@ -23,6 +23,7 @@ type PlayDetails struct {
 	SongName     string `json:"song_name"`
 	Artist       string `json:"artist"`
 	ProxyURL     string `json:"proxy_url"`
+	Duration     int    `json:"duration"`      // Duration in seconds (0 if unknown)
 	Source       string `json:"source"`        // "netease" or "bilibili"
 	IsFallback   bool   `json:"is_fallback"`   // true if fell back to B站
 	OriginalIntent string `json:"original_intent,omitempty"`
@@ -133,6 +134,7 @@ func (t *PlayTool) playByID(ctx context.Context, songID string, isFallback bool)
 			SongName:     detail.Name,
 			Artist:       detail.Artist,
 			ProxyURL:     proxyURL,
+			Duration:     detail.Duration / 1000, // ms → seconds
 			Source:       string(detail.Source),
 			IsFallback:   isFallback,
 		},

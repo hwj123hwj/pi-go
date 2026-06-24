@@ -372,6 +372,26 @@ select {
   white-space: nowrap;
 }
 
+.gm-close {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--text-faint);
+  font-size: 11px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
+}
+.gm-close:hover {
+  background: var(--bg-active);
+  color: var(--text);
+}
+
 .app {
   display: flex;
   height: 100vh;

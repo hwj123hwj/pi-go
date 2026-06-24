@@ -36,7 +36,14 @@ export function GlobalMusicBar() {
     if (!audio) return;
 
     const onTime = () => setMusicTime(audio.currentTime);
-    const onLoaded = () => setMusicDuration(audio.duration);
+    // Only use audio element's duration if the store doesn't already have one
+    // from the backend's structured PlayDetails. Bilibili CDN uses chunked
+    // transfer without Content-Length, making audio.duration = NaN.
+    const onLoaded = () => {
+      if (isFinite(audio.duration) && audio.duration > 0) {
+        setMusicDuration(audio.duration);
+      }
+    };
     const onEnded = () => setMusicPlaying(false);
     const onError = () => setMusicError(true);
 
@@ -105,7 +112,7 @@ export function GlobalMusicBar() {
           max={music.duration || 0}
           step={0.1}
           value={music.currentTime}
-          disabled={music.error}
+          disabled={music.error || !music.duration}
           onChange={(e) => {
             const time = parseFloat(e.target.value);
             if (audioRef.current) audioRef.current.currentTime = time;
@@ -113,7 +120,7 @@ export function GlobalMusicBar() {
           }}
         />
 
-        <span className="gm-time">{formatTime(music.duration)}</span>
+        <span className="gm-time">{music.duration ? formatTime(music.duration) : '—'}</span>
       </div>
 
       {music.error && <span className="gm-error">{t('music.loadFailed')}</span>}

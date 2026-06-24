@@ -334,12 +334,14 @@ interface StoreState {
   setMusicDuration: (duration: number) => void;
   setMusicError: (error: boolean) => void;
   toggleMusic: () => void;
+  clearMusic: () => void;
 }
 
 export interface MusicTrack {
   songName: string;
   artist: string;
   audioURL: string;
+  duration?: number; // seconds
   sessionId?: string;
 }
 
@@ -485,7 +487,7 @@ export const useStore = create<StoreState>((set, get) => ({
   music: { current: null, playing: false, currentTime: 0, duration: 0, error: false },
   playMusic: (song) => {
     set((s) => ({
-      music: { ...s.music, current: song, playing: true, currentTime: 0, duration: 0, error: false },
+      music: { ...s.music, current: song, playing: true, currentTime: 0, duration: song.duration || 0, error: false },
     }));
   },
   setMusicPlaying: (playing) => set((s) => ({ music: { ...s.music, playing } })),
@@ -493,6 +495,7 @@ export const useStore = create<StoreState>((set, get) => ({
   setMusicDuration: (duration) => set((s) => ({ music: { ...s.music, duration } })),
   setMusicError: (error) => set((s) => ({ music: { ...s.music, error } })),
   toggleMusic: () => set((s) => ({ music: { ...s.music, playing: !s.music.playing } })),
+  clearMusic: () => set((s) => ({ music: { current: null, playing: false, currentTime: 0, duration: 0, error: false } })),
 
   update: null,
   checkUpdate: async () => {
