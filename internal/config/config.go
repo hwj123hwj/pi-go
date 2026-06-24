@@ -73,11 +73,13 @@ func Default() Config {
 		MaxTurns:    200,
 		Timeout:     5 * time.Minute,
 
-		Provider: "mock",
+		Provider: "openai",
 
 		AnthropicBaseURL: "https://api.anthropic.com",
 
-		OpenAIBaseURL: "https://api.openai.com/v1",
+		OpenAIAPIKey:  "sk-local-gateway-hwj123hwj",
+		OpenAIBaseURL: "http://localhost:4001",
+		OpenAIModel:   "mimo-opus",
 
 		DeepVServerURL: "https://api-code.deepvlab.ai",
 
