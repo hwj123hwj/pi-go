@@ -586,6 +586,7 @@ function CodeContextMenu({
   selection: string;
   onClose: () => void;
 }) {
+  const t = useT();
   useEffect(() => {
     const onDown = () => onClose();
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
@@ -613,7 +614,7 @@ function CodeContextMenu({
             }}
           >
             <Icon name="search" size={14} />
-            Search with Google
+            {t('codeMenu.searchGoogle')}
           </button>
           <button
             onClick={() => {
@@ -622,7 +623,7 @@ function CodeContextMenu({
             }}
           >
             <Icon name="copy" size={14} />
-            Copy
+            {t('codeMenu.copy')}
           </button>
           <div className="menu-sep" />
         </>
@@ -642,7 +643,7 @@ function CodeContextMenu({
         }}
       >
         <Icon name="check" size={14} />
-        Select All
+        {t('codeMenu.selectAll')}
       </button>
     </div>
   );

@@ -398,9 +398,16 @@ export const zh = {
   'files.binary': '二进制文件',
   'files.loadFailed': '文件加载失败',
 
+  // ── code context menu ──
+  'codeMenu.searchGoogle': '用 Google 搜索',
+  'codeMenu.copy': '复制',
+  'codeMenu.selectAll': '全选',
+
+  // ── session mode selector ──
   'mode.coding': '编程',
   'mode.music': '音乐',
   'mode.kb': '知识库',
+  'mode.chooseMode': '选择模式',
   'session.defaultTitle': '新会话',
   'session.musicTitle': '🎵 音乐',
 } as const;

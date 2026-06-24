@@ -40,6 +40,22 @@ export function Sidebar() {
       return next;
     });
 
+  // Dismiss the new-session mode menu on outside click / Escape.
+  useEffect(() => {
+    if (!showNewMenu) return;
+    const onDown = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('.new-session-wrap')) setShowNewMenu(false);
+    };
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setShowNewMenu(false);
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [showNewMenu]);
+
   // Refresh session list periodically (every 10s) to catch backend-side changes
   useEffect(() => {
     const timer = setInterval(() => void refreshSessions(), 10000);
@@ -195,7 +211,7 @@ export function Sidebar() {
             <button
               className="btn-new-dropdown"
               onClick={() => setShowNewMenu(!showNewMenu)}
-              title="Choose mode"
+              title={t('mode.chooseMode')}
             >
               <Icon name="chevron-down" size={12} />
             </button>

@@ -2,6 +2,10 @@
 
 > Chronological record of wiki operations.
 
+## [2026-06-25] ingest | Project Root (.) — v11: Desktop i18n gaps, React subscription bug, menu dismiss
+- **Created** `source-project-root-v11.md` — Source summary: hardcoded English strings (4 items), non-reactive store read in ChatPane, sidebar new-session menu stuck open
+- **Updated** `index.md` — Added source-project-root-v11
+
 ## [2026-06-25] ingest | Project Root (.) — v10: Desktop race condition & memory leak fixes
 - **Created** `source-project-root-v10.md` — Source summary: React unmount race conditions in FilesPanel/KbPanel, WebSocket exponential backoff, empty dir fallback, debounce timer race
 - **Updated** `index.md` — Added source-project-root-v10, updated desktop-app description

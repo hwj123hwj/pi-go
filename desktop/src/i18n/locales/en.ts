@@ -400,9 +400,16 @@ export const en = {
   'files.binary': 'Binary file',
   'files.loadFailed': 'Failed to load file',
 
+  // ── code context menu ──
+  'codeMenu.searchGoogle': 'Search with Google',
+  'codeMenu.copy': 'Copy',
+  'codeMenu.selectAll': 'Select All',
+
+  // ── session mode selector ──
   'mode.coding': 'Coding',
   'mode.music': 'Music',
   'mode.kb': 'Knowledge Base',
+  'mode.chooseMode': 'Choose mode',
   'session.defaultTitle': 'New Session',
   'session.musicTitle': '🎵 Music',
 };

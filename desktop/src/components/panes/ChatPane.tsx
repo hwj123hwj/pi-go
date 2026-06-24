@@ -78,7 +78,7 @@ function ChatItemView({
   onOpenFile: (path: string) => void;
 }) {
   // For assistant messages, we need the cwd as basePath for link resolution.
-  const cwd = useStore.getState().sessions[sessionId]?.meta.cwd;
+  const cwd = useStore((s) => s.sessions[sessionId]?.meta.cwd);
   switch (item.kind) {
     case 'user':
       return (
