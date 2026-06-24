@@ -1,171 +1,156 @@
 ---
 type: entity
-date: 2026-06-22
-tags: [kb, agent, application, knowledge-base, search, retrieval]
-related: [[runtime-application-interface]], [[coding-application]], [[music-agent]], [[four-layer-architecture]], [[agent-core]], [[personal-assistant-roadmap]]
+date: 2026-06-24
+tags: [kb, agent, application, knowledge-base, second-brain, search, retrieval, save]
+related: [[runtime-application-interface]], [[coding-application]], [[music-agent]], [[four-layer-architecture]], [[agent-core]], [[personal-assistant-roadmap]], [[skill-system]]
 ---
 
-# KB Agent (知识库 Agent)
+# KB Agent (知识库 Agent / 第二大脑)
 
-> The third application layer in pi-go, providing **knowledge base retrieval** over a personal `agent-lessons` repository. Parallel to [[coding-application]] and [[music-agent]] in the [[four-layer-architecture]].
-> Second non-coding agent, further validating the [[personal-assistant-roadmap|personal assistant direction]].
+> The third application layer in pi-go, providing a **personal second-brain** — search, browse, read, and write knowledge across a personal `agent-lessons` repository. Parallel to [[coding-application]] and [[music-agent]] in the [[four-layer-architecture]].
 
 ## Overview
 
-The KB agent is a [[runtime-application-interface|Application]] implementation that lets users search and retrieve knowledge from a personal knowledge repository (`agent-lessons`). It provides structured search over knowledge cards, project journals, cross-project knowledge base, issue logs, and raw conversation exports.
+The KB agent is a [[runtime-application-interface|Application]] implementation that turns the `agent-lessons` repo into an AI-queryable "second brain." Unlike the previous read-only version, it now supports **writing** new knowledge entries, making it a true read-write knowledge assistant.
 
-Unlike coding (interactive editing) or music (playback + streaming), the KB agent is **read-only retrieval** — no writes, no side effects. This makes it the simplest application in the system.
+### Design Philosophy: Three Knowledge Layers
 
-## Architecture
+| Layer | System | Purpose | Data |
+|-------|--------|---------|------|
+| **Code facts** | `.llm-wiki/` + `/wiki` commands | What the current codebase looks like | Auto-ingested from source code |
+| **Personal experience** | KB Agent (`agent-lessons`) | Cross-project lessons, pitfalls, tips | Manually/AI-written knowledge cards |
+| **Project decisions** | `docs/` | Why decisions were made, where the project is going | Human-written design docs |
+
+The KB agent specifically owns the **Personal experience** layer.
+
+## Architecture (v2)
 
 ```
-┌───────────────────────────────────────────────────┐
-│  KBApplication                                     │
-│  (implements runtime.Application)                  │
-├───────────────────────────────────────────────────┤
-│  3 KB Tools                                        │
-│  kb_search / kb_read / kb_query                    │
-├───────────────────────────────────────────────────┤
-│  agent-lessons Repository (~/agent-lessons)        │
-│  ┌──────────────────┐  ┌────────────────────┐     │
-│  │ doubao-knowledge/ │  │ project-journals/  │     │
-│  │ 507 knowledge     │  │ 38 project logs    │     │
-│  │ cards + index     │  │ + KNOWLEDGE_BASE   │     │
-│  └──────────────────┘  └────────────────────┘     │
-│  ┌──────────────────┐  ┌────────────────────┐     │
-│  │ issues/           │  │ doubao-export/ +   │     │
-│  │ Pitfall records   │  │ chatgpt-export/    │     │
-│  └──────────────────┘  │ Raw conversations   │     │
-│                         └────────────────────┘     │
-└───────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────┐
+│  KBApplication (implements runtime.Application)        │
+├───────────────────────────────────────────────────────┤
+│  4 KB Tools                                            │
+│  kb_search / kb_read / kb_list / kb_save               │
+├───────────────────────────────────────────────────────┤
+│  Auto-Index Engine (index.go)                          │
+│  Scans repo → in-memory index (cached 30s)             │
+│  Parses YAML frontmatter + legacy markdown             │
+├───────────────────────────────────────────────────────┤
+│  agent-lessons Repository (~/agent-lessons)            │
+│  Flat or nested directories of .md files               │
+│  issues/  tech/  work/  life/  ...                     │
+└───────────────────────────────────────────────────────┘
 ```
 
-## Knowledge Base Structure
+### Key Change: No External Index File
 
-The repository (`~/agent-lessons`, configurable via `PI_GO_KB_REPO_PATH`) contains 5 modules:
+The old version depended on a pre-built `tags-index.json`. The new version builds an **in-memory index automatically** by scanning all `.md` files in the repo. This means:
 
-| Module | Path | Content | Scale |
-|--------|------|---------|-------|
-| Knowledge Cards | `doubao-knowledge/` | LLM-compiled knowledge cards with metadata | 507 cards |
-| Project Journals | `project-journals/` | Auto-distilled project development logs | 38 projects |
-| Cross-Project KB | `project-journals/KNOWLEDGE_BASE.md` | Cross-project experience distilled | 40+ entries |
-| Issue Logs | `issues/` | Manually recorded problem-solution pairs | Various |
-| Raw Conversations | `doubao-export/` + `chatgpt-export/` | Original conversation records | ~200 conversations |
+- No pre-processing step required
+- Works with any directory structure
+- Supports both YAML frontmatter and legacy markdown formats
+- 30-second cache to balance freshness vs performance
 
-### Knowledge Cards
+## Auto-Index Engine (`index.go`)
 
-Each card in `doubao-knowledge/` has structured metadata (title, category, tags, summary) indexed in `tags-index.json`. The index enables fast structured search without reading all 507 files.
-
-**Categories**: tech (278), work (60), life (51), other (66), english (34), writing (18)
-
-## Tools (3)
-
-| Tool | File | Description |
-|------|------|-------------|
-| `kb_search` | `kb_search.go` | Search knowledge cards via `tags-index.json`. Supports keyword, tag, and category filtering with weighted scoring. |
-| `kb_read` | `kb_read.go` | Read any file in the repository. Supports offset/limit pagination (default 200 lines, 8K char truncation). |
-| `kb_query` | `kb_query.go` | Cross-module full-text grep across all 5 modules. Returns top matches sorted by hit count. |
-
-### kb_search — Structured Card Search
-
-Searches the pre-built `tags-index.json` index. Weighted scoring:
-
-| Match Location | Score |
-|---------------|-------|
-| Title contains query | 3.0 |
-| Tag exact match | 2.0 |
-| Tag partial match | 1.5 |
-| Summary contains query | 1.0 |
-
-Supports combinable filters: `query` + `tag` + `category`. Results sorted by score descending.
-
-### kb_read — File Reader
-
-Reads any file from the repository. Features:
-- **Path resolution**: Absolute paths or relative to repo root
-- **Pagination**: `offset` (from line N) + `limit` (default 200)
-- **Truncation**: Content capped at 8K chars to protect LLM context
-- **Header**: Shows file path, total lines, and displayed range
-
-### kb_query — Cross-Module Full-Text Search
-
-Greps across all 5 modules using keyword AND matching (all keywords must appear in the same line). Features:
-- **Module filter**: Restrict to `knowledge_base` / `issues` / `journals` / `cards` / `exports`
-- **Hit sorting**: Results sorted by hit count descending
-- **Configurable limits**: `max_files` per module (default 3)
-- **Context**: Shows up to 3 matching lines per file (truncated to 120 chars)
-
-## KBApplication
+The core innovation of v2. Walks the repository and builds `[]Entry`:
 
 ```go
-type KBApplication struct {
-    Cfg      config.Config
-    RepoPath string  // path to agent-lessons repo, e.g. ~/agent-lessons
+type Entry struct {
+    Path     string    // absolute path
+    RelPath  string    // relative to repo root
+    Title    string    // first heading or frontmatter title
+    Category string    // frontmatter category or top-level dir
+    Tags     []string  // frontmatter tags or #tags / **Tags**: in body
+    Summary  string    // first paragraph or frontmatter summary
+    Modified time.Time // file mtime
 }
 ```
 
-Implements `runtime.Application`:
-- `BuildTools()` — Assembles 3 KB tools via `kbtools.BuildList()`
-- `BuildPrompt()` — KB-agent system prompt (Chinese, with knowledge base structure and workflow guide)
-- `NewSessionExt()` — Per-session `KBSessionExt`
-- `ToolNames()` — Returns `["kb_search", "kb_read", "kb_query"]`
+### Dual Format Parsing
+
+| Format | Structure | Example |
+|--------|-----------|---------|
+| **YAML frontmatter** | `---\ntitle: ...\ntags: [...]\n---` | Modern entries with structured metadata |
+| **Legacy markdown** | `# Title\n\n**Tags**: a, b\n\nbody` | Older entries without frontmatter |
+
+Both formats are auto-detected and normalized into `Entry`.
+
+## Tools (4)
+
+| Tool | File | Mode | Description |
+|------|------|------|-------------|
+| `kb_search` | `kb_search.go` | Read | Weighted full-text search across title/tags/summary/path |
+| `kb_read` | `kb_read.go` | Read | Read file content with offset/limit pagination |
+| `kb_list` | `kb_list.go` | Read | Browse all entries, filter by category/tag, sort by recent/title |
+| `kb_save` | `kb_save.go` | **Write** | Save a new knowledge entry with auto-generated frontmatter |
+
+### kb_search — Weighted Full-Text Search
+
+No longer depends on `tags-index.json`. Uses the auto-index. Weighted scoring:
+
+| Match Location | Weight |
+|---------------|--------|
+| Title contains keyword | 5.0 |
+| Tag exact match | 3.0 |
+| Tag partial match | 2.0 |
+| Summary contains keyword | 2.0 |
+| File path contains keyword | 1.0 |
+
+Supports combinable filters: `query` + `tag` + `category`.
+
+### kb_list — Structured Browser (replaces kb_query)
+
+The old `kb_query` was a grep-based cross-module search. It's been replaced by `kb_list` which provides a structured overview:
+
+- Browse all entries grouped by category
+- Filter by `category` or `tag`
+- Sort by `recent` (mtime) or `title`
+- Configurable `limit`
+
+### kb_save — Second Brain Write Capability (NEW)
+
+The most significant addition. The AI can now **persist knowledge** to the repo:
+
+- Auto-generates YAML frontmatter (title, date, category, tags)
+- Auto-generates filename: `YYYY-MM-DD-slug.md` (hash-based slug for non-ASCII titles)
+- Supports category-based directory routing (`issues/`, `tech/`, etc.)
+- Collision avoidance (appends -2, -3, ...)
+- Invalidates index cache after save
+- Designed for "记住这个" / "记录一下" / "save this" user intents
+
+### kb_read — File Reader (enhanced)
+
+Same core functionality but with improved path resolution:
+- Accepts relative paths (resolved against repo root)
+- Accepts absolute paths
+- Pagination via offset/limit
+- 8K char truncation for LLM context safety
 
 ## System Prompt
 
-The prompt is generated dynamically in `prompt/prompt.go` with:
-- **Knowledge base structure**: Table of 5 modules with paths and scales
-- **Workflow guide**: Maps user intents to tool usage patterns
-- **Search tips**: Recommended search cascade (kb_search → kb_query → kb_read)
-- **Category reference**: The 6 available categories with counts
-- **Interaction style**: Chinese, concise, honest about missing knowledge
-
-## Per-Session Extension
-
-`KBSessionExt` implements `runtime.SessionExt`:
-- **Goal support**: Set/clear triggers agent rebuild (same pattern as music agent)
-- **Single "default" profile**: No profile switching (KB agent has one mode)
-- **Rebuild callback**: `SetRebuild(fn)` registered by `AgentSession` after creation
-
-## Integration
-
-Registered in `cmd/pi-agent/main.go` as `"kb"` in the applications map:
-
-```go
-application, err := app.New(app.AppOptions{
-    Config:      cfg,
-    Application: coding.NewCodingApplication(cfg),
-    Applications: map[string]runtime.Application{
-        "coding": coding.NewCodingApplication(cfg),
-        "music":  musicapp.NewMusicApplication(cfg, musicRouter, musicCache),
-        "kb":     kbapp.NewKBApplication(cfg, kbRepoPath),
-    },
-})
-```
-
-The `RepoPath` defaults to `~/agent-lessons` but can be overridden via `PI_GO_KB_REPO_PATH` environment variable.
-
-## Design Characteristics
-
-| Aspect | KB Agent | Music Agent | Coding Agent |
-|--------|----------|-------------|--------------|
-| Tools | 3 (read-only) | 6 (read + play) | 8 (read + write + execute) |
-| Side effects | None | Audio streaming | File system + shell |
-| External deps | None (local files) | NetEase + Bilibili APIs | LLM providers |
-| Complexity | Low | Medium | High |
-| Profiles | 1 (default) | 1 (default) | 3 (build/learn/use) |
+The prompt was rewritten from scratch. Key changes:
+- Removed all hardcoded data numbers (507 cards, 38 projects, etc.) — the AI discovers content dynamically
+- Removed references to non-existent directories (`doubao-knowledge/`, `doubao-export/`, etc.)
+- Positioned as "第二大脑" (second brain) rather than just a retrieval tool
+- Added kb_save workflow guidance (proactive knowledge accumulation)
 
 ## Source
 
 - `internal/agents/kb/application.go` — KBApplication
 - `internal/agents/kb/session_ext.go` — KBSessionExt
 - `internal/agents/kb/prompt/prompt.go` — System prompt builder
-- `internal/agents/kb/tools/` — kb_search, kb_read, kb_query
-- `cmd/pi-agent/main.go` — Registration as "kb" application
+- `internal/agents/kb/tools/index.go` — Auto-index engine (NEW)
+- `internal/agents/kb/tools/kb_search.go` — Weighted search (rewritten)
+- `internal/agents/kb/tools/kb_read.go` — File reader (enhanced)
+- `internal/agents/kb/tools/kb_list.go` — Structured browser (NEW, replaces kb_query)
+- `internal/agents/kb/tools/kb_save.go` — Knowledge writer (NEW)
+- `internal/agents/kb/tools/tools.go` — Toolset assembly
 
 ## Related
 
 - [[runtime-application-interface]] — KBApplication implements this interface
 - [[coding-application]] — Parallel application layer (primary)
 - [[music-agent]] — Parallel application layer (second)
-- [[four-layer-architecture]] — KB agent lives in Application layer; simplest of the three
-- [[personal-assistant-roadmap]] — KB agent is the knowledge retrieval foundation for personal assistant
+- [[four-layer-architecture]] — KB agent lives in Application layer
+- [[personal-assistant-roadmap]] — KB agent is the second-brain foundation

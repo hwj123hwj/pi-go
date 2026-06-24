@@ -46,6 +46,7 @@ func (a KBApplication) NewSessionExt() runtime.SessionExt {
 }
 
 // ToolNames returns the canonical kb-agent tool names.
+// keepPublished is ignored (KB agent doesn't distinguish published/unpublished tools).
 func (KBApplication) ToolNames(_ bool) []string {
 	return kbtools.BaseToolNames()
 }

@@ -10,7 +10,7 @@ import (
 	"github.com/hwj123hwj/pi-go/internal/agent"
 )
 
-// ReadTool reads a file from the agent-lessons repository.
+// ReadTool reads a file from the knowledge base repository.
 type ReadTool struct {
 	repoPath string
 }
@@ -21,7 +21,10 @@ func NewReadTool(repoPath string) *ReadTool {
 
 func (t *ReadTool) Name() string { return "kb_read" }
 func (t *ReadTool) Description() string {
-	return "读取知识库中的文件内容（知识卡片、项目日志、踩坑记录等）。返回文件的完整文本。"
+	return `读取知识库中的文件完整内容。返回 Markdown 原文。
+
+路径可以是绝对路径或相对于知识库根目录的相对路径（如 "issues/2026-05-05-cron-env.md"）。
+如果不确定路径，先使用 kb_search 或 kb_list 查找。`
 }
 func (t *ReadTool) Parameters() map[string]any {
 	return map[string]any{
@@ -65,16 +68,13 @@ func (t *ReadTool) Execute(_ context.Context, params json.RawMessage, _ func(age
 	}
 	_ = json.Unmarshal(params, &p)
 
-	// Resolve path
-	path := p.Path
-	if !strings.HasPrefix(path, "/") {
-		path = strings.Join([]string{t.repoPath, path}, "/")
-	}
+	// Resolve path (relative → absolute)
+	path := resolvePath(t.repoPath, p.Path)
 
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return agent.ToolResult{
-			Content: fmt.Sprintf("无法读取文件: %v", err),
+			Content: fmt.Sprintf("无法读取文件: %v\n\n提示：请确认路径正确。路径可以是相对路径（如 issues/xxx.md）或绝对路径。", err),
 			IsError: true,
 		}, nil
 	}
@@ -108,7 +108,7 @@ func (t *ReadTool) Execute(_ context.Context, params json.RawMessage, _ func(age
 		content = content[:8000] + "\n\n... (内容过长已截断，使用 offset 参数继续读取)"
 	}
 
-	header := fmt.Sprintf("📄 %s (%d行)", path, len(lines))
+	header := fmt.Sprintf("📄 %s (%d行)", p.Path, len(lines))
 	if offset > 0 || end < len(lines) {
 		header += fmt.Sprintf(" [显示第%d-%d行]", offset+1, end)
 	}

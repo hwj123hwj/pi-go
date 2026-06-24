@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -12,9 +11,12 @@ import (
 	"github.com/hwj123hwj/pi-go/internal/agent"
 )
 
-// SearchTool searches knowledge cards in the agent-lessons repository.
+// SearchTool searches across all knowledge entries in the repository.
+// Unlike the old version, it does NOT depend on a pre-built tags-index.json.
+// Instead, it builds an in-memory index on-the-fly (cached) and does weighted
+// full-text search across title, tags, summary, and file path.
 type SearchTool struct {
-	repoPath string // path to agent-lessons repo, e.g. ~/agent-lessons
+	repoPath string
 }
 
 func NewSearchTool(repoPath string) *SearchTool {
@@ -23,7 +25,13 @@ func NewSearchTool(repoPath string) *SearchTool {
 
 func (t *SearchTool) Name() string { return "kb_search" }
 func (t *SearchTool) Description() string {
-	return "搜索知识库中的知识卡片。支持关键词搜索、按标签筛选、按分类筛选。返回匹配的卡片标题、摘要、标签和文件路径。"
+	return `搜索知识库中的所有条目。自动扫描仓库中的 Markdown 文件，支持关键词搜索、按标签筛选、按分类筛选。
+搜索范围包括标题、摘要、标签和文件路径。返回匹配的条目标题、摘要、标签和文件路径。
+
+工作流建议：
+1. 先用 kb_search 搜索 → 找到相关条目
+2. 用 kb_read 读取完整内容
+3. 需要浏览特定分类时用 category 参数`
 }
 func (t *SearchTool) Parameters() map[string]any {
 	return map[string]any{
@@ -31,16 +39,15 @@ func (t *SearchTool) Parameters() map[string]any {
 		"properties": map[string]any{
 			"query": map[string]any{
 				"type":        "string",
-				"description": "搜索关键词（可选，支持中英文）",
+				"description": "搜索关键词（可选，支持中英文，多个词空格分隔）",
 			},
 			"tag": map[string]any{
 				"type":        "string",
-				"description": "按标签筛选（精确匹配）",
+				"description": "按标签筛选（不区分大小写的精确匹配）",
 			},
 			"category": map[string]any{
 				"type":        "string",
-				"description": "按分类筛选：tech/work/english/writing/life/other",
-				"enum":        []string{"tech", "work", "english", "writing", "life", "other"},
+				"description": "按分类筛选（即仓库顶层目录名，如 issues, tech 等）",
 			},
 			"limit": map[string]any{
 				"type":        "number",
@@ -52,6 +59,11 @@ func (t *SearchTool) Parameters() map[string]any {
 
 func (t *SearchTool) Validate(params json.RawMessage) (json.RawMessage, error) {
 	return params, nil
+}
+
+type scoredEntry struct {
+	entry Entry
+	score float64
 }
 
 func (t *SearchTool) Execute(_ context.Context, params json.RawMessage, _ func(agent.PartialResult)) (agent.ToolResult, error) {
@@ -68,97 +80,57 @@ func (t *SearchTool) Execute(_ context.Context, params json.RawMessage, _ func(a
 		limit = int(p.Limit)
 	}
 
-	// Load tags-index.json
-	indexPath := filepath.Join(t.repoPath, "doubao-knowledge", "tags-index.json")
-	data, err := os.ReadFile(indexPath)
-	if err != nil {
+	// Build (or get cached) index
+	idx, err := GetIndex(t.repoPath)
+	if err != nil || len(idx.Entries) == 0 {
 		return agent.ToolResult{
-			Content: fmt.Sprintf("无法读取知识库索引: %v\n请确认路径 %s 下存在 tags-index.json", err, t.repoPath),
+			Content: fmt.Sprintf("知识库为空或无法读取。请确认路径 %s 下有 Markdown 文件。", t.repoPath),
 			IsError: true,
 		}, nil
 	}
 
-	var index struct {
-		Total int `json:"total"`
-		Cards []struct {
-			File     string   `json:"file"`
-			Title    string   `json:"title"`
-			Tags     []string `json:"tags"`
-			Summary  string   `json:"summary"`
-			Category string   `json:"category"`
-		} `json:"cards"`
-	}
-	if err := json.Unmarshal(data, &index); err != nil {
-		return agent.ToolResult{
-			Content: fmt.Sprintf("索引文件解析失败: %v", err),
-			IsError: true,
-		}, nil
-	}
+	keywords := strings.Fields(p.Query)
 
-	// Filter and score
-	type scoredCard struct {
-		file    string
-		title   string
-		tags    []string
-		summary string
-		score   float64
-	}
-
-	var results []scoredCard
-	q := strings.ToLower(p.Query)
-
-	for _, card := range index.Cards {
+	var results []scoredEntry
+	for _, entry := range idx.Entries {
 		// Category filter
-		if p.Category != "" && card.Category != p.Category {
+		if p.Category != "" && !strings.EqualFold(entry.Category, p.Category) {
 			continue
 		}
 		// Tag filter
 		if p.Tag != "" {
-			tagMatch := false
-			for _, t := range card.Tags {
-				if strings.EqualFold(t, p.Tag) {
-					tagMatch = true
+			found := false
+			for _, tag := range entry.Tags {
+				if strings.EqualFold(tag, p.Tag) {
+					found = true
 					break
 				}
 			}
-			if !tagMatch {
+			if !found {
 				continue
 			}
 		}
 
-		// Score (weighted search)
+		// Score
 		var score float64
-		if q != "" {
-			titleLower := strings.ToLower(card.Title)
-			summaryLower := strings.ToLower(card.Summary)
-
-			if strings.Contains(titleLower, q) {
-				score += 3.0
-			}
-			for _, tag := range card.Tags {
-				if strings.EqualFold(tag, p.Query) {
-					score += 2.0
-				} else if strings.Contains(strings.ToLower(tag), q) {
-					score += 1.5
-				}
-			}
-			if strings.Contains(summaryLower, q) {
-				score += 1.0
-			}
+		if len(keywords) > 0 {
+			score = scoreEntry(entry, keywords)
 			if score == 0 {
 				continue
 			}
 		} else {
-			score = 1.0 // no query, return all (filtered by tag/category)
+			score = 1.0 // no query → return all (filtered by tag/category)
 		}
 
-		results = append(results, scoredCard{
-			file:    card.File,
-			title:   card.Title,
-			tags:    card.Tags,
-			summary: card.Summary,
-			score:   score,
-		})
+		results = append(results, scoredEntry{entry: entry, score: score})
+	}
+
+	if len(results) == 0 {
+		msg := "没有找到匹配的条目"
+		if len(keywords) > 0 {
+			msg = fmt.Sprintf("没有找到包含「%s」的条目", p.Query)
+		}
+		return agent.ToolResult{Content: msg}, nil
 	}
 
 	// Sort by score descending
@@ -170,26 +142,70 @@ func (t *SearchTool) Execute(_ context.Context, params json.RawMessage, _ func(a
 		results = results[:limit]
 	}
 
-	if len(results) == 0 {
-		return agent.ToolResult{Content: "没有找到匹配的知识卡片"}, nil
-	}
-
 	// Format output
 	var b strings.Builder
-	b.WriteString(fmt.Sprintf("📚 找到 %d 张知识卡片（共 %d 张）：\n\n", len(results), index.Total))
+	b.WriteString(fmt.Sprintf("📚 找到 %d 条记录（知识库共 %d 条）：\n\n", len(results), len(idx.Entries)))
 	for i, r := range results {
-		b.WriteString(fmt.Sprintf("%d. %s\n", i+1, r.title))
-		b.WriteString(fmt.Sprintf("   分类: %s | 标签: %s\n", filepath.Dir(r.file), strings.Join(r.tags, ", ")))
-		if r.summary != "" {
-			summary := r.summary
-			if len(summary) > 100 {
-				summary = summary[:100] + "..."
-			}
-			b.WriteString(fmt.Sprintf("   %s\n", summary))
+		e := r.entry
+		b.WriteString(fmt.Sprintf("%d. **%s**\n", i+1, e.Title))
+		// Metadata line
+		var meta []string
+		if e.Category != "" {
+			meta = append(meta, fmt.Sprintf("分类: %s", e.Category))
 		}
-		b.WriteString(fmt.Sprintf("   文件: %s\n\n", filepath.Join(t.repoPath, "doubao-knowledge", r.file)))
+		if len(e.Tags) > 0 {
+			meta = append(meta, fmt.Sprintf("标签: %s", strings.Join(e.Tags, ", ")))
+		}
+		if len(meta) > 0 {
+			b.WriteString(fmt.Sprintf("   %s\n", strings.Join(meta, " | ")))
+		}
+		if e.Summary != "" {
+			b.WriteString(fmt.Sprintf("   > %s\n", e.Summary))
+		}
+		b.WriteString(fmt.Sprintf("   📄 %s\n\n", e.RelPath))
 	}
-	b.WriteString("使用 kb_read 工具读取完整卡片内容，参数 path 填文件路径。")
+	b.WriteString("使用 kb_read 工具读取完整内容，参数 path 填上面的文件路径。")
 
 	return agent.ToolResult{Content: b.String()}, nil
+}
+
+// scoreEntry computes a weighted relevance score for an entry against keywords.
+// Matching areas (by weight): title > tags > summary > path > category
+func scoreEntry(entry Entry, keywords []string) float64 {
+	var total float64
+	for _, kw := range keywords {
+		kwLower := strings.ToLower(kw)
+		if kwLower == "" {
+			continue
+		}
+		// Title match (weight 5)
+		if strings.Contains(strings.ToLower(entry.Title), kwLower) {
+			total += 5.0
+		}
+		// Tag match (weight 3)
+		for _, tag := range entry.Tags {
+			if strings.EqualFold(tag, kw) {
+				total += 3.0
+			} else if strings.Contains(strings.ToLower(tag), kwLower) {
+				total += 2.0
+			}
+		}
+		// Summary match (weight 2)
+		if strings.Contains(strings.ToLower(entry.Summary), kwLower) {
+			total += 2.0
+		}
+		// Path match (weight 1)
+		if strings.Contains(strings.ToLower(entry.RelPath), kwLower) {
+			total += 1.0
+		}
+	}
+	return total
+}
+
+// resolvePath converts a relative path to absolute, used by other tools.
+func resolvePath(repoPath, p string) string {
+	if filepath.IsAbs(p) {
+		return p
+	}
+	return filepath.Join(repoPath, p)
 }

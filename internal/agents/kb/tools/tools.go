@@ -6,14 +6,14 @@ import (
 
 // ListOptions controls how the kb-agent toolset is assembled.
 type ListOptions struct {
-	RepoPath      string // path to agent-lessons repo
-	AllowedTools  []string
-	BlockedTools  []string
+	RepoPath     string // path to agent-lessons repo
+	AllowedTools []string
+	BlockedTools []string
 }
 
 // BaseToolNames returns the canonical kb-agent tool names.
 func BaseToolNames() []string {
-	return []string{"kb_search", "kb_read", "kb_query"}
+	return []string{"kb_search", "kb_read", "kb_list", "kb_save"}
 }
 
 // BuildList assembles the concrete kb-agent toolset.
@@ -21,7 +21,8 @@ func BuildList(opts ListOptions) []agent.Tool {
 	toolList := []agent.Tool{
 		NewSearchTool(opts.RepoPath),
 		NewReadTool(opts.RepoPath),
-		NewQueryTool(opts.RepoPath),
+		NewListTool(opts.RepoPath),
+		NewSaveTool(opts.RepoPath),
 	}
 	return filterTools(toolList, opts.AllowedTools, opts.BlockedTools)
 }
