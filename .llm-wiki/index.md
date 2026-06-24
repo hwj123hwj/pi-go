@@ -11,13 +11,14 @@
 - [[source-project-root-v6]] — Re-ingest v6: deepv removed, config overhaul, PI_GO_API_KEY, LoadDotEnv priority fix (2026-06-23)
 - [[source-project-root-v7]] — Re-ingest v7: mock removed, provider required, test infrastructure cleanup (2026-06-24)
 - [[source-project-root-v8]] — Re-ingest v8: KB panel crash fix, route registration, null tags guard (2026-06-25)
+- [[source-project-root-v9]] — Re-ingest v9: KB panel hardening (CSS var fix, path traversal fix, debounce, sorting) (2026-06-25)
 
 ## Entities
 - [[agent-core]] — Agent state machine and execution engine
 - [[tool-system]] — 8 built-in tools + optional interfaces + external tools
 - [[web-fetch-tool]] — 8th built-in tool: URL→markdown with SSRF protection
 - [[music-agent]] — Bilibili-primary + NetEase recommendation music application layer (6 tools)
-- [[kb-agent]] — Knowledge base agent: search, browse, read, write, maintain (5 tools + desktop KB panel)
+- [[kb-agent]] — Knowledge base agent: search, browse, read, write, maintain (5 tools + desktop KB panel + v9 hardening)
 - [[llm-provider-system]] — Anthropic/OpenAI providers (Mock removed v7, DeepV removed v6)
 - [[session-persistence]] — JSONL append-only with tree branching
 - [[session-manager]] — Session CRUD, forking, listing, metadata (sessionmgr package)

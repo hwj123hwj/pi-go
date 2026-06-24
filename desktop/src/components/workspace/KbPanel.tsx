@@ -231,13 +231,18 @@ function KbBrowseView() {
   }, []);
 
   // Load entries when filters change
+  // NOTE: query is debounced via a 300ms timer to avoid spamming the API
+  // on every keystroke.
   useEffect(() => {
     setLoadingEntries(true);
     setSelectedEntry(null);
-    void fetchEntries(activeCategory ?? undefined, undefined, query.trim() || undefined)
-      .then((e) => setEntries(e))
-      .catch(() => setEntries([]))
-      .finally(() => setLoadingEntries(false));
+    const timer = setTimeout(() => {
+      void fetchEntries(activeCategory ?? undefined, undefined, query.trim() || undefined)
+        .then((e) => setEntries(e))
+        .catch(() => setEntries([]))
+        .finally(() => setLoadingEntries(false));
+    }, 300);
+    return () => clearTimeout(timer);
   }, [activeCategory, query]);
 
   return (
@@ -392,6 +397,11 @@ function KbTagsView() {
       .catch(() => setEntries([]));
   }, [activeTag]);
 
+  // Reset selected entry when tag changes
+  useEffect(() => {
+    setSelectedEntry(null);
+  }, [activeTag]);
+
   if (activeTag) {
     return (
       <div className="kb-tags-detail">
@@ -434,7 +444,8 @@ function KbTagsView() {
     return <div className="empty">{t('kb.noTags')}</div>;
   }
 
-  const maxCount = Math.max(...tags.map((t) => t.count), 1);
+  // Tag cloud layout
+  const maxCount = Math.max(...tags.map((tg) => tg.count), 1);
 
   return (
     <div className="kb-tag-cloud">

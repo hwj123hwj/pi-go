@@ -2,6 +2,11 @@
 
 > Chronological record of wiki operations.
 
+## [2026-06-25] ingest | Project Root (.) — v9: KB panel hardening (CSS, security, UX)
+- **Created** `source-project-root-v9.md` — Source summary: undefined CSS var fix, path traversal fix, entry sorting, search debounce, stale selection fix
+- **Updated** `kb-agent.md` — Expanded bug fixes section with v9 hardening details (6 items)
+- **Updated** `index.md` — Added source-project-root-v9, updated kb-agent description
+
 ## [2026-06-25] ingest | Project Root (.) — v8: KB panel crash fix, route registration, null tags guard
 - **Created** `source-project-root-v8.md` — Source summary: KB route registration bug, null tags guard, desktop KB panel, 806 knowledge cards
 - **Updated** `server-websocket.md` — Added 6 KB REST API endpoints (stats, entries, categories, tags, health, read)

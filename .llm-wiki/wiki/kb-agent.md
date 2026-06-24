@@ -213,11 +213,19 @@ The desktop client now includes a **Knowledge Base Browser Panel** in the right 
 | `GET /kb/health` | Full health report (missing metadata, duplicates, tag clusters) |
 | `GET /kb/read?path=` | Read entry content |
 
-### Bug Fixes (v8)
+### Bug Fixes
 
+**v8:**
 1. **Route Registration**: `/kb/*` endpoints were registered on `restMux` but not `topMux`, causing requests to hit the web UI catch-all and return HTML instead of JSON.
-
 2. **Null Tags Guard**: `entryToJSON()` now ensures `tags` field returns `[]` instead of `null` when Go slice is nil, preventing frontend `TypeError`.
+
+**v9 (hardening):**
+1. **Path Traversal Fix**: `kbRead` handler now resolves absolute paths via `filepath.Abs` and enforces prefix containment check, preventing `../` traversal attacks.
+2. **CSS Variable Fix**: `--text-muted` was referenced in 29 KB panel rules but never defined; now defined in all three theme blocks (matching `--text-dim`).
+3. **Token Fix**: Replaced undefined `--orange` fallbacks with existing `--amber` / `--amber-weak` design tokens.
+4. **Entry Sorting**: No-query entries endpoint now sorts by `modified` descending (most recent first).
+5. **Search Debounce**: Browse view search input now debounced at 300ms.
+6. **Tag View Stale Selection**: Switching tags now resets selected entry detail panel.
 
 ## Source
 

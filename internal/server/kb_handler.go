@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -200,6 +202,12 @@ func (s *Server) kbEntries(w http.ResponseWriter, r *http.Request) {
 		}
 		entries = append(entries, entryToJSON(e))
 	}
+
+	// Sort by modified date descending (most recent first)
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].Modified.After(entries[j].Modified)
+	})
+
 	if entries == nil {
 		entries = []kbEntryJSON{}
 	}
@@ -312,8 +320,19 @@ func (s *Server) kbRead(w http.ResponseWriter, r *http.Request) {
 		fullPath = repoPath + "/" + path
 	}
 
-	// Safety: ensure the resolved path is under the KB repo
-	data, err := os.ReadFile(fullPath)
+	// Security: resolve symlinks and verify the result is inside the KB repo
+	absRepo, _ := filepath.Abs(repoPath)
+	absFile, err := filepath.Abs(fullPath)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, fmt.Sprintf("invalid path: %v", err))
+		return
+	}
+	if !strings.HasPrefix(absFile+string(filepath.Separator), absRepo+string(filepath.Separator)) {
+		writeError(w, http.StatusForbidden, "path is outside the knowledge base")
+		return
+	}
+
+	data, err := os.ReadFile(absFile)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, fmt.Sprintf("failed to read file: %v", err))
 		return
@@ -321,6 +340,6 @@ func (s *Server) kbRead(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, kbReadResponse{
 		Content: string(data),
-		Path:    fullPath,
+		Path:    absFile,
 	})
 }
