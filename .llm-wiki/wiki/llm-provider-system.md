@@ -22,7 +22,7 @@ The `providers.Registry` uses plugin-style registration:
 | `mock` | ✅ Built-in | For testing without real LLM |
 | `anthropic` | ✅ Built-in | Anthropic Messages API |
 | `openai` | ✅ Built-in | OpenAI Chat Completions API |
-| `deepv` | ✅ Built-in | Custom DeepV server |
+| `deepv` | ❌ Removed (v6) | Custom DeepV server — removed; local gateway handles all protocol translation |
 
 ## Provider Interface
 
@@ -35,8 +35,10 @@ The `Provider` interface (in `internal/ai/providers/`):
 
 Configured via environment variables:
 - `PI_GO_PROVIDER` — Select provider
-- `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `DEEPV_SERVER_URL`
-- Model names, base URLs, etc.
+- `ANTHROPIC_API_KEY` / `PI_GO_API_KEY` (preferred) / `OPENAI_API_KEY` (fallback)
+- `PI_GO_MODEL` / `OPENAI_MODEL` — Model name
+- `PI_GO_BASE_URL` / `OPENAI_BASE_URL` — Base URL
+- Default model: `longcat-opus` (free, fast)
 
 ## Related
 

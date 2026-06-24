@@ -25,7 +25,7 @@ See [[four-layer-architecture]] for the Skills vs Application decision framework
 
 | 能力 | 说明 | 状态 |
 |------|------|------|
-| 多 Provider | Anthropic / OpenAI / DeepV / Mock | ✅ |
+| 多 Provider | Anthropic / OpenAI / Mock (DeepV removed v6) | ✅ |
 | Agent 双层循环 | 外层 follow-up + 内层 tool call | ✅ |
 | 8 个内置工具 | read / write / edit / bash / grep / find / ls / [[web-fetch-tool\|web_fetch]] | ✅ |
 | 工具生命周期 | Before/After hook + PrepareArguments + Confirmation | ✅ |

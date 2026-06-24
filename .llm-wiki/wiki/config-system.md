@@ -7,10 +7,11 @@ tags: [config, environment-variables, settings]
 # Configuration System
 
 > Environment-driven configuration for pi-go agent server and its components.
+> Load priority: 环境变量 > .env 文件 > Default() 硬编码值.
 
 ## Source
 
-`internal/config/config.go` — Defines the `Config` struct loaded from environment variables via `godotenv`.
+`internal/config/config.go` — Defines the `Config` struct loaded from environment variables via `LoadDotEnv` + `LoadFromEnv`.
 
 ## Config Struct
 
@@ -25,16 +26,10 @@ type Config struct {
     AnthropicModel string // ANTHROPIC_MODEL
     AnthropicBaseURL string // ANTHROPIC_BASE_URL
 
-    // OpenAI-compatible
-    OpenAIKey    string  // OPENAI_API_KEY
-    OpenAIModel  string  // OPENAI_MODEL
-    OpenAIBaseURL string // OPENAI_BASE_URL
-
-    // DeepV
-    DeepVEnabled bool    // DEEPV_ENABLED
-    DeepVServerURL string // DEEPV_SERVER_URL
-    DeepVModel    string  // DEEPV_MODEL
-    DeepVWorkDir  string  // DEEPV_WORK_DIR
+    // OpenAI-compatible gateway
+    OpenAIAPIKey  string  // PI_GO_API_KEY (preferred) / OPENAI_API_KEY (fallback)
+    OpenAIModel   string  // PI_GO_MODEL (preferred) / OPENAI_MODEL (fallback)
+    OpenAIBaseURL string  // PI_GO_BASE_URL (preferred) / OPENAI_BASE_URL (fallback)
 
     // Server
     Host string  // PI_GO_HOST (default: "127.0.0.1")
@@ -74,19 +69,27 @@ type Config struct {
 
 ### Provider Selection
 `PI_GO_PROVIDER` selects which LLM backend to use:
-- `mock` — Built-in mock for testing (default)
+- `mock` — Built-in mock for testing
 - `anthropic` — Anthropic Messages API
 - `openai` — OpenAI Chat Completions API (also compatible with local gateways)
-- `deepv` — DeepVcode Server
+- `deepv` — ❌ Removed (v6); local gateway handles all providers
 
 ### Gateway Mode
 For local LLM gateways (e.g., `go-llm-gateway` on port 4001):
 ```
 PI_GO_PROVIDER=openai
-OPENAI_BASE_URL=http://localhost:4001
-OPENAI_API_KEY=sk-local-gateway-key
-OPENAI_MODEL=deepseek-v4-flash
+PI_GO_BASE_URL=http://localhost:4001
+PI_GO_API_KEY=sk-local-gateway-key
+PI_GO_MODEL=longcat-opus
 ```
+
+### Environment Variable Priority (v6)
+`LoadDotEnv` no longer overrides already-set environment variables:
+1. **Shell environment variables** (highest priority)
+2. **`.env` file values** (only if env var is empty)
+3. **`Default()` hardcoded values** (fallback)
+
+This prevents `.env` empty fields from zeroing out shell-set keys.
 
 ### Tool Sandboxing
 - `PI_GO_ENABLE_BASH=false` — Disable shell execution

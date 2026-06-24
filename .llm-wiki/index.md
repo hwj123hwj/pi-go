@@ -8,6 +8,7 @@
 - [[source-project-root-v3]] — Re-ingest v3: decisions, deployment, desktop internals, agent guidance (2026-06-22)
 - [[source-project-root-v4]] — Re-ingest v4: tool execution internals, session management, WebSocket protocol, desktop path clicking (2026-06-22)
 - [[source-project-root-v5]] — Re-ingest v5: bilibili-primary music, global player, workspace layout overhaul (2026-06-23)
+- [[source-project-root-v6]] — Re-ingest v6: deepv removed, config overhaul, PI_GO_API_KEY, LoadDotEnv priority fix (2026-06-23)
 
 ## Entities
 - [[agent-core]] — Agent state machine and execution engine
@@ -15,7 +16,7 @@
 - [[web-fetch-tool]] — 8th built-in tool: URL→markdown with SSRF protection
 - [[music-agent]] — Bilibili-primary + NetEase recommendation music application layer (6 tools)
 - [[kb-agent]] — Knowledge base retrieval agent (3 read-only tools over agent-lessons repo)
-- [[llm-provider-system]] — Anthropic/OpenAI/DeepV/Mock providers
+- [[llm-provider-system]] — Anthropic/OpenAI/Mock providers (DeepV removed v6)
 - [[session-persistence]] — JSONL append-only with tree branching
 - [[session-manager]] — Session CRUD, forking, listing, metadata (sessionmgr package)
 - [[slash-command-framework]] — 14 built-in slash commands
@@ -25,7 +26,7 @@
 - [[desktop-app]] — Electron + React GUI client (global music player, workspace layout, path clicking, Markdown link resolution)
 - [[feishu-integration]] — Lark/Feishu bot bridge
 - [[server-websocket]] — HTTP REST + SSE + WebSocket server (protocol, file endpoints, gateway models)
-- [[config-system]] — Environment-driven configuration
+- [[config-system]] — Environment-driven configuration (PI_GO_* env priority, LoadDotEnv no-override)
 - [[coding-application]] — Coding agent (primary application layer)
 - [[tui-presenter]] — Terminal UI rendering system
 - [[external-tools]] — HTTP callback tool registration

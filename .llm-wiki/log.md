@@ -2,6 +2,13 @@
 
 > Chronological record of wiki operations.
 
+## [2026-06-23] ingest | Project Root (.) — v6: config overhaul, deepv removed, LoadDotEnv priority fix
+- **Created** `source-project-root-v6.md` — Source summary: deepv removal, PI_GO_* env naming, LoadDotEnv no-override, gateway identification
+- **Updated** `llm-provider-system.md` — Marked DeepV as removed, updated env var docs to PI_GO_API_KEY
+- **Updated** `config-system.md` — Removed DeepV config fields, added LoadDotEnv priority chain, updated env var naming
+- **Updated** `overview.md` — Changed provider list from "Anthropic / OpenAI / DeepV / Mock" to "Anthropic / OpenAI / Mock"
+- **Updated** `index.md` — Added source-project-root-v6, updated llm-provider-system and config-system descriptions
+
 ## [2026-06-10] init | Wiki Initialized
 - Created wiki directory structure
 - Ready for source ingestion
