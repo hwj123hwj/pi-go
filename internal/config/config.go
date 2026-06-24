@@ -67,7 +67,7 @@ func Default() Config {
 		MaxTurns:    200,
 		Timeout:     5 * time.Minute,
 
-		Provider: "openai",
+		Provider: "mock",
 
 		AnthropicBaseURL: "https://api.anthropic.com",
 
