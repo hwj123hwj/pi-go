@@ -34,7 +34,7 @@ func NewPlayTool(router *music.SourceRouter, cache *music.Cache, audioBaseURL st
 
 func (t *PlayTool) Name() string { return "music_play" }
 func (t *PlayTool) Description() string {
-	return "播放歌曲。提供 song_id 或 query。支持网易云和B站，网易云VIP歌曲会自动降级到B站。"
+	return "播放歌曲。提供 song_id 或 query。默认从B站搜索播放，B站不可用时降级到网易云。"
 }
 func (t *PlayTool) Parameters() map[string]any {
 	return map[string]any{
@@ -42,7 +42,7 @@ func (t *PlayTool) Parameters() map[string]any {
 		"properties": map[string]any{
 			"song_id": map[string]any{
 				"type":        "string",
-				"description": "复合歌曲 ID，如 \"netease:576466\" 或 \"bilibili:BV1xx\"。与 query 二选一。",
+				"description": "复合歌曲 ID，如 \"bilibili:BV1xx\" 或 \"netease:576466\"。与 query 二选一。",
 			},
 			"query": map[string]any{
 				"type":        "string",
@@ -50,8 +50,8 @@ func (t *PlayTool) Parameters() map[string]any {
 			},
 			"source": map[string]any{
 				"type":        "string",
-				"description": "播放源：\"netease\"（网易云，默认）或 \"bilibili\"（B站）",
-				"enum":        []string{"netease", "bilibili"},
+				"description": "播放源：\"bilibili\"（B站，默认）或 \"netease\"（网易云）",
+				"enum":        []string{"bilibili", "netease"},
 			},
 		},
 	}
@@ -121,7 +121,7 @@ func (t *PlayTool) playByID(ctx context.Context, songID string, isFallback bool)
 		out += "  来源：B站\n"
 	}
 	if isFallback {
-		out += "  ⚠️ 网易云播放失败，已自动切换到B站\n"
+		out += "  ⚠️ B站播放失败，已自动切换到网易云\n"
 	}
 	out += fmt.Sprintf("\n播放链接：%s\n", proxyURL)
 	out += fmt.Sprintf("封面：%s\n", detail.AlbumCover)
@@ -161,11 +161,11 @@ func (t *PlayTool) playByQuery(ctx context.Context, query string, src music.Sour
 	}
 
 	// All failed in preferred source — try cross-source fallback
-	if src == music.SourceNetease {
-		// Fallback to Bilibili
-		biliResult, biliErr := t.router.Search(ctx, query, 5, music.SourceBilibili)
-		if biliErr == nil && len(biliResult.Songs) > 0 {
-			res, err := t.playByID(ctx, biliResult.Songs[0].ID, true)
+	if src == music.SourceBilibili {
+		// Fallback to NetEase
+		neteaseResult, neteaseErr := t.router.Search(ctx, query, 5, music.SourceNetease)
+		if neteaseErr == nil && len(neteaseResult.Songs) > 0 {
+			res, err := t.playByID(ctx, neteaseResult.Songs[0].ID, true)
 			if err == nil && !res.IsError {
 				return res, nil
 			}

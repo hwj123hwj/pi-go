@@ -7,12 +7,13 @@
 - [[source-project-root-v2]] — Comprehensive re-ingest with new findings (2026-06-21)
 - [[source-project-root-v3]] — Re-ingest v3: decisions, deployment, desktop internals, agent guidance (2026-06-22)
 - [[source-project-root-v4]] — Re-ingest v4: tool execution internals, session management, WebSocket protocol, desktop path clicking (2026-06-22)
+- [[source-project-root-v5]] — Re-ingest v5: bilibili-primary music, global player, workspace layout overhaul (2026-06-23)
 
 ## Entities
 - [[agent-core]] — Agent state machine and execution engine
 - [[tool-system]] — 8 built-in tools + optional interfaces + external tools
 - [[web-fetch-tool]] — 8th built-in tool: URL→markdown with SSRF protection
-- [[music-agent]] — NetEase Cloud Music application layer (6 tools)
+- [[music-agent]] — Bilibili-primary + NetEase recommendation music application layer (6 tools)
 - [[kb-agent]] — Knowledge base retrieval agent (3 read-only tools over agent-lessons repo)
 - [[llm-provider-system]] — Anthropic/OpenAI/DeepV/Mock providers
 - [[session-persistence]] — JSONL append-only with tree branching
@@ -21,7 +22,7 @@
 - [[tool-lifecycle-hooks]] — 9-step execution flow, Before/After hooks, confirmation gate, session observer hooks
 - [[extension-system]] — Plugin-style tools/commands/hooks
 - [[skill-system]] — Markdown skill loading from `.claude/skills/`
-- [[desktop-app]] — Electron + React GUI client (path clicking, store internals, session history)
+- [[desktop-app]] — Electron + React GUI client (global music player, workspace layout, path clicking, Markdown link resolution)
 - [[feishu-integration]] — Lark/Feishu bot bridge
 - [[server-websocket]] — HTTP REST + SSE + WebSocket server (protocol, file endpoints, gateway models)
 - [[config-system]] — Environment-driven configuration

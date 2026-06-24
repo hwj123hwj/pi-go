@@ -16,6 +16,7 @@ export function App() {
   const ready = useStore((s) => s.ready);
   const workspace = useStore((s) => s.workspace);
   const setWorkspaceSize = useStore((s) => s.setWorkspaceSize);
+  const musicActive = useStore((s) => s.music.current != null);
   const lang = useStore((s) => s.lang);
   const theme = useStore((s) => s.theme);
   const t = useT();
@@ -82,7 +83,7 @@ export function App() {
   return (
     <ErrorBoundary label="app">
       <div
-        className={`app ${sidebarOpen ? '' : 'sidebar-collapsed'}`}
+        className={`app ${sidebarOpen ? '' : 'sidebar-collapsed'} ${musicActive ? 'music-active' : ''}`}
         style={{ '--sidebar-w': `${workspace.sidebarWidth}px` } as React.CSSProperties}
       >
         {sidebarOpen ? (
