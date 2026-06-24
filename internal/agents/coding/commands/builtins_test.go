@@ -29,7 +29,7 @@ func (m *mockSession) SessionID() string { return m.sessionID }
 
 func (m *mockSession) ModelInfo() (string, string) {
 	if m.provider == "" && m.modelID == "" {
-		return "mock", "mock"
+		return "openai", "gpt-4o"
 	}
 	return m.provider, m.modelID
 }
@@ -111,8 +111,8 @@ func (m *mockApp) Profiles() []string {
 
 func (m *mockApp) AvailableModels() []slashcmd.ModelInfo {
 	return []slashcmd.ModelInfo{
-		{Provider: "mock", ModelID: "mock"},
 		{Provider: "anthropic", ModelID: "claude-sonnet-4-6"},
+		{Provider: "openai", ModelID: "gpt-4o"},
 	}
 }
 
@@ -239,7 +239,7 @@ func TestSessions_ListWithCurrentMarked(t *testing.T) {
 func TestNew_CreatesSession(t *testing.T) {
 	reg := newRegistry()
 
-	newSess := &mockSession{sessionID: "sess_new", provider: "mock", modelID: "mock"}
+	newSess := &mockSession{sessionID: "sess_new", provider: "openai", modelID: "gpt-4o"}
 	cmdCtx := slashcmd.Context{
 		Ctx:     context.Background(),
 		Session: &mockSession{sessionID: "sess_old"},
@@ -254,7 +254,7 @@ func TestNew_CreatesSession(t *testing.T) {
 func TestNew_ReturnsSessionSwitchTo(t *testing.T) {
 	reg := newRegistry()
 
-	newSess := &mockSession{sessionID: "sess_new", provider: "mock", modelID: "mock"}
+	newSess := &mockSession{sessionID: "sess_new", provider: "openai", modelID: "gpt-4o"}
 	cmdCtx := slashcmd.Context{
 		Ctx:     context.Background(),
 		Session: &mockSession{sessionID: "sess_old"},
@@ -493,13 +493,13 @@ func TestModels_ListsModels(t *testing.T) {
 
 	cmdCtx := slashcmd.Context{
 		Ctx:     context.Background(),
-		Session: &mockSession{sessionID: "test", provider: "mock", modelID: "mock"},
+		Session: &mockSession{sessionID: "test", provider: "openai", modelID: "gpt-4o"},
 		App:     &mockApp{},
 	}
 	result, err := reg.Execute(cmdCtx, "/models")
 	require.NoError(t, err)
-	assert.Contains(t, result.Output, "mock/mock")
 	assert.Contains(t, result.Output, "anthropic/claude-sonnet-4-6")
+	assert.Contains(t, result.Output, "openai/gpt-4o")
 	assert.Contains(t, result.Output, "→")
 }
 

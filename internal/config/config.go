@@ -17,7 +17,7 @@ type Config struct {
 	Timeout     time.Duration
 
 	// Provider
-	Provider string // mock / anthropic / openai
+	Provider string // anthropic / openai
 
 	// Anthropic
 	AnthropicAPIKey  string
@@ -67,7 +67,7 @@ func Default() Config {
 		MaxTurns:    200,
 		Timeout:     5 * time.Minute,
 
-		Provider: "mock",
+		Provider: "",
 
 		AnthropicBaseURL: "https://api.anthropic.com",
 

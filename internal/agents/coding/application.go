@@ -71,7 +71,6 @@ func (CodingApplication) AvailableModels() []slashcmd.ModelInfo {
 		{Provider: "anthropic", ModelID: "claude-sonnet-4"},
 		{Provider: "openai", ModelID: "gpt-4o"},
 		{Provider: "openai", ModelID: "gpt-4o-mini"},
-		{Provider: "mock", ModelID: "mock"},
 	}
 }
 

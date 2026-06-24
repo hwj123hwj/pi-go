@@ -109,7 +109,7 @@ type mockSessionContext struct {
 }
 
 func (m *mockSessionContext) SessionID() string                          { return m.id }
-func (m *mockSessionContext) ModelInfo() (string, string)                { return "mock", "mock" }
+func (m *mockSessionContext) ModelInfo() (string, string)                { return "openai", "gpt-4o" }
 func (m *mockSessionContext) SwitchModel(_ context.Context, _, _ string) error { return nil }
 func (m *mockSessionContext) ToolNames() []string                        { return nil }
 func (m *mockSessionContext) Profile() string                            { return "coding" }

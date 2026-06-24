@@ -163,9 +163,9 @@ func (s *AgentSession) ModelInfo() (string, string) {
 	if providerName == "openai" {
 		modelID = s.cfg.OpenAIModel
 	}
-	if providerName == "mock" || modelID == "" {
-		modelID = "mock"
-		providerName = "mock"
+	if modelID == "" {
+		providerName = ""
+		modelID = ""
 	}
 	return providerName, modelID
 }
@@ -310,9 +310,8 @@ func (s *AgentSession) buildAgent(ctx context.Context, registry *providers.Regis
 	if providerName == "openai" {
 		modelID = cfg.OpenAIModel
 	}
-	if providerName == "mock" || modelID == "" {
-		modelID = "mock"
-		providerName = "mock"
+	if modelID == "" {
+		providerName = ""
 	}
 
 	model := ai.Model{
@@ -326,9 +325,7 @@ func (s *AgentSession) buildAgent(ctx context.Context, registry *providers.Regis
 	// Compaction settings
 	compactionSettings := compaction.DefaultSettings()
 	var summarizeFunc compaction.SummarizeFunc
-	if providerName != "mock" {
-		summarizeFunc = compaction.LLMSummarizer(registry, model)
-	}
+	summarizeFunc = compaction.LLMSummarizer(registry, model)
 
 	// Load context files
 	contextFiles := prompt.LoadProjectContextFiles(cwd, "")

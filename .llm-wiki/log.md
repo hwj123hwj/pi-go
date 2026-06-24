@@ -2,6 +2,13 @@
 
 > Chronological record of wiki operations.
 
+## [2026-06-24] ingest | Project Root (.) — v7: mock removed, provider required, test infrastructure cleanup
+- **Created** `source-project-root-v7.md` — Source summary: mock provider deletion, registerProviders error on empty, runtime mock fallback removal, test infra updates
+- **Updated** `llm-provider-system.md` — Marked Mock as ❌ Removed (v7), updated config section to note PI_GO_PROVIDER is now required
+- **Updated** `config-system.md` — Updated Provider struct comment (default "", required at runtime), replaced mock provider option with ❌ Removed (v7) note, added registerProviders error behavior
+- **Updated** `overview.md` — Updated provider list from "Anthropic / OpenAI / Mock" to "Anthropic / OpenAI (Mock removed v7, DeepV removed v6)"
+- **Updated** `index.md` — Added source-project-root-v7, updated llm-provider-system and config-system descriptions
+
 ## [2026-06-23] ingest | Project Root (.) — v6: config overhaul, deepv removed, LoadDotEnv priority fix
 - **Created** `source-project-root-v6.md` — Source summary: deepv removal, PI_GO_* env naming, LoadDotEnv no-override, gateway identification
 - **Updated** `llm-provider-system.md` — Marked DeepV as removed, updated env var docs to PI_GO_API_KEY

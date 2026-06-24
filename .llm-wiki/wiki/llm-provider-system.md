@@ -19,9 +19,9 @@ The `providers.Registry` uses plugin-style registration:
 
 | Provider | Status | Source |
 |----------|--------|--------|
-| `mock` | ✅ Built-in | For testing without real LLM |
 | `anthropic` | ✅ Built-in | Anthropic Messages API |
 | `openai` | ✅ Built-in | OpenAI Chat Completions API |
+| `mock` | ❌ Removed (v7) | Was built-in for testing — removed; real providers required |
 | `deepv` | ❌ Removed (v6) | Custom DeepV server — removed; local gateway handles all protocol translation |
 
 ## Provider Interface
@@ -34,11 +34,13 @@ The `Provider` interface (in `internal/ai/providers/`):
 ## Configuration
 
 Configured via environment variables:
-- `PI_GO_PROVIDER` — Select provider
+- `PI_GO_PROVIDER` — Select provider (**required**, valid: `anthropic`, `openai`)
 - `ANTHROPIC_API_KEY` / `PI_GO_API_KEY` (preferred) / `OPENAI_API_KEY` (fallback)
 - `PI_GO_MODEL` / `OPENAI_MODEL` — Model name
 - `PI_GO_BASE_URL` / `OPENAI_BASE_URL` — Base URL
 - Default model: `longcat-opus` (free, fast)
+
+> **v7 change**: `PI_GO_PROVIDER` is now **required**. Empty value causes a startup error. There is no fallback to mock.
 
 ## Related
 

@@ -18,7 +18,7 @@ tags: [config, environment-variables, settings]
 ```go
 type Config struct {
     // Provider & Model
-    Provider     string  // PI_GO_PROVIDER (default: "mock")
+    Provider     string  // PI_GO_PROVIDER (default: "", required at runtime — v7)
     Model        string  // PI_GO_MODEL
 
     // Anthropic
@@ -68,11 +68,13 @@ type Config struct {
 ## Key Configuration Groups
 
 ### Provider Selection
-`PI_GO_PROVIDER` selects which LLM backend to use:
-- `mock` — Built-in mock for testing
+`PI_GO_PROVIDER` selects which LLM backend to use (**required**, no default):
 - `anthropic` — Anthropic Messages API
 - `openai` — OpenAI Chat Completions API (also compatible with local gateways)
+- `mock` — ❌ Removed (v7); real provider is now required
 - `deepv` — ❌ Removed (v6); local gateway handles all providers
+
+> **v7 change**: Empty `PI_GO_PROVIDER` causes a startup error. There is no fallback to mock. `registerProviders()` in `app.go` returns an error for empty/unknown provider values.
 
 ### Gateway Mode
 For local LLM gateways (e.g., `go-llm-gateway` on port 4001):

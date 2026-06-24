@@ -14,7 +14,7 @@ func TestDefault(t *testing.T) {
 	assert.Equal(t, "pi-go", cfg.Name)
 	assert.Equal(t, "127.0.0.1", cfg.Host)
 	assert.Equal(t, 8080, cfg.Port)
-	assert.Equal(t, "mock", cfg.Provider)
+	assert.Equal(t, "", cfg.Provider)
 	assert.Equal(t, 200, cfg.MaxTurns)
 }
 

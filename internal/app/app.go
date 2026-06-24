@@ -266,12 +266,9 @@ func (a *App) ToolNames() []string {
 }
 
 // registerProviders registers AI providers based on config.
-// Returns an error if the configured provider is selected but cannot be initialized
-// (e.g. missing API key), rather than silently falling back to mock.
+// Returns an error if the configured provider cannot be initialized
+// (e.g. missing API key).
 func registerProviders(registry *providers.Registry, cfg config.Config) error {
-	// Mock provider is always available
-	registry.Register(providers.NewMockProvider())
-
 	switch cfg.Provider {
 	case "anthropic":
 		if cfg.AnthropicAPIKey != "" {
@@ -287,11 +284,10 @@ func registerProviders(registry *providers.Registry, cfg config.Config) error {
 			return nil
 		}
 		return fmt.Errorf("PI_GO_PROVIDER=openai but OPENAI_API_KEY is empty")
-	case "mock":
-		slog.Info("using mock provider")
-		return nil
+	case "":
+		return fmt.Errorf("PI_GO_PROVIDER is not set (valid values: anthropic, openai)")
 	default:
-		return fmt.Errorf("unknown PI_GO_PROVIDER %q (valid values: mock, anthropic, openai)", cfg.Provider)
+		return fmt.Errorf("unknown PI_GO_PROVIDER %q (valid values: anthropic, openai)", cfg.Provider)
 	}
 }
 
