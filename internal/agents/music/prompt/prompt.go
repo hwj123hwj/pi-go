@@ -24,10 +24,11 @@ func BuildSystemPrompt(opts Options) string {
 	b.WriteString(musicPrompt)
 	b.WriteString("\n")
 
-	// Inject unified profile summary (preferred) or fall back to music-only pref.
-	// Both produce fixed-size summaries that never grow with data.
+	// Inject unified profile summary — music agent only sees music + general,
+	// NOT coding preferences (domain isolation).
+	// Falls back to music-only pref store if profile is not connected.
 	if opts.Profile != nil {
-		if summary := opts.Profile.Summary(); summary != "" {
+		if summary := opts.Profile.SummaryForCategories(profile.CategoryMusic, profile.CategoryGeneral); summary != "" {
 			b.WriteString("\n")
 			b.WriteString(summary)
 			b.WriteString("\n")

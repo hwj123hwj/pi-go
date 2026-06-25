@@ -39,7 +39,10 @@ Created a unified `profile.Store` that serves as a "condensed second brain" shar
 1. **Music agent** plays a song → `pref.Store.Record()` → `pref.Store` syncs top artists + total plays to `profile.Store`
 2. **Coding agent** (future: LLM extraction) records "user prefers Go" → `profile.Store.Record("coding", "language", "Go")`
 3. **KB agent** (future: LLM extraction) records "user in 北京" → `profile.Store.Record("general", "location", "北京")`
-4. **Every agent's system prompt** gets the same `profile.Summary()` — so coding agent knows you like 周杰伦, music agent knows you use Go
+4. **Each agent sees only relevant categories** via `SummaryForCategories()`:
+   - **Coding agent**: NO profile injection (relies on `.llm-wiki/` + project context — coding is domain-specific, no cross-domain memory needed)
+   - **Music agent**: sees `music` + `general` only (doesn't need to know you use Go)
+   - **KB agent**: sees ALL categories (it's the "second brain" that benefits from the full picture)
 
 ## OpenViking Concepts Adopted
 
@@ -74,9 +77,9 @@ Thread-safe JSON-backed unified profile:
 
 | Agent | File | Change |
 |---|---|---|
-| Coding | `application.go` + `prompt/builder.go` | Added `Profile` field; injects `Summary()` into system prompt |
-| Music | `application.go` + `prompt/prompt.go` | Uses unified profile (falls back to pref-only if profile is nil) |
-| KB | `application.go` + `prompt/prompt.go` | Added `Profile` field; injects `Summary()` into system prompt |
+| Coding | `application.go` + `prompt/builder.go` | **No profile injection** — coding agent relies on `.llm-wiki/` + project context. Coding is domain-specific; injecting user music taste or personal facts adds noise without value. |
+| Music | `application.go` + `prompt/prompt.go` | Uses `SummaryForCategories(music, general)` — only sees music + general prefs |
+| KB | `application.go` + `prompt/prompt.go` | Uses full `Summary()` — sees all categories (it's the "second brain") |
 
 ### Modified: Entrypoints
 

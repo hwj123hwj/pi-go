@@ -23,7 +23,9 @@ func BuildSystemPrompt(opts Options) string {
 	b.WriteString(fmt.Sprintf(kbPrompt, opts.RepoPath))
 	b.WriteString("\n")
 
-	// Inject unified user profile (fixed-size summary, ~80 tokens, never grows)
+	// Inject full unified user profile — KB agent is the "second brain" that
+	// benefits from seeing the complete picture: coding prefs, music taste,
+	// and general facts all help it retrieve relevant knowledge.
 	if opts.UserProfile != nil {
 		if summary := opts.UserProfile.Summary(); summary != "" {
 			b.WriteString("\n")

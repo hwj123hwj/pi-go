@@ -146,9 +146,16 @@ func (s *Store) GetFacts(category string) []Fact {
 	return result
 }
 
-// Summary returns a compact, FIXED-SIZE string for system prompt injection.
-// This is the "condensed second brain" — always ~80 tokens, never grows.
+// Summary returns a compact, FIXED-SIZE string with ALL categories.
+// This is the full "condensed second brain" used by the KB agent.
 func (s *Store) Summary() string {
+	return s.SummaryForCategories(CategoryCoding, CategoryMusic, CategoryGeneral)
+}
+
+// SummaryForCategories returns a summary limited to the specified categories.
+// This allows agents to only see profile data relevant to their domain.
+// For example, a music agent only needs music + general, not coding prefs.
+func (s *Store) SummaryForCategories(categories ...string) string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -158,17 +165,19 @@ func (s *Store) Summary() string {
 
 	var sections []string
 
-	// Coding section
-	if coding := s.formatCategory(CategoryCoding, "开发"); coding != "" {
-		sections = append(sections, coding)
-	}
-	// Music section
-	if music := s.formatCategory(CategoryMusic, "音乐"); music != "" {
-		sections = append(sections, music)
-	}
-	// General section
-	if general := s.formatCategory(CategoryGeneral, "通用"); general != "" {
-		sections = append(sections, general)
+	for _, cat := range categories {
+		var line string
+		switch cat {
+		case CategoryCoding:
+			line = s.formatCategory(CategoryCoding, "开发")
+		case CategoryMusic:
+			line = s.formatCategory(CategoryMusic, "音乐")
+		case CategoryGeneral:
+			line = s.formatCategory(CategoryGeneral, "通用")
+		}
+		if line != "" {
+			sections = append(sections, line)
+		}
 	}
 
 	if len(sections) == 0 {

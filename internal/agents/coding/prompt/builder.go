@@ -10,7 +10,6 @@ import (
 	"github.com/hwj123hwj/pi-go/internal/agent"
 	codingprofile "github.com/hwj123hwj/pi-go/internal/agents/coding/profile"
 	platformprompt "github.com/hwj123hwj/pi-go/internal/prompt"
-	"github.com/hwj123hwj/pi-go/internal/profile"
 	"github.com/hwj123hwj/pi-go/internal/skill"
 )
 
@@ -24,7 +23,6 @@ type Options struct {
 	AppendSystemPrompt string
 	Profile            string
 	Goal               string
-	UserProfile        *profile.Store // unified user profile for personalization
 }
 
 // BuildSystemPrompt constructs the coding-agent system prompt on top of shared prompt context.
@@ -42,15 +40,6 @@ func BuildSystemPrompt(opts Options) string {
 	}
 	b.WriteString(base)
 	b.WriteString("\n")
-
-	// Inject unified user profile (fixed-size summary, ~80 tokens, never grows)
-	if opts.UserProfile != nil {
-		if summary := opts.UserProfile.Summary(); summary != "" {
-			b.WriteString("\n")
-			b.WriteString(summary)
-			b.WriteString("\n")
-		}
-	}
 
 	toolNames := collectToolNames(opts.Tools)
 	snippets := collectToolSnippets(opts.Tools)

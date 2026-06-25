@@ -75,7 +75,8 @@ func main() {
 		music.NewBilibiliAdapter(biliClient),
 	)
 
-	// Create unified user profile (shared across all agents)
+	// Create unified user profile (shared across agents — but each agent only
+	// sees categories relevant to its domain via SummaryForCategories)
 	profilePath := filepath.Join(cfg.DataDir, "user_profile.json")
 	userProfile := userprofile.NewStore(profilePath)
 
@@ -86,13 +87,16 @@ func main() {
 		kbRepoPath = homeDir + "/agent-lessons"
 	}
 
-	// Create App (thin assembly layer) with coding, music, and kb applications
+	// Create App (thin assembly layer) with coding, music, and kb applications.
+	// Coding agent does NOT receive the profile (it relies on .llm-wiki + project context).
+	// Music agent receives music + general categories only.
+	// KB agent receives the full profile (it's the second brain).
 	application, err := app.New(app.AppOptions{
 		Config:      cfg,
 		SkillDirs:   skillDirs(*skillDir),
-		Application: coding.NewCodingApplicationWithProfile(cfg, userProfile),
+		Application: coding.NewCodingApplication(cfg),
 		Applications: map[string]runtime.Application{
-			"coding": coding.NewCodingApplicationWithProfile(cfg, userProfile),
+			"coding": coding.NewCodingApplication(cfg),
 			"music":  musicapp.NewMusicApplication(cfg, musicRouter, musicCache, userProfile),
 			"kb":     kbapp.NewKBApplicationWithProfile(cfg, kbRepoPath, userProfile),
 		},
