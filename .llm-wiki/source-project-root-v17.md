@@ -119,7 +119,22 @@ Coding Agent (deep) ───┘    └─────────────�
 | `cmd/pi-agent/main.go` | Create + wire unified profile |
 | `cmd/pi-music/main.go` | Create + wire unified profile |
 
-## Second Code Review: Remaining Issues & Fixes
+## Third Code Review: Persistence Robustness & Concurrency
+
+### Bug 7: Non-atomic file writes (data corruption risk)
+- **Problem**: Both `profile.Store.save()` and `pref.Store.save()` called `os.WriteFile()` directly. If the process crashed mid-write (e.g. OOM kill, power loss, Electron force-quit), the JSON file would be truncated/partial — corrupting all user profile/history data permanently.
+- **Fix**: Switched both stores to atomic writes: write to `.tmp` file, then `os.Rename()` (atomic on POSIX systems). Crash leaves either the old or new file, never a partial write.
+
+### Test gap: No concurrent access coverage for profile.Store
+- **Problem**: `profile.Store` is accessed by multiple agent sessions concurrently (e.g. music agent writes while KB agent reads Summary). No test verified thread safety.
+- **Fix**: Added `TestConcurrentAccess` — 4 concurrent writers + 4 concurrent readers, 400 operations total, verified with `-race` detector.
+
+### Design audit: no direction drift
+- Coding agent: still no profile injection ✅
+- Music agent: still domain-isolated (music + general only) ✅
+- KB agent: still full profile ✅
+- All write paths: now atomic ✅
+- Concurrency: verified clean under `-race` ✅
 
 ### Bug 4: 16× disk writes per song play (performance, round 2)
 - **Problem**: Previous fix reduced from O(N) to top-15, but each artist still called `profile.Record()` individually → 16 disk writes per play. With frequent play, this is still excessive I/O.

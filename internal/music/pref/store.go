@@ -26,10 +26,10 @@ const maxHistory = 500 // ring buffer cap; oldest entries are evicted
 
 // PlayRecord is a single play event.
 type PlayRecord struct {
-	SongID   string    `json:"song_id"`   // Composite ID: "bilibili:BV1xx"
+	SongID   string    `json:"song_id"` // Composite ID: "bilibili:BV1xx"
 	Name     string    `json:"name"`
 	Artist   string    `json:"artist"`
-	Source   string    `json:"source"`    // "bilibili", "netease"
+	Source   string    `json:"source"` // "bilibili", "netease"
 	PlayedAt time.Time `json:"played_at"`
 }
 
@@ -273,9 +273,15 @@ func (s *Store) save() error {
 	if err != nil {
 		return err
 	}
-	// Ensure parent directory exists
-	if dir := filepath.Dir(s.filePath); dir != "" {
+	// Atomic write: write to temp file, then rename. Prevents partial
+	// writes from corrupting the history if the process crashes mid-write.
+	dir := filepath.Dir(s.filePath)
+	if dir != "" {
 		_ = os.MkdirAll(dir, 0o755)
 	}
-	return os.WriteFile(s.filePath, data, 0o644)
+	tmpPath := s.filePath + ".tmp"
+	if err := os.WriteFile(tmpPath, data, 0o644); err != nil {
+		return err
+	}
+	return os.Rename(tmpPath, s.filePath)
 }

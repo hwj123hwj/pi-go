@@ -249,3 +249,39 @@ func intToStr(n int) string {
 	}
 	return sign + string(digits)
 }
+
+func TestConcurrentAccess(t *testing.T) {
+	s := tempStore(t)
+	done := make(chan struct{})
+
+	// Concurrent writers
+	for i := 0; i < 4; i++ {
+		go func(id int) {
+			for j := 0; j < 50; j++ {
+				s.Record(CategoryCoding, "key-"+intToStr(id*100+j), "val", "test")
+			}
+			done <- struct{}{}
+		}(i)
+	}
+
+	// Concurrent readers (Summary calls)
+	for i := 0; i < 4; i++ {
+		go func() {
+			for j := 0; j < 50; j++ {
+				_ = s.Summary()
+			}
+			done <- struct{}{}
+		}()
+	}
+
+	// Wait for all goroutines
+	for i := 0; i < 8; i++ {
+		<-done
+	}
+
+	// Should not panic, should have correct fact count (capped at maxPerCategory)
+	facts := s.GetFacts(CategoryCoding)
+	if len(facts) > maxPerCategory {
+		t.Errorf("expected at most %d facts, got %d", maxPerCategory, len(facts))
+	}
+}

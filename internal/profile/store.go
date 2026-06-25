@@ -42,16 +42,16 @@ const (
 
 	// Per-category caps: music needs more room (up to 15 artists synced from
 	// pref.Store) while coding/general have fewer facts.
-	maxPerCategory       = 10 // default cap for coding/general
-	maxPerCategoryMusic  = 20 // music needs room for artist: facts
+	maxPerCategory      = 10 // default cap for coding/general
+	maxPerCategoryMusic = 20 // music needs room for artist: facts
 )
 
 // Fact is a single piece of information about the user.
 type Fact struct {
-	Key      string    `json:"key"`      // Unique within category, e.g. "language", "artist:周杰伦"
-	Value    string    `json:"value"`    // e.g. "Go", "playcount:42"
-	Source   string    `json:"source"`   // Which agent recorded this, e.g. "music-agent"
-	Updated  time.Time `json:"updated"`
+	Key     string    `json:"key"`    // Unique within category, e.g. "language", "artist:周杰伦"
+	Value   string    `json:"value"`  // e.g. "Go", "playcount:42"
+	Source  string    `json:"source"` // Which agent recorded this, e.g. "music-agent"
+	Updated time.Time `json:"updated"`
 }
 
 // Store is a persistent, thread-safe user profile.
@@ -362,8 +362,15 @@ func (s *Store) save() error {
 	if err != nil {
 		return err
 	}
-	if dir := filepath.Dir(s.filePath); dir != "" {
+	// Atomic write: write to temp file, then rename. Prevents partial
+	// writes from corrupting the profile if the process crashes mid-write.
+	dir := filepath.Dir(s.filePath)
+	if dir != "" {
 		_ = os.MkdirAll(dir, 0o755)
 	}
-	return os.WriteFile(s.filePath, data, 0o644)
+	tmpPath := s.filePath + ".tmp"
+	if err := os.WriteFile(tmpPath, data, 0o644); err != nil {
+		return err
+	}
+	return os.Rename(tmpPath, s.filePath)
 }
