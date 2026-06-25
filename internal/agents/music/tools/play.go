@@ -8,29 +8,31 @@ import (
 
 	"github.com/hwj123hwj/pi-go/internal/agent"
 	"github.com/hwj123hwj/pi-go/internal/music"
+	"github.com/hwj123hwj/pi-go/internal/music/pref"
 )
 
 // PlayTool plays a song from any source with cross-source fallback.
 type PlayTool struct {
 	router       *music.SourceRouter
 	cache        *music.Cache
+	pref         *pref.Store
 	audioBaseURL string
 }
 
 // PlayDetails is the structured result for the frontend player.
 type PlayDetails struct {
-	SongID       string `json:"song_id"`       // Composite ID
-	SongName     string `json:"song_name"`
-	Artist       string `json:"artist"`
-	ProxyURL     string `json:"proxy_url"`
-	Duration     int    `json:"duration"`      // Duration in seconds (0 if unknown)
-	Source       string `json:"source"`        // "netease" or "bilibili"
-	IsFallback   bool   `json:"is_fallback"`   // true if fell back to B站
+	SongID         string `json:"song_id"`         // Composite ID
+	SongName       string `json:"song_name"`
+	Artist         string `json:"artist"`
+	ProxyURL       string `json:"proxy_url"`
+	Duration       int    `json:"duration"`        // Duration in seconds (0 if unknown)
+	Source         string `json:"source"`          // "netease" or "bilibili"
+	IsFallback     bool   `json:"is_fallback"`     // true if fell back to B站
 	OriginalIntent string `json:"original_intent,omitempty"`
 }
 
-func NewPlayTool(router *music.SourceRouter, cache *music.Cache, audioBaseURL string) *PlayTool {
-	return &PlayTool{router: router, cache: cache, audioBaseURL: audioBaseURL}
+func NewPlayTool(router *music.SourceRouter, cache *music.Cache, prefStore *pref.Store, audioBaseURL string) *PlayTool {
+	return &PlayTool{router: router, cache: cache, pref: prefStore, audioBaseURL: audioBaseURL}
 }
 
 func (t *PlayTool) Name() string { return "music_play" }
@@ -111,6 +113,11 @@ func (t *PlayTool) playByID(ctx context.Context, songID string, isFallback bool)
 	src, _ := music.ParseSourceID(songID)
 	cacheKey := music.AudioKey(string(src), rawID)
 	t.cache.Set(cacheKey, audioURL, music.TTLAudio)
+
+	// Record play in preference store for personalized recommendations
+	if t.pref != nil {
+		t.pref.Record(songID, detail.Name, detail.Artist, string(detail.Source))
+	}
 
 	proxyURL := t.audioBaseURL + "/" + encodeCompositeID(songID)
 

@@ -18,12 +18,13 @@
 - [[source-project-root-v13]] — Re-ingest v13: Workspace inline file editor, PUT /workspace/write-file endpoint (2026-06-25)
 - [[source-project-root-v14]] — Re-ingest v14: Music player robustness fixes (stale URL cache retry, lyrics JSON injection, cache cleanup, audio element reload, error recovery) (2026-06-25)
 - [[source-project-root-v15]] — Re-ingest v15: Music deep-audit round 2 (FD leak fix, 403 stale detection, retry exhaustion, multi-try fallback, React audio lifecycle race) (2026-06-25)
+- [[source-project-root-v16]] — Re-ingest v16: Music personalization (preference store, listening history, fixed-size prompt injection, music_history tool) (2026-06-26)
 
 ## Entities
 - [[agent-core]] — Agent state machine and execution engine
 - [[tool-system]] — 8 built-in tools + optional interfaces + external tools
 - [[web-fetch-tool]] — 8th built-in tool: URL→markdown with SSRF protection
-- [[music-agent]] — Bilibili-primary + NetEase recommendation music application layer (6 tools)
+- [[music-agent]] — Bilibili-primary + NetEase recommendation music application layer (7 tools, preference store for personalization)
 - [[kb-agent]] — Knowledge base agent: search, browse, read, write, maintain (5 tools + desktop KB panel + v9 hardening)
 - [[llm-provider-system]] — Anthropic/OpenAI providers (Mock removed v7, DeepV removed v6)
 - [[session-persistence]] — JSONL append-only with tree branching

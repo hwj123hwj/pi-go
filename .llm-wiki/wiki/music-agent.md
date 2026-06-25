@@ -145,18 +145,45 @@ Extracts song name candidates from query:
 
 The `PlayDetails` struct includes `IsFallback: true` and `Source: "bilibili"` so the frontend can display the source.
 
-## Music Tools (6)
+## Music Tools (7)
 
 | Tool | File | Description |
 |------|------|-------------|
 | `music_search` | `search.go` | Search songs by keyword (supports `source` param) |
-| `music_play` | `play.go` | Play a song by ID or query; cross-source fallback; returns structured `PlayDetails` |
+| `music_play` | `play.go` | Play a song by ID or query; cross-source fallback; returns structured `PlayDetails`; records to pref store |
 | `music_lyrics` | `lyrics.go` | Get LRC lyrics |
 | `music_detail` | `detail.go` | Get song metadata |
 | `music_playlist` | `playlist.go` | Get playlist contents |
 | `music_recommend` | `recommend.go` | Get recommendations (netease: daily recommend; bilibili: music ranking) |
+| `music_history` | `history.go` | Query user's listening history and preference profile (v16) |
 
 Tools support `AllowedTools`/`BlockedTools` filtering (same as [[coding-application]]).
+
+## Personalization & Preference Store (v16)
+
+A lightweight preference system that persists user listening history and injects a **fixed-size** summary into the system prompt.
+
+**Design: Storage/injection decoupled.** Raw data grows (capped at 500 entries via ring buffer), but prompt injection is always ~40 tokens.
+
+### Three-Tier Injection Model
+
+| Tier | Where | Size | When |
+|------|-------|------|------|
+| **Tier 1** | System prompt | ~40 tokens (total plays + top 5 artists) | Always |
+| **Tier 2** | Tool result (conversation) | ~100 tokens (recent + top artists/songs) | On-demand via `music_history` |
+| **Tier 3** | Tool result (conversation) | ~200 tokens (detailed history) | On-demand via `music_history` |
+
+### `pref.Store` (`internal/music/pref/store.go`)
+
+- Thread-safe JSON-backed store at `{DataDir}/music_pref.json`
+- `Record(songID, name, artist, source)` — Called by PlayTool after successful play
+- `Summary() string` — Returns fixed-size prompt string for Tier 1 injection
+- `HistoryDetail(limit)` — Returns recent plays + top artists/songs for Tier 2/3
+- Ring buffer: max 500 records, oldest evicted
+- Aggregates recomputed on each Record() — O(n) where n ≤ 500
+- Corrupt file → starts fresh (no panic)
+
+See [[source-project-root-v16]] for detailed design rationale.
 
 ## MusicApplication
 
@@ -165,6 +192,7 @@ type MusicApplication struct {
     Cfg    config.Config
     Router *music.SourceRouter   // ← multi-source router (was *netease.Client)
     Cache  *music.Cache
+    Pref   *pref.Store           // ← user preference store (v16)
 }
 ```
 
@@ -218,6 +246,7 @@ The music agent is integrated into `pi-agent` via per-session application mode �
 ## Source
 
 - `internal/music/` — Music infrastructure (source.go, router.go, types.go, cache.go, handler.go)
+- `internal/music/pref/` — Preference store (listening history, fixed-size prompt injection)
 - `internal/music/bilibili/` — Bilibili client (client.go, search.go, filter.go, types.go)
 - `internal/music/netease/` — NetEase client
 - `internal/music/netease_adapter.go` — NetEase adapter implementing MusicSource
@@ -241,3 +270,4 @@ The music-agent system prompt (`internal/agents/music/prompt/prompt.go`) has bee
 - [[four-layer-architecture]] — Music agent lives in Application layer; validates the split decision
 - [[personal-assistant-roadmap]] — Music is the first non-coding agent, PoC for memory layer
 - [[source-project-root-v5]] — Documents the bilibili-primary source strategy change
+- [[source-project-root-v16]] — Music personalization (preference store, fixed-size prompt injection)

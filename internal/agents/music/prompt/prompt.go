@@ -5,12 +5,14 @@ import (
 	"strings"
 
 	"github.com/hwj123hwj/pi-go/internal/agent"
+	"github.com/hwj123hwj/pi-go/internal/music/pref"
 )
 
 // Options configures the music-agent system prompt.
 type Options struct {
-	Tools  []agent.Tool
-	Goal   string
+	Tools []agent.Tool
+	Goal  string
+	Pref  *pref.Store // optional; when non-nil, injects a compact preference summary
 }
 
 // BuildSystemPrompt constructs the music-agent system prompt.
@@ -19,6 +21,15 @@ func BuildSystemPrompt(opts Options) string {
 
 	b.WriteString(musicPrompt)
 	b.WriteString("\n")
+
+	// Inject user preference summary (Tier 1: fixed-size, ~40 tokens, never grows)
+	if opts.Pref != nil {
+		if summary := opts.Pref.Summary(); summary != "" {
+			b.WriteString("\n")
+			b.WriteString(summary)
+			b.WriteString("\n")
+		}
+	}
 
 	if len(opts.Tools) > 0 {
 		b.WriteString("\n## Available Tools\n\n")
@@ -33,6 +44,7 @@ func BuildSystemPrompt(opts Options) string {
 	b.WriteString("- After returning search results, suggest the user pick one or offer to play the first result.\n")
 	b.WriteString("- When showing lyrics, highlight the most emotionally resonant lines.\n")
 	b.WriteString("- Use Chinese by default unless the user switches language.\n")
+	b.WriteString("- Use the user's listening preferences (if shown above) to personalize recommendations. Prefer their favorite artists when relevant.\n")
 
 	if opts.Goal != "" {
 		b.WriteString(fmt.Sprintf("\n## Current Goal\n\n%s\n", opts.Goal))
@@ -73,6 +85,7 @@ const musicPrompt = `You are a music assistant with access to Bilibili and NetEa
 | "歌单" / playlist by ID | music_playlist(playlist_id=X) → present songs → offer to play |
 | "歌词" / lyrics | music_lyrics(song_id=X) |
 | "详情" / song info | music_detail(song_id=X) |
+| "我最近听了什么" / "我常听什么" / "根据喜好推荐" | music_history() → based on results, suggest similar music |
 
 **When playing from a list (recommend/search results):**
 Use music_play with the song NAME as query, not song_id. Example:

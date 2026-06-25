@@ -111,7 +111,7 @@ func (f *fakeNetease) newPlayTool() *PlayTool {
 	// Router with netease as default for backward-compat with existing tests.
 	// Production uses bilibili as default (set in tools.go ParseSource).
 	router := music.NewSourceRouter(music.SourceNetease, music.NewNetEaseAdapter(c))
-	return NewPlayTool(router, cache, "http://localhost:0/music/audio")
+	return NewPlayTool(router, cache, nil, "http://localhost:0/music/audio")
 }
 
 func mustExecute(t *testing.T, tool *PlayTool, params map[string]any) agent.ToolResult {
