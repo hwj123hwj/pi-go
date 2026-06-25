@@ -10,26 +10,37 @@ import (
 	"github.com/hwj123hwj/pi-go/internal/config"
 	"github.com/hwj123hwj/pi-go/internal/music"
 	"github.com/hwj123hwj/pi-go/internal/music/pref"
+	"github.com/hwj123hwj/pi-go/internal/profile"
 	"github.com/hwj123hwj/pi-go/internal/runtime"
 )
 
 // MusicApplication implements runtime.Application for the music-agent.
 type MusicApplication struct {
-	Cfg    config.Config
-	Router *music.SourceRouter
-	Cache  *music.Cache
-	Pref   *pref.Store
+	Cfg     config.Config
+	Router  *music.SourceRouter
+	Cache   *music.Cache
+	Pref    *pref.Store
+	Profile *profile.Store // unified user profile
 }
 
 // NewMusicApplication creates a new MusicApplication with multi-source support.
 // A preference store is created in cfg.DataDir for persistent listening history.
-func NewMusicApplication(cfg config.Config, router *music.SourceRouter, cache *music.Cache) MusicApplication {
+// If profileStore is non-nil, music prefs are automatically synced to it.
+func NewMusicApplication(cfg config.Config, router *music.SourceRouter, cache *music.Cache, profileStore *profile.Store) MusicApplication {
 	prefPath := filepath.Join(cfg.DataDir, "music_pref.json")
+	prefStore := pref.NewStore(prefPath)
+
+	// Connect music pref store to unified profile for cross-agent sharing
+	if profileStore != nil {
+		prefStore.SetProfileSyncer(profileStore)
+	}
+
 	return MusicApplication{
-		Cfg:    cfg,
-		Router: router,
-		Cache:  cache,
-		Pref:   pref.NewStore(prefPath),
+		Cfg:     cfg,
+		Router:  router,
+		Cache:   cache,
+		Pref:    prefStore,
+		Profile: profileStore,
 	}
 }
 
@@ -49,9 +60,10 @@ func (a MusicApplication) BuildTools(opts runtime.ToolBuildOptions) []agent.Tool
 // BuildPrompt constructs the music-agent system prompt.
 func (a MusicApplication) BuildPrompt(opts runtime.PromptBuildOptions, profile, goal string) string {
 	return musicprompt.BuildSystemPrompt(musicprompt.Options{
-		Tools: opts.Tools,
-		Goal:  goal,
-		Pref:  a.Pref,
+		Tools:   opts.Tools,
+		Goal:    goal,
+		Pref:    a.Pref,
+		Profile: a.Profile, // unified profile (supersedes music-only summary when present)
 	})
 }
 

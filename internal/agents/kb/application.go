@@ -5,13 +5,15 @@ import (
 	kbprompt "github.com/hwj123hwj/pi-go/internal/agents/kb/prompt"
 	kbtools "github.com/hwj123hwj/pi-go/internal/agents/kb/tools"
 	"github.com/hwj123hwj/pi-go/internal/config"
+	"github.com/hwj123hwj/pi-go/internal/profile"
 	"github.com/hwj123hwj/pi-go/internal/runtime"
 )
 
 // KBApplication implements runtime.Application for the knowledge-base agent.
 type KBApplication struct {
 	Cfg      config.Config
-	RepoPath string // path to agent-lessons repo, e.g. ~/agent-lessons
+	RepoPath string          // path to agent-lessons repo, e.g. ~/agent-lessons
+	Profile  *profile.Store  // unified user profile for personalization
 }
 
 // NewKBApplication creates a new KBApplication.
@@ -19,6 +21,15 @@ func NewKBApplication(cfg config.Config, repoPath string) KBApplication {
 	return KBApplication{
 		Cfg:      cfg,
 		RepoPath: repoPath,
+	}
+}
+
+// NewKBApplicationWithProfile creates a KBApplication with a unified profile store.
+func NewKBApplicationWithProfile(cfg config.Config, repoPath string, profileStore *profile.Store) KBApplication {
+	return KBApplication{
+		Cfg:      cfg,
+		RepoPath: repoPath,
+		Profile:  profileStore,
 	}
 }
 
@@ -34,9 +45,10 @@ func (a KBApplication) BuildTools(opts runtime.ToolBuildOptions) []agent.Tool {
 // BuildPrompt constructs the kb-agent system prompt.
 func (a KBApplication) BuildPrompt(opts runtime.PromptBuildOptions, profile, goal string) string {
 	return kbprompt.BuildSystemPrompt(kbprompt.Options{
-		Tools:    opts.Tools,
-		Goal:     goal,
-		RepoPath: a.RepoPath,
+		Tools:      opts.Tools,
+		Goal:       goal,
+		RepoPath:   a.RepoPath,
+		UserProfile: a.Profile,
 	})
 }
 

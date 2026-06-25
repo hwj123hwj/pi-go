@@ -44,10 +44,11 @@ type aggregates struct {
 
 // Store is a persistent, thread-safe user music preference store.
 type Store struct {
-	mu       sync.Mutex
-	filePath string
-	history  []PlayRecord
-	agg      aggregates
+	mu            sync.Mutex
+	filePath      string
+	history       []PlayRecord
+	agg           aggregates
+	profileSyncer *ProfileSyncer // optional: syncs to unified profile
 }
 
 // NewStore creates a store backed by the given file path.
@@ -87,6 +88,25 @@ func (s *Store) Record(songID, name, artist, source string) {
 
 	s.recomputeAggregates()
 	_ = s.save()
+
+	// Sync to unified profile (if connected)
+	s.syncToProfileUnlocked()
+}
+
+// syncToProfileUnlocked exports music stats to the unified profile without locking.
+// Called internally from Record() which already holds the lock.
+func (s *Store) syncToProfileUnlocked() {
+	if s.profileSyncer == nil || s.profileSyncer.profile == nil {
+		return
+	}
+
+	s.profileSyncer.profile.Record("music", "total_plays",
+		fmt.Sprintf("%d", s.agg.TotalPlays), "music-agent")
+
+	for artist, count := range s.agg.ArtistCounts {
+		s.profileSyncer.profile.Record("music", "artist:"+artist,
+			fmt.Sprintf("%d", count), "music-agent")
+	}
 }
 
 // Summary returns a compact, FIXED-SIZE string for system prompt injection.
@@ -137,6 +157,37 @@ func (s *Store) HistoryDetail(limit int) (recent []PlayRecord, topArtists, topSo
 	topSongs = topN(s.agg.TopSongs, 5)
 	totalPlays = s.agg.TotalPlays
 	return
+}
+
+// SyncToProfile exports aggregated music stats to a unified profile store.
+// Called after every Record() so the unified profile is always up-to-date.
+// This keeps music preferences available to ALL agents (coding, kb, etc.)
+// without those agents needing to import the music package.
+type profileSyncer interface {
+	Record(category, key, value, source string)
+}
+
+// ProfileSyncer holds a reference to the unified profile for syncing.
+type ProfileSyncer struct {
+	profile profileSyncer
+}
+
+// SetProfileSyncer attaches a unified profile syncer.
+// After this is set, every Record() call will also sync to the profile.
+func (s *Store) SetProfileSyncer(ps profileSyncer) {
+	s.mu.Lock()
+	s.profileSyncer = &ProfileSyncer{profile: ps}
+	s.mu.Unlock()
+	// Do an initial sync of existing data
+	s.syncToProfile()
+}
+
+// syncToProfile exports aggregated music stats to a unified profile store.
+// Thread-safe version for external callers.
+func (s *Store) syncToProfile() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.syncToProfileUnlocked()
 }
 
 // ── Internal: aggregation + persistence ────────────────────────────────────

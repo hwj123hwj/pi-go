@@ -5,13 +5,15 @@ import (
 	"strings"
 
 	"github.com/hwj123hwj/pi-go/internal/agent"
+	"github.com/hwj123hwj/pi-go/internal/profile"
 )
 
 // Options configures the kb-agent system prompt.
 type Options struct {
-	Tools    []agent.Tool
-	Goal     string
-	RepoPath string
+	Tools      []agent.Tool
+	Goal       string
+	RepoPath   string
+	UserProfile *profile.Store // unified user profile for personalization
 }
 
 // BuildSystemPrompt constructs the kb-agent system prompt.
@@ -20,6 +22,15 @@ func BuildSystemPrompt(opts Options) string {
 
 	b.WriteString(fmt.Sprintf(kbPrompt, opts.RepoPath))
 	b.WriteString("\n")
+
+	// Inject unified user profile (fixed-size summary, ~80 tokens, never grows)
+	if opts.UserProfile != nil {
+		if summary := opts.UserProfile.Summary(); summary != "" {
+			b.WriteString("\n")
+			b.WriteString(summary)
+			b.WriteString("\n")
+		}
+	}
 
 	if len(opts.Tools) > 0 {
 		b.WriteString("\n## 可用工具\n\n")

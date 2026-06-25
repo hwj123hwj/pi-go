@@ -6,13 +6,15 @@ import (
 
 	"github.com/hwj123hwj/pi-go/internal/agent"
 	"github.com/hwj123hwj/pi-go/internal/music/pref"
+	"github.com/hwj123hwj/pi-go/internal/profile"
 )
 
 // Options configures the music-agent system prompt.
 type Options struct {
-	Tools []agent.Tool
-	Goal  string
-	Pref  *pref.Store // optional; when non-nil, injects a compact preference summary
+	Tools   []agent.Tool
+	Goal    string
+	Pref    *pref.Store    // legacy: music-only preference summary
+	Profile *profile.Store // unified profile (preferred over Pref when non-nil)
 }
 
 // BuildSystemPrompt constructs the music-agent system prompt.
@@ -22,8 +24,15 @@ func BuildSystemPrompt(opts Options) string {
 	b.WriteString(musicPrompt)
 	b.WriteString("\n")
 
-	// Inject user preference summary (Tier 1: fixed-size, ~40 tokens, never grows)
-	if opts.Pref != nil {
+	// Inject unified profile summary (preferred) or fall back to music-only pref.
+	// Both produce fixed-size summaries that never grow with data.
+	if opts.Profile != nil {
+		if summary := opts.Profile.Summary(); summary != "" {
+			b.WriteString("\n")
+			b.WriteString(summary)
+			b.WriteString("\n")
+		}
+	} else if opts.Pref != nil {
 		if summary := opts.Pref.Summary(); summary != "" {
 			b.WriteString("\n")
 			b.WriteString(summary)

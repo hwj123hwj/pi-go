@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 
 	"github.com/hwj123hwj/pi-go/internal/agents/coding"
@@ -18,6 +19,7 @@ import (
 	"github.com/hwj123hwj/pi-go/internal/mode"
 	music "github.com/hwj123hwj/pi-go/internal/music"
 	"github.com/hwj123hwj/pi-go/internal/music/bilibili"
+	userprofile "github.com/hwj123hwj/pi-go/internal/profile"
 	"github.com/hwj123hwj/pi-go/internal/music/netease"
 	"github.com/hwj123hwj/pi-go/internal/runtime"
 	"github.com/hwj123hwj/pi-go/internal/slashcmd"
@@ -73,6 +75,10 @@ func main() {
 		music.NewBilibiliAdapter(biliClient),
 	)
 
+	// Create unified user profile (shared across all agents)
+	profilePath := filepath.Join(cfg.DataDir, "user_profile.json")
+	userProfile := userprofile.NewStore(profilePath)
+
 	// Resolve KB repo path from config (default: ~/agent-lessons)
 	kbRepoPath := cfg.KBRepoPath
 	if kbRepoPath == "" {
@@ -84,11 +90,11 @@ func main() {
 	application, err := app.New(app.AppOptions{
 		Config:      cfg,
 		SkillDirs:   skillDirs(*skillDir),
-		Application: coding.NewCodingApplication(cfg),
+		Application: coding.NewCodingApplicationWithProfile(cfg, userProfile),
 		Applications: map[string]runtime.Application{
-			"coding": coding.NewCodingApplication(cfg),
-			"music":  musicapp.NewMusicApplication(cfg, musicRouter, musicCache),
-			"kb":     kbapp.NewKBApplication(cfg, kbRepoPath),
+			"coding": coding.NewCodingApplicationWithProfile(cfg, userProfile),
+			"music":  musicapp.NewMusicApplication(cfg, musicRouter, musicCache, userProfile),
+			"kb":     kbapp.NewKBApplicationWithProfile(cfg, kbRepoPath, userProfile),
 		},
 	})
 	if err != nil {

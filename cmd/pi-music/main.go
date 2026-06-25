@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"path/filepath"
 
 	musicagent "github.com/hwj123hwj/pi-go/internal/agents/music"
 	"github.com/hwj123hwj/pi-go/internal/app"
@@ -15,6 +16,7 @@ import (
 	"github.com/hwj123hwj/pi-go/internal/music"
 	"github.com/hwj123hwj/pi-go/internal/music/bilibili"
 	"github.com/hwj123hwj/pi-go/internal/music/netease"
+	userprofile "github.com/hwj123hwj/pi-go/internal/profile"
 )
 
 func main() {
@@ -51,10 +53,14 @@ func main() {
 		music.NewBilibiliAdapter(biliClient),
 	)
 
+	// Create unified user profile
+	profilePath := filepath.Join(cfg.DataDir, "user_profile.json")
+	userProfile := userprofile.NewStore(profilePath)
+
 	// Create App with MusicApplication
 	application, err := app.New(app.AppOptions{
 		Config:      cfg,
-		Application: musicagent.NewMusicApplication(cfg, router, cache),
+		Application: musicagent.NewMusicApplication(cfg, router, cache, userProfile),
 	})
 	if err != nil {
 		slog.Error("failed to create app", "error", err)

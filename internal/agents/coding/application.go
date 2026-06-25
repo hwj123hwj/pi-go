@@ -2,10 +2,11 @@ package coding
 
 import (
 	"github.com/hwj123hwj/pi-go/internal/agent"
-	"github.com/hwj123hwj/pi-go/internal/agents/coding/profile"
+	codingprofile "github.com/hwj123hwj/pi-go/internal/agents/coding/profile"
 	codingprompt "github.com/hwj123hwj/pi-go/internal/agents/coding/prompt"
 	codingtools "github.com/hwj123hwj/pi-go/internal/agents/coding/tools"
 	"github.com/hwj123hwj/pi-go/internal/config"
+	userprofile "github.com/hwj123hwj/pi-go/internal/profile"
 	"github.com/hwj123hwj/pi-go/internal/runtime"
 	"github.com/hwj123hwj/pi-go/internal/slashcmd"
 )
@@ -13,12 +14,18 @@ import (
 // CodingApplication implements runtime.Application for the coding-agent.
 // It is the concrete application that gets injected into the Platform layer.
 type CodingApplication struct {
-	Cfg config.Config
+	Cfg     config.Config
+	Profile *userprofile.Store // unified user profile for personalization
 }
 
 // NewCodingApplication creates a new CodingApplication with the given config.
 func NewCodingApplication(cfg config.Config) CodingApplication {
 	return CodingApplication{Cfg: cfg}
+}
+
+// NewCodingApplicationWithProfile creates a CodingApplication with a unified profile store.
+func NewCodingApplicationWithProfile(cfg config.Config, profileStore *userprofile.Store) CodingApplication {
+	return CodingApplication{Cfg: cfg, Profile: profileStore}
 }
 
 // BuildTools assembles the coding-agent toolset based on the provided options.
@@ -49,6 +56,7 @@ func (a CodingApplication) BuildPrompt(opts runtime.PromptBuildOptions, profileN
 		Skills:       opts.Skills,
 		Profile:      profileName,
 		Goal:         goal,
+		UserProfile:  a.Profile,
 	})
 }
 
@@ -60,7 +68,7 @@ func (a CodingApplication) NewSessionExt() runtime.SessionExt {
 
 // Profiles returns the list of available profile names.
 func (CodingApplication) Profiles() []string {
-	return profile.All()
+	return codingprofile.All()
 }
 
 // AvailableModels returns the list of models available for switching.

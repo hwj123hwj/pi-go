@@ -19,6 +19,7 @@
 - [[source-project-root-v14]] — Re-ingest v14: Music player robustness fixes (stale URL cache retry, lyrics JSON injection, cache cleanup, audio element reload, error recovery) (2026-06-25)
 - [[source-project-root-v15]] — Re-ingest v15: Music deep-audit round 2 (FD leak fix, 403 stale detection, retry exhaustion, multi-try fallback, React audio lifecycle race) (2026-06-25)
 - [[source-project-root-v16]] — Re-ingest v16: Music personalization (preference store, listening history, fixed-size prompt injection, music_history tool) (2026-06-26)
+- [[source-project-root-v17]] — Re-ingest v17: Unified user profile (cross-agent second brain, OpenViking-inspired, all agents share fixed-size profile summary) (2026-06-26)
 
 ## Entities
 - [[agent-core]] — Agent state machine and execution engine
@@ -53,7 +54,7 @@
 - [[context-compaction]] — LLM-driven conversation summarization (updated: cross-framework comparison)
 - [[goal-driven-loop]] — Autonomous goal-directed agent execution with LLM evaluator
 - [[operations-abstract]] — Local/SSH execution backend switching
-- [[personal-assistant-roadmap]] — Evolution to general personal assistant, memory layer design (NEW)
+- [[personal-assistant-roadmap]] — Evolution to general personal assistant, memory layer design (unified profile implemented v17)
 - [[competitive-analysis]] — DeepV feature gap analysis, 30+ features prioritized (NEW)
 
 ## Synthesis
