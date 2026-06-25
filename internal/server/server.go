@@ -96,6 +96,7 @@ func (s *Server) Handler() http.Handler {
 	restMux.HandleFunc("GET /workspace/search-files", s.searchFiles)
 	restMux.HandleFunc("GET /workspace/read-file", s.workspaceReadFile)
 	restMux.HandleFunc("GET /workspace/read-file-base64", s.workspaceReadFileBase64)
+	restMux.HandleFunc("PUT /workspace/write-file", s.workspaceWriteFile)
 
 	// Knowledge base browser endpoints
 	s.registerKBRoutes(restMux)
@@ -1166,6 +1167,37 @@ func (s *Server) workspaceReadFileBase64(w http.ResponseWriter, r *http.Request)
 		"data":     base64.StdEncoding.EncodeToString(data),
 		"mimeType": mimeType,
 	})
+}
+
+// ─── PUT /workspace/write-file?path=... ──────────────────────────────────────
+
+func (s *Server) workspaceWriteFile(w http.ResponseWriter, r *http.Request) {
+	path := r.URL.Query().Get("path")
+	if path == "" {
+		writeError(w, http.StatusBadRequest, "path is required")
+		return
+	}
+
+	var req writeFileRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	// Ensure parent directory exists
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to create directory: "+err.Error())
+		return
+	}
+
+	if err := os.WriteFile(path, []byte(req.Content), 0644); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to write file: "+err.Error())
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 }
 
 func corsMiddleware(next http.Handler) http.Handler {

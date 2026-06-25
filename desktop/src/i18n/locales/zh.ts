@@ -397,6 +397,10 @@ export const zh = {
   'files.source': '源码',
   'files.binary': '二进制文件',
   'files.loadFailed': '文件加载失败',
+  'files.edit': '编辑',
+  'files.save': '保存',
+  'files.cancel': '取消',
+  'files.unsaved': '未保存',
 
   // ── code context menu ──
   'codeMenu.searchGoogle': '用 Google 搜索',

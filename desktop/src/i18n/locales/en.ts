@@ -399,6 +399,10 @@ export const en = {
   'files.source': 'Source',
   'files.binary': 'Binary file',
   'files.loadFailed': 'Failed to load file',
+  'files.edit': 'Edit',
+  'files.save': 'Save',
+  'files.cancel': 'Cancel',
+  'files.unsaved': 'Unsaved',
 
   // ── code context menu ──
   'codeMenu.searchGoogle': 'Search with Google',

@@ -73,6 +73,15 @@ async function readFileBase64(path: string): Promise<{ data: string; mimeType: s
   return res.json();
 }
 
+async function writeFileText(path: string, content: string): Promise<boolean> {
+  const res = await fetch(`${getBaseUrl()}/workspace/write-file?path=${encodeURIComponent(path)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ content }),
+  });
+  return res.ok;
+}
+
 export function FilesPanel() {
   const activeId = useStore((s) => s.activeSessionId);
   const meta = useStore((s) => (activeId ? s.sessions[activeId]?.meta : undefined));
@@ -450,13 +459,20 @@ type Loaded =
 function FileContent({ path, t }: { path: string; t: TFunc }) {
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const isMarkdown = MARKDOWN_EXT.test(path);
+  const isImage = IMAGE_EXT.test(path);
   const [preview, setPreview] = useState(true);
+  const [editing, setEditing] = useState(false);
+  const [editContent, setEditContent] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [dirty, setDirty] = useState(false);
 
   useEffect(() => {
     setLoaded(null);
     setPreview(true);
+    setEditing(false);
+    setDirty(false);
     let alive = true;
-    if (IMAGE_EXT.test(path)) {
+    if (isImage) {
       void readFileBase64(path)
         .then((b64) =>
           alive && setLoaded(b64 ? { kind: 'image', url: `data:${b64.mimeType};base64,${b64.data}` } : { kind: 'binary' }),
@@ -475,7 +491,34 @@ function FileContent({ path, t }: { path: string; t: TFunc }) {
     return () => {
       alive = false;
     };
-  }, [path]);
+  }, [path, isImage]);
+
+  const handleStartEdit = () => {
+    if (loaded?.kind === 'text') {
+      setEditContent(loaded.text);
+      setEditing(true);
+      setDirty(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditing(false);
+    setEditContent('');
+    setDirty(false);
+  };
+
+  const handleSave = async () => {
+    if (!loaded || loaded.kind !== 'text') return;
+    setSaving(true);
+    const ok = await writeFileText(path, editContent);
+    setSaving(false);
+    if (ok) {
+      // Update loaded content to reflect saved state
+      setLoaded({ kind: 'text', text: editContent });
+      setEditing(false);
+      setDirty(false);
+    }
+  };
 
   if (!loaded) {
     return (
@@ -511,10 +554,12 @@ function FileContent({ path, t }: { path: string; t: TFunc }) {
   }
 
   // text
+  const canEdit = loaded.kind === 'text';
+
   return (
     <div className="file-content">
-      {isMarkdown && (
-        <div className="file-content-toolbar">
+      <div className="file-content-toolbar">
+        {isMarkdown && !editing && (
           <div className="views-menu">
             <button className={preview ? 'active' : ''} onClick={() => setPreview(true)}>
               {t('files.preview')}
@@ -523,9 +568,44 @@ function FileContent({ path, t }: { path: string; t: TFunc }) {
               {t('files.source')}
             </button>
           </div>
-        </div>
-      )}
-      {isMarkdown && preview ? (
+        )}
+        {(isMarkdown && !editing) && <span className="grow" />}
+        {!editing && canEdit && (
+          <button className="file-edit-btn" onClick={handleStartEdit} title={t('files.edit')}>
+            <Icon name="edit" size={13} />
+            <span>{t('files.edit')}</span>
+          </button>
+        )}
+        {editing && (
+          <>
+            <span className={`file-dirty-indicator ${dirty ? 'visible' : ''}`}>
+              <span className="file-dirty-dot" />
+              {t('files.unsaved')}
+            </span>
+            <span className="grow" />
+            <button className="file-edit-btn cancel" onClick={handleCancelEdit} disabled={saving}>
+              <Icon name="x" size={13} />
+              <span>{t('files.cancel')}</span>
+            </button>
+            <button className="file-edit-btn save" onClick={handleSave} disabled={saving || !dirty}>
+              <Icon name={saving ? 'loader' : 'check'} size={13} spin={saving} />
+              <span>{t('files.save')}</span>
+            </button>
+          </>
+        )}
+      </div>
+      {editing ? (
+        <textarea
+          className="file-edit-area"
+          value={editContent}
+          onChange={(e) => {
+            setEditContent(e.target.value);
+            setDirty(e.target.value !== (loaded.kind === 'text' ? loaded.text : ''));
+          }}
+          spellCheck={false}
+          autoFocus
+        />
+      ) : isMarkdown && preview ? (
         <div className="file-md">
           <Markdown text={loaded.text} basePath={path} />
         </div>

@@ -2,6 +2,10 @@
 
 > Chronological record of wiki operations.
 
+## [2026-06-25] ingest | Project Root (.) — v13: Workspace inline file editor
+- **Created** `source-project-root-v13.md` — New feature: inline file editing in FilesPanel with PUT /workspace/write-file backend endpoint
+- **Updated** `index.md` — Added source-project-root-v13
+
 ## [2026-06-25] ingest | Project Root (.) — v12: Desktop chat smart scroll & KB tag view loading
 - **Created** `source-project-root-v12.md` — Source summary: chat auto-scroll hijacking user scroll position, KB tag view empty list during loading, tag back button tooltip
 - **Updated** `index.md` — Added source-project-root-v12
