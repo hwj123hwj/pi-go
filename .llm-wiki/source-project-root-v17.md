@@ -119,7 +119,20 @@ Coding Agent (deep) ───┘    └─────────────�
 | `cmd/pi-agent/main.go` | Create + wire unified profile |
 | `cmd/pi-music/main.go` | Create + wire unified profile |
 
-## Code Review Findings & Fixes (post-review)
+## Second Code Review: Remaining Issues & Fixes
+
+### Bug 4: 16× disk writes per song play (performance, round 2)
+- **Problem**: Previous fix reduced from O(N) to top-15, but each artist still called `profile.Record()` individually → 16 disk writes per play. With frequent play, this is still excessive I/O.
+- **Fix**: Replaced 16 `Record()` calls with a single `RecordBatch()` call. Now **1 disk write per play**.
+
+### Bug 5: formatCategory loses semantic keys (clarity)
+- **Problem**: For coding/general categories, the summary joined raw values: `- 开发：Go、macOS`. This is ambiguous — is "Go" a language? A tool? An OS?
+- **Fix**: Changed to `key: value` format: `- 开发：language: Go、os: macOS`. The key provides context.
+
+### Code smell 6: ProfileSyncer wrapper indirection (simplification)
+- **Problem**: `ProfileSyncer` was a struct wrapping a `profileSyncer` interface, stored as `*ProfileSyncer`. The struct added zero value — it just forwarded calls.
+- **Fix**: Removed the wrapper struct entirely. `Store.profileSyncer` is now directly the interface type. Cleaner, less indirection.
+- Also extended the `profileSyncer` interface to include `RecordBatch()` so batch sync uses a single write.
 
 ### Bug 1: N+1 disk writes per music play (performance)
 - **Problem**: `syncToProfileUnlocked()` iterated ALL artists in `ArtistCounts` map and called `profile.Record()` for each. Each `Record()` does a full JSON marshal + `os.WriteFile`. With 200 unique artists, that's **200 disk writes per song play**.

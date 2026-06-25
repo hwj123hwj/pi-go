@@ -48,7 +48,7 @@ type Store struct {
 	filePath      string
 	history       []PlayRecord
 	agg           aggregates
-	profileSyncer *ProfileSyncer // optional: syncs to unified profile
+	profileSyncer profileSyncer // optional: syncs to unified profile
 }
 
 // NewStore creates a store backed by the given file path.
@@ -96,24 +96,23 @@ func (s *Store) Record(songID, name, artist, source string) {
 // syncToProfileUnlocked exports music stats to the unified profile without locking.
 // Called internally from Record() which already holds the lock.
 //
-// IMPORTANT: Only syncs TOP 15 artists (not all) to avoid:
-// 1. O(N) disk writes per play when user has many unique artists
-// 2. Profile store eviction (maxPerCategory=20 for music) corrupting top-5 ranking
+// Uses RecordBatch for a SINGLE disk write instead of 16 separate writes.
 func (s *Store) syncToProfileUnlocked() {
-	if s.profileSyncer == nil || s.profileSyncer.profile == nil {
+	if s.profileSyncer == nil {
 		return
 	}
 
-	s.profileSyncer.profile.Record("music", "total_plays",
-		fmt.Sprintf("%d", s.agg.TotalPlays), "music-agent")
+	items := make(map[string]string, 16)
+	items["total_plays"] = fmt.Sprintf("%d", s.agg.TotalPlays)
 
 	// Only sync top 15 artists — enough for the profile's top-5 summary,
 	// and avoids flooding the profile store with hundreds of low-count entries.
 	topArtists := topNWithCounts(s.agg.ArtistCounts, 15)
 	for _, a := range topArtists {
-		s.profileSyncer.profile.Record("music", "artist:"+a.key,
-			fmt.Sprintf("%d", a.count), "music-agent")
+		items["artist:"+a.key] = fmt.Sprintf("%d", a.count)
 	}
+
+	s.profileSyncer.RecordBatch("music", "music-agent", items)
 }
 
 // Summary returns a compact, FIXED-SIZE string for system prompt injection.
@@ -166,24 +165,18 @@ func (s *Store) HistoryDetail(limit int) (recent []PlayRecord, topArtists, topSo
 	return
 }
 
-// SyncToProfile exports aggregated music stats to a unified profile store.
-// Called after every Record() so the unified profile is always up-to-date.
-// This keeps music preferences available to ALL agents (coding, kb, etc.)
-// without those agents needing to import the music package.
+// profileSyncer is the interface to the unified profile store.
+// Using an interface keeps the pref package free from importing profile.
 type profileSyncer interface {
 	Record(category, key, value, source string)
-}
-
-// ProfileSyncer holds a reference to the unified profile for syncing.
-type ProfileSyncer struct {
-	profile profileSyncer
+	RecordBatch(category, source string, items map[string]string)
 }
 
 // SetProfileSyncer attaches a unified profile syncer.
 // After this is set, every Record() call will also sync to the profile.
 func (s *Store) SetProfileSyncer(ps profileSyncer) {
 	s.mu.Lock()
-	s.profileSyncer = &ProfileSyncer{profile: ps}
+	s.profileSyncer = ps
 	s.mu.Unlock()
 	// Do an initial sync of existing data
 	s.syncToProfile()

@@ -245,6 +245,7 @@ func (s *Store) allEmpty() bool {
 
 // formatCategory formats a category's facts into a single summary line.
 // Music artist facts (key prefix "artist:") get special formatting.
+// For other categories, facts are shown as "key: value" pairs for clarity.
 func (s *Store) formatCategory(category, label string) string {
 	cat, ok := s.facts[category]
 	if !ok || len(cat) == 0 {
@@ -256,7 +257,8 @@ func (s *Store) formatCategory(category, label string) string {
 		return s.formatMusicCategory(cat)
 	}
 
-	// Generic formatting: collect all values, join with "、"
+	// For coding/general: show "key: value" pairs joined by "、"
+	// This preserves semantic meaning (e.g. "语言: Go" vs just "Go")
 	var facts []Fact
 	for _, f := range cat {
 		facts = append(facts, f)
@@ -265,17 +267,17 @@ func (s *Store) formatCategory(category, label string) string {
 		return facts[i].Updated.After(facts[j].Updated)
 	})
 
-	values := make([]string, 0, len(facts))
+	parts := make([]string, 0, len(facts))
 	for _, f := range facts {
 		if f.Value != "" {
-			values = append(values, f.Value)
+			parts = append(parts, fmt.Sprintf("%s: %s", f.Key, f.Value))
 		}
 	}
-	if len(values) == 0 {
+	if len(parts) == 0 {
 		return ""
 	}
 
-	return fmt.Sprintf("- %s：%s", label, strings.Join(values, "、"))
+	return fmt.Sprintf("- %s：%s", label, strings.Join(parts, "、"))
 }
 
 // formatMusicCategory formats music facts: top artists + total play count.
