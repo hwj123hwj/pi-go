@@ -40,7 +40,10 @@ const (
 	// CategoryGeneral holds general facts (location, language, timezone, etc.)
 	CategoryGeneral = "general"
 
-	maxPerCategory = 10 // max facts per category; oldest evicted
+	// Per-category caps: music needs more room (up to 15 artists synced from
+	// pref.Store) while coding/general have fewer facts.
+	maxPerCategory       = 10 // default cap for coding/general
+	maxPerCategoryMusic  = 20 // music needs room for artist: facts
 )
 
 // Fact is a single piece of information about the user.
@@ -87,7 +90,7 @@ func (s *Store) Record(category, key, value, source string) {
 	}
 
 	// Evict oldest if over limit
-	if len(cat) > maxPerCategory {
+	if len(cat) > s.maxForCategory(category) {
 		s.evictOldest(category)
 	}
 
@@ -112,10 +115,18 @@ func (s *Store) RecordBatch(category, source string, items map[string]string) {
 			Updated: now,
 		}
 	}
-	if len(cat) > maxPerCategory {
+	if len(cat) > s.maxForCategory(category) {
 		s.evictOldest(category)
 	}
 	_ = s.save()
+}
+
+// maxForCategory returns the per-category cap.
+func (s *Store) maxForCategory(category string) int {
+	if category == CategoryMusic {
+		return maxPerCategoryMusic
+	}
+	return maxPerCategory
 }
 
 // Remove deletes a fact from the profile.
@@ -200,7 +211,8 @@ func (s *Store) getOrCreateCategory(category string) map[string]Fact {
 
 func (s *Store) evictOldest(category string) {
 	cat := s.facts[category]
-	if len(cat) <= maxPerCategory {
+	limit := s.maxForCategory(category)
+	if len(cat) <= limit {
 		return
 	}
 	// Find and remove the oldest entries
@@ -216,7 +228,7 @@ func (s *Store) evictOldest(category string) {
 		return entries[i].t.Before(entries[j].t)
 	})
 	// Remove oldest until we're at capacity
-	toRemove := len(entries) - maxPerCategory
+	toRemove := len(entries) - limit
 	for i := 0; i < toRemove; i++ {
 		delete(cat, entries[i].key)
 	}

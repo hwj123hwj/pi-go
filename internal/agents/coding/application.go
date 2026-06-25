@@ -21,11 +21,6 @@ func NewCodingApplication(cfg config.Config) CodingApplication {
 	return CodingApplication{Cfg: cfg}
 }
 
-// NewCodingApplicationWithProfile creates a CodingApplication with a unified profile store.
-func NewCodingApplicationWithProfile(cfg config.Config) CodingApplication {
-	return CodingApplication{Cfg: cfg}
-}
-
 // BuildTools assembles the coding-agent toolset based on the provided options.
 func (a CodingApplication) BuildTools(opts runtime.ToolBuildOptions) []agent.Tool {
 	mutationQueue := codingtools.NewFileMutationQueue()

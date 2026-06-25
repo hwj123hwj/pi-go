@@ -119,7 +119,24 @@ Coding Agent (deep) ───┘    └─────────────�
 | `cmd/pi-agent/main.go` | Create + wire unified profile |
 | `cmd/pi-music/main.go` | Create + wire unified profile |
 
-## Cross-references
+## Code Review Findings & Fixes (post-review)
+
+### Bug 1: N+1 disk writes per music play (performance)
+- **Problem**: `syncToProfileUnlocked()` iterated ALL artists in `ArtistCounts` map and called `profile.Record()` for each. Each `Record()` does a full JSON marshal + `os.WriteFile`. With 200 unique artists, that's **200 disk writes per song play**.
+- **Fix**: Only sync TOP 15 artists (refactored to use `topNWithCounts`). 15 is enough for the profile's top-5 summary display, and limits writes to ~16 per play.
+
+### Bug 2: Profile eviction corrupts artist ranking (correctness)
+- **Problem**: `profile.Store` had `maxPerCategory=10` for all categories. Music had up to 200 artist facts synced, so eviction kicked in — but eviction was by oldest timestamp, not by play count. This meant the top-5 artists shown in the summary could be wrong: a high-count artist synced early could be evicted in favor of a low-count artist synced recently.
+- **Fix**: Set `maxPerCategoryMusic=20` for music (enough headroom for top-15 sync + total_plays). Added `maxForCategory()` method for per-category cap resolution.
+
+### Code smell 3: Dead code in coding agent
+- **Problem**: `NewCodingApplicationWithProfile()` was a no-op wrapper (coding agent doesn't use profile). It was called from `main.go` creating confusion.
+- **Fix**: Removed `NewCodingApplicationWithProfile()`. Coding agent uses plain `NewCodingApplication()`.
+
+### Design audit: Domain isolation confirmed correct
+- Coding agent: **no profile injection** — relies on `.llm-wiki/` + project context ✅
+- Music agent: `SummaryForCategories(music, general)` — only sees relevant domains ✅
+- KB agent: full `Summary()` — sees all domains (it's the second brain) ✅
 - [[source-project-root-v16]] — Music preference store (predecessor)
 - [[music-agent]] — Music application (now syncs to unified profile)
 - [[kb-agent]] — KB application (now receives profile summary)

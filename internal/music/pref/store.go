@@ -95,6 +95,10 @@ func (s *Store) Record(songID, name, artist, source string) {
 
 // syncToProfileUnlocked exports music stats to the unified profile without locking.
 // Called internally from Record() which already holds the lock.
+//
+// IMPORTANT: Only syncs TOP 15 artists (not all) to avoid:
+// 1. O(N) disk writes per play when user has many unique artists
+// 2. Profile store eviction (maxPerCategory=20 for music) corrupting top-5 ranking
 func (s *Store) syncToProfileUnlocked() {
 	if s.profileSyncer == nil || s.profileSyncer.profile == nil {
 		return
@@ -103,9 +107,12 @@ func (s *Store) syncToProfileUnlocked() {
 	s.profileSyncer.profile.Record("music", "total_plays",
 		fmt.Sprintf("%d", s.agg.TotalPlays), "music-agent")
 
-	for artist, count := range s.agg.ArtistCounts {
-		s.profileSyncer.profile.Record("music", "artist:"+artist,
-			fmt.Sprintf("%d", count), "music-agent")
+	// Only sync top 15 artists — enough for the profile's top-5 summary,
+	// and avoids flooding the profile store with hundreds of low-count entries.
+	topArtists := topNWithCounts(s.agg.ArtistCounts, 15)
+	for _, a := range topArtists {
+		s.profileSyncer.profile.Record("music", "artist:"+a.key,
+			fmt.Sprintf("%d", a.count), "music-agent")
 	}
 }
 
@@ -216,13 +223,25 @@ func (s *Store) recomputeAggregates() {
 
 // topN returns the top N keys from a frequency map, sorted by count desc.
 func topN(counts map[string]int, n int) []string {
-	type kv struct {
-		key   string
-		count int
+	pairs := topNWithCounts(counts, n)
+	result := make([]string, len(pairs))
+	for i, p := range pairs {
+		result[i] = p.key
 	}
-	pairs := make([]kv, 0, len(counts))
+	return result
+}
+
+// kvPair is a key-count pair used by topNWithCounts.
+type kvPair struct {
+	key   string
+	count int
+}
+
+// topNWithCounts returns the top N key-count pairs, sorted by count desc.
+func topNWithCounts(counts map[string]int, n int) []kvPair {
+	pairs := make([]kvPair, 0, len(counts))
 	for k, v := range counts {
-		pairs = append(pairs, kv{k, v})
+		pairs = append(pairs, kvPair{k, v})
 	}
 	sort.Slice(pairs, func(i, j int) bool {
 		if pairs[i].count != pairs[j].count {
@@ -233,11 +252,7 @@ func topN(counts map[string]int, n int) []string {
 	if len(pairs) > n {
 		pairs = pairs[:n]
 	}
-	result := make([]string, len(pairs))
-	for i, p := range pairs {
-		result[i] = p.key
-	}
-	return result
+	return pairs
 }
 
 // ── Persistence ─────────────────────────────────────────────────────────────
