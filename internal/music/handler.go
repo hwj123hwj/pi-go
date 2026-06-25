@@ -2,6 +2,7 @@ package music
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
@@ -57,11 +58,29 @@ func (h *Handler) handleAudio(w http.ResponseWriter, r *http.Request) {
 		referer = "https://www.bilibili.com"
 	}
 
-	// Proxy the audio stream
+	// Attempt to proxy the audio stream.
+	// If the upstream URL returns a 404/410 (gone) we invalidate the cached URL
+	// and retry once with a freshly-fetched URL, since NetEase CDN URLs expire.
+	if !h.proxyAudio(w, r, audioURL, referer) {
+		slog.Info("audio URL stale, invalidating cache and retrying", "song_id", compositeID)
+		h.cache.Delete(AudioKey(string(src), rawID))
+		audioURL, err = h.getAudioURL(src, rawID)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("audio not available: %v", err), http.StatusNotFound)
+			return
+		}
+		h.proxyAudio(w, r, audioURL, referer)
+	}
+}
+
+// proxyAudio performs the actual upstream HTTP request and stream copy.
+// Returns false if the upstream returned 404/410 (URL stale) so the caller
+// can invalidate cache and retry. Returns true in all other cases.
+func (h *Handler) proxyAudio(w http.ResponseWriter, r *http.Request, audioURL, referer string) bool {
 	req, err := http.NewRequestWithContext(r.Context(), "GET", audioURL, nil)
 	if err != nil {
 		http.Error(w, "failed to create proxy request", http.StatusInternalServerError)
-		return
+		return true // not a stale URL, don't retry
 	}
 	req.Header.Set("Referer", referer)
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36")
@@ -72,8 +91,15 @@ func (h *Handler) handleAudio(w http.ResponseWriter, r *http.Request) {
 	resp, err := audioProxyClient.Do(req)
 	if err != nil {
 		http.Error(w, "failed to fetch audio", http.StatusBadGateway)
-		return
+		return true
 	}
+
+	// 404/410 from upstream = URL is stale/expired → tell caller to retry
+	if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusGone {
+		resp.Body.Close()
+		return false
+	}
+
 	defer resp.Body.Close()
 
 	// Passthrough headers
@@ -97,6 +123,7 @@ func (h *Handler) handleAudio(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(resp.StatusCode)
 	_, _ = io.Copy(w, resp.Body)
+	return true
 }
 
 // handleLyrics returns LRC lyrics as JSON.
@@ -117,10 +144,13 @@ func (h *Handler) handleLyrics(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "public, max-age=86400")
-	// Escape newlines for JSON string safety
-	lrc := strings.ReplaceAll(lyrics.LRC, "\n", "\\n")
-	tlyric := strings.ReplaceAll(lyrics.TransLRC, "\n", "\\n")
-	fmt.Fprintf(w, `{"lrc":"%s","tlyric":"%s"}`, lrc, tlyric)
+	// Use json.Marshal for proper escaping of quotes, backslashes, control chars, etc.
+	payload := struct {
+		LRC    string `json:"lrc"`
+		Tlyric string `json:"tlyric"`
+	}{LRC: lyrics.LRC, Tlyric: lyrics.TransLRC}
+	jsonData, _ := json.Marshal(payload)
+	w.Write(jsonData)
 }
 
 func (h *Handler) getAudioURL(src Source, rawID string) (string, error) {
@@ -186,4 +216,20 @@ func parseCompositeID(id string) (Source, string) {
 		return Source(id[:idx]), id[idx+1:]
 	}
 	return ParseSourceID(id)
+}
+
+// itoa converts an int64 to its decimal string representation without
+// allocating a format buffer. Used by handler tests.
+func itoa(n int64) string {
+	if n == 0 {
+		return "0"
+	}
+	var buf [20]byte
+	i := len(buf)
+	for n > 0 {
+		i--
+		buf[i] = byte('0' + n%10)
+		n /= 10
+	}
+	return string(buf[i:])
 }

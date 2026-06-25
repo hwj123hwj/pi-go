@@ -96,16 +96,20 @@ export function MusicPlayer({ resultText, details }: MusicPlayerProps) {
   }
 
   const handlePlay = () => {
-    // If already the active track, toggle play/pause
+    // If already the active track, toggle play/pause (or retry on error)
     if (isActive) {
-      useStore.getState().toggleMusic();
+      if (globalMusic.error) {
+        playMusic({ songName, artist, audioURL, duration: det?.duration || 0 });
+      } else {
+        useStore.getState().toggleMusic();
+      }
     } else {
       // Otherwise, load this song into the global player
       playMusic({ songName, artist, audioURL, duration: det?.duration || 0 });
     }
   };
 
-  const showPause = isActive && globalMusic.playing;
+  const showPause = isActive && globalMusic.playing && !globalMusic.error;
 
   return (
     <div className="music-player">
@@ -121,10 +125,10 @@ export function MusicPlayer({ resultText, details }: MusicPlayerProps) {
         <button
           className="music-player-btn"
           onClick={handlePlay}
-          disabled={isActive && globalMusic.error}
-          title={showPause ? t('music.pause') : t('music.play')}
+          disabled={false}
+          title={isActive && globalMusic.error ? t('music.retry') : showPause ? t('music.pause') : t('music.play')}
         >
-          {isActive && globalMusic.error ? '✗' : showPause ? '⏸' : '▶'}
+          {isActive && globalMusic.error ? '↻' : showPause ? '⏸' : '▶'}
         </button>
 
         {isActive && (

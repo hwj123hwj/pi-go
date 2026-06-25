@@ -346,6 +346,7 @@ export const zh = {
   'music.loadFailed': '音频加载失败',
   'music.play': '播放',
   'music.pause': '暂停',
+  'music.retry': '重试',
   'music.volume': '音量',
   'music.nowPlaying': '正在播放：{name}',
   // ── workspace (right sidebar + layout toggles) ────────────────────────────

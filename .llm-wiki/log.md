@@ -2,6 +2,10 @@
 
 > Chronological record of wiki operations.
 
+## [2026-06-25] ingest | Project Root (.) — v14: Music player robustness fixes
+- **Created** `source-project-root-v14.md` — 6 music bugs fixed: stale URL cache retry, lyrics JSON injection, cache memory growth, dead code, audio element src reload, error recovery button
+- **Updated** `index.md` — Added source-project-root-v14
+
 ## [2026-06-25] ingest | Project Root (.) — v13: Workspace inline file editor
 - **Created** `source-project-root-v13.md` — New feature: inline file editing in FilesPanel with PUT /workspace/write-file backend endpoint
 - **Updated** `index.md` — Added source-project-root-v13

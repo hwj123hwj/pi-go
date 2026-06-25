@@ -26,6 +26,7 @@ export function GlobalMusicBar() {
   const setMusicDuration = useStore((s) => s.setMusicDuration);
   const setMusicError = useStore((s) => s.setMusicError);
   const toggleMusic = useStore((s) => s.toggleMusic);
+  const playMusic = useStore((s) => s.playMusic);
   const t = useT();
 
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -60,6 +61,16 @@ export function GlobalMusicBar() {
     };
   }, [setMusicTime, setMusicDuration, setMusicPlaying, setMusicError]);
 
+  // Force-reload the audio element when src changes (new song selected).
+  // React updates the src attribute but the media element needs .load()
+  // to actually abandon the old source and start loading the new one.
+  const audioURL = music.current?.audioURL ?? '';
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio || !audioURL) return;
+    audio.load();
+  }, [audioURL]);
+
   // Auto play / pause when store state changes
   useEffect(() => {
     const audio = audioRef.current;
@@ -75,7 +86,19 @@ export function GlobalMusicBar() {
   // Nothing to show if no song loaded
   if (!music.current) return null;
 
-  const audioURL = music.current.audioURL;
+  // Error recovery: re-dispatch the same track to clear error and retry
+  const handleRetry = () => {
+    if (!music.current) return;
+    playMusic(music.current);
+  };
+
+  const handleButtonClick = () => {
+    if (music.error) {
+      handleRetry();
+    } else {
+      toggleMusic();
+    }
+  };
 
   return (
     <div className="global-music-bar">
@@ -96,11 +119,10 @@ export function GlobalMusicBar() {
       <div className="gm-controls">
         <button
           className="gm-btn"
-          onClick={toggleMusic}
-          disabled={music.error}
-          title={music.playing ? t('music.pause') : t('music.play')}
+          onClick={handleButtonClick}
+          title={music.error ? t('music.retry') : music.playing ? t('music.pause') : t('music.play')}
         >
-          {music.error ? '✗' : music.playing ? '⏸' : '▶'}
+          {music.error ? '↻' : music.playing ? '⏸' : '▶'}
         </button>
 
         <span className="gm-time">{formatTime(music.currentTime)}</span>
@@ -112,7 +134,7 @@ export function GlobalMusicBar() {
           max={music.duration || 0}
           step={0.1}
           value={music.currentTime}
-          disabled={music.error || !music.duration}
+          disabled={!music.duration}
           onChange={(e) => {
             const time = parseFloat(e.target.value);
             if (audioRef.current) audioRef.current.currentTime = time;

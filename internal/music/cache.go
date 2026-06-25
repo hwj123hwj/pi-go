@@ -35,12 +35,28 @@ func (c *Cache) Get(key string) any {
 	return e.value
 }
 
+// Delete removes a key from the cache (no-op if not present).
+func (c *Cache) Delete(key string) {
+	c.mu.Lock()
+	delete(c.data, key)
+	c.mu.Unlock()
+}
+
 // Set stores a value in the cache with the given TTL.
 func (c *Cache) Set(key string, value any, ttl time.Duration) {
 	c.mu.Lock()
 	c.data[key] = entry{
 		value:     value,
 		expiresAt: time.Now().Add(ttl),
+	}
+	// Opportunistic cleanup: purge expired entries every 128 inserts to bound memory.
+	if len(c.data) > 128 && len(c.data)%128 == 0 {
+		now := time.Now()
+		for k, e := range c.data {
+			if now.After(e.expiresAt) {
+				delete(c.data, k)
+			}
+		}
 	}
 	c.mu.Unlock()
 }
@@ -57,17 +73,3 @@ func AudioKey(source, rawID string) string { return "audio:" + source + ":" + ra
 
 // LyricsKey returns a cache key for lyrics, with source prefix.
 func LyricsKey(source, rawID string) string { return "lyrics:" + source + ":" + rawID }
-
-func itoa(n int64) string {
-	if n == 0 {
-		return "0"
-	}
-	var buf [20]byte
-	i := len(buf)
-	for n > 0 {
-		i--
-		buf[i] = byte('0' + n%10)
-		n /= 10
-	}
-	return string(buf[i:])
-}

@@ -348,6 +348,7 @@ export const en = {
   'music.loadFailed': 'Failed to load audio',
   'music.play': 'Play',
   'music.pause': 'Pause',
+  'music.retry': 'Retry',
   'music.volume': 'Volume',
   'music.nowPlaying': 'Now playing: {name}',
   // ── workspace (right sidebar + layout toggles) ────────────────────────────
