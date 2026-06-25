@@ -11,13 +11,31 @@ export function ChatPane({ view }: { view: SessionView }) {
   const density = view.density;
   const t = useT();
   const bottomRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const stickToBottomRef = useRef(true);
 
   const busy = view.meta.status === 'thinking' || view.meta.status === 'starting';
   const last = view.transcript[view.transcript.length - 1];
   const showDots = busy && (!last || last.kind !== 'assistant');
 
+  // Track whether the user is scrolled to the bottom of the transcript.
+  // If not, don't auto-scroll on new messages (respect their scroll position).
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'auto' });
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    const onScroll = () => {
+      const threshold = 80; // px from bottom considered "at the bottom"
+      stickToBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < threshold;
+    };
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => el.removeEventListener('scroll', onScroll);
+  }, []);
+
+  // Auto-scroll to bottom only if the user hasn't scrolled up
+  useEffect(() => {
+    if (stickToBottomRef.current) {
+      bottomRef.current?.scrollIntoView({ behavior: 'auto' });
+    }
   }, [view.transcript, showDots]);
 
   // Listen for file path clicks in Markdown — open in right sidebar Files panel
@@ -34,7 +52,7 @@ export function ChatPane({ view }: { view: SessionView }) {
   }, [view.meta.id]);
 
   return (
-    <div className="pane-body">
+    <div className="pane-body" ref={scrollContainerRef}>
       <div className="transcript">
         {view.transcript.length === 0 && (
           <div className="empty" style={{ height: 280 }}>

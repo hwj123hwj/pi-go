@@ -14,6 +14,7 @@
 - [[source-project-root-v9]] — Re-ingest v9: KB panel hardening (CSS var fix, path traversal fix, debounce, sorting) (2026-06-25)
 - [[source-project-root-v10]] — Re-ingest v10: Desktop race condition & memory leak fixes (React unmount guards, WS backoff, empty dir fallback) (2026-06-25)
 - [[source-project-root-v11]] — Re-ingest v11: Desktop i18n gaps, React non-reactive read, sidebar menu dismiss (2026-06-25)
+- [[source-project-root-v12]] — Re-ingest v12: Desktop chat smart scroll, KB tag view loading state, tag back button tooltip (2026-06-25)
 
 ## Entities
 - [[agent-core]] — Agent state machine and execution engine

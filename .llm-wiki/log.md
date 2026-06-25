@@ -2,6 +2,10 @@
 
 > Chronological record of wiki operations.
 
+## [2026-06-25] ingest | Project Root (.) — v12: Desktop chat smart scroll & KB tag view loading
+- **Created** `source-project-root-v12.md` — Source summary: chat auto-scroll hijacking user scroll position, KB tag view empty list during loading, tag back button tooltip
+- **Updated** `index.md` — Added source-project-root-v12
+
 ## [2026-06-25] ingest | Project Root (.) — v11: Desktop i18n gaps, React subscription bug, menu dismiss
 - **Created** `source-project-root-v11.md` — Source summary: hardcoded English strings (4 items), non-reactive store read in ChatPane, sidebar new-session menu stuck open
 - **Updated** `index.md` — Added source-project-root-v11

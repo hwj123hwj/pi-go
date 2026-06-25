@@ -414,23 +414,29 @@ function KbTagsView() {
     return (
       <div className="kb-tags-detail">
         <div className="kb-tags-detail-head">
-          <button className="kb-back-btn" onClick={() => setActiveTag(null)}>
+          <button className="kb-back-btn" onClick={() => setActiveTag(null)} title={t('common.back')}>
             <Icon name="arrow-left" size={16} />
           </button>
           <span className="kb-detail-title">#{activeTag}</span>
           <span className="kb-tag-count">{entries.length}</span>
         </div>
         <div className="kb-entry-list">
-          {entries.map((e) => (
-            <button
-              key={e.rel_path}
-              className={`kb-entry-item ${selectedEntry?.rel_path === e.rel_path ? 'active' : ''}`}
-              onClick={() => setSelectedEntry(e)}
-            >
-              <span className="kb-entry-title">{e.title}</span>
-              {e.category && <span className="kb-entry-cat">{e.category}</span>}
-            </button>
-          ))}
+          {entries.length === 0 ? (
+            <div className="empty">
+              <Icon name="loader" size={16} spin />
+            </div>
+          ) : (
+            entries.map((e) => (
+              <button
+                key={e.rel_path}
+                className={`kb-entry-item ${selectedEntry?.rel_path === e.rel_path ? 'active' : ''}`}
+                onClick={() => setSelectedEntry(e)}
+              >
+                <span className="kb-entry-title">{e.title}</span>
+                {e.category && <span className="kb-entry-cat">{e.category}</span>}
+              </button>
+            ))
+          )}
         </div>
         {selectedEntry && (
           <KbEntryDetail entry={selectedEntry} onClose={() => setSelectedEntry(null)} />
