@@ -59,8 +59,9 @@ func (h *Handler) handleAudio(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Attempt to proxy the audio stream.
-	// If the upstream URL returns a 404/410 (gone) we invalidate the cached URL
-	// and retry once with a freshly-fetched URL, since NetEase CDN URLs expire.
+	// If the upstream URL returns 404/410/403 (stale/blocked) we invalidate
+	// the cached URL and retry once with a freshly-fetched URL, since both
+	// NetEase CDN URLs and Bilibili CDN URLs expire.
 	if !h.proxyAudio(w, r, audioURL, referer) {
 		slog.Info("audio URL stale, invalidating cache and retrying", "song_id", compositeID)
 		h.cache.Delete(AudioKey(string(src), rawID))
@@ -69,13 +70,18 @@ func (h *Handler) handleAudio(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, fmt.Sprintf("audio not available: %v", err), http.StatusNotFound)
 			return
 		}
-		h.proxyAudio(w, r, audioURL, referer)
+		// If retry also reports stale, we give up — write an error.
+		if !h.proxyAudio(w, r, audioURL, referer) {
+			slog.Error("audio URL still stale after retry", "song_id", compositeID)
+			h.cache.Delete(AudioKey(string(src), rawID))
+			http.Error(w, "audio URL expired and could not be refreshed", http.StatusBadGateway)
+		}
 	}
 }
 
 // proxyAudio performs the actual upstream HTTP request and stream copy.
-// Returns false if the upstream returned 404/410 (URL stale) so the caller
-// can invalidate cache and retry. Returns true in all other cases.
+// Returns false if the upstream returned 404/410/403 (URL stale/expired/blocked)
+// so the caller can invalidate cache and retry. Returns true in all other cases.
 func (h *Handler) proxyAudio(w http.ResponseWriter, r *http.Request, audioURL, referer string) bool {
 	req, err := http.NewRequestWithContext(r.Context(), "GET", audioURL, nil)
 	if err != nil {
@@ -94,8 +100,10 @@ func (h *Handler) proxyAudio(w http.ResponseWriter, r *http.Request, audioURL, r
 		return true
 	}
 
-	// 404/410 from upstream = URL is stale/expired → tell caller to retry
-	if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusGone {
+	// 404/410/403 from upstream = URL is stale/expired/blocked → tell caller to retry
+	if resp.StatusCode == http.StatusNotFound ||
+		resp.StatusCode == http.StatusGone ||
+		resp.StatusCode == http.StatusForbidden {
 		resp.Body.Close()
 		return false
 	}
@@ -205,6 +213,9 @@ var audioProxyClient = &http.Client{
 	Timeout: 0,
 	Transport: &http.Transport{
 		ResponseHeaderTimeout: 10 * time.Second,
+		MaxIdleConns:          20,
+		MaxIdleConnsPerHost:   4,
+		IdleConnTimeout:       90 * time.Second,
 	},
 }
 

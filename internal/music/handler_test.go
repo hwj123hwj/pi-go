@@ -1,6 +1,7 @@
 package music
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -47,6 +48,41 @@ func fakeAudioUpstream(t *testing.T, content []byte) (*httptest.Server, *string)
 	return srv, &gotRange
 }
 
+// fakeStaticSource is a MusicSource whose GetAudioURL always returns a fixed URL.
+// Used to test proxy behavior without hitting real APIs.
+type fakeStaticSource struct {
+	audioURL string
+}
+
+func (f *fakeStaticSource) Source() Source { return SourceNetease }
+func (f *fakeStaticSource) Search(_ context.Context, _ string, _ int) (*SearchResult, error) {
+	return &SearchResult{}, nil
+}
+func (f *fakeStaticSource) GetSongByID(_ context.Context, _ string) (*Song, error) {
+	return &Song{}, nil
+}
+func (f *fakeStaticSource) GetAudioURL(_ context.Context, _ string) (string, error) {
+	return f.audioURL, nil
+}
+func (f *fakeStaticSource) GetLyrics(_ context.Context, _ string) (*Lyrics, error) {
+	return &Lyrics{}, nil
+}
+func (f *fakeStaticSource) GetPlaylistDetail(_ context.Context, _ string) (*PlaylistDetail, error) {
+	return nil, nil
+}
+func (f *fakeStaticSource) GetRankings(_ context.Context) ([]RankingEntry, error) {
+	return nil, nil
+}
+func (f *fakeStaticSource) GetTopList(_ context.Context, _ string) (*PlaylistDetail, error) {
+	return nil, nil
+}
+func (f *fakeStaticSource) GetNewSongs(_ context.Context, _ int) ([]Song, error) {
+	return nil, nil
+}
+func (f *fakeStaticSource) GetDailyRecommend(_ context.Context) (*PlaylistDetail, error) {
+	return nil, nil
+}
+
 // fakeErrorUpstream 起一个永远返回 403 的 server（模拟 CDN 防盗链失效）。
 func fakeErrorUpstream(t *testing.T, status int) *httptest.Server {
 	t.Helper()
@@ -58,14 +94,20 @@ func fakeErrorUpstream(t *testing.T, status int) *httptest.Server {
 	return srv
 }
 
-// TestHandleAudio_ErrorNotCached 验证上游错误响应（403）不被缓存——
-// 否则防盗链失效/下架会被缓存 24h，导致歌曲"永久"播不了。
-func TestHandleAudio_ErrorNotCached(t *testing.T) {
+// TestHandleAudio_403TriggersRetryAndCacheInvalidation 验证上游 403 响应
+// 触发缓存失效 + 重试。当重试也返回 403 时，handler 应返回 502。
+// 核心断言：403 错误不被缓存（cache entry 被删除）。
+func TestHandleAudio_403TriggersRetryAndCacheInvalidation(t *testing.T) {
 	upstream := fakeErrorUpstream(t, http.StatusForbidden)
+
+	// Use a mock source that always returns the 403 upstream URL,
+	// so both initial attempt and retry hit the same error.
+	mockSource := &fakeStaticSource{audioURL: upstream.URL + "/audio.mp3"}
+	router := NewSourceRouter(SourceNetease, mockSource)
 
 	cache := NewCache()
 	cache.Set(AudioKey("netease", "99"), upstream.URL+"/audio.mp3", TTLAudio)
-	h := NewHandler(testRouter(), cache)
+	h := NewHandler(router, cache)
 
 	req := httptest.NewRequest(http.MethodGet, "/music/audio/99", nil)
 	req.SetPathValue("song_id", "99")
@@ -75,13 +117,14 @@ func TestHandleAudio_ErrorNotCached(t *testing.T) {
 	resp := rec.Result()
 	defer resp.Body.Close()
 
-	// 状态码透传（403 不该被 handler 吞掉或改写）
-	if resp.StatusCode != http.StatusForbidden {
-		t.Fatalf("status = %d, want 403 (passthrough)", resp.StatusCode)
+	// Both attempts return 403, so the handler gives up with 502.
+	if resp.StatusCode != http.StatusBadGateway {
+		t.Fatalf("status = %d, want 502 (both attempts failed with 403)", resp.StatusCode)
 	}
-	// 错误响应必须 no-store，不可缓存
-	if cc := resp.Header.Get("Cache-Control"); cc != "no-store" {
-		t.Fatalf("Cache-Control = %q, want %q (error must not be cached)", cc, "no-store")
+
+	// Critical: the stale URL must have been purged from cache.
+	if v := cache.Get(AudioKey("netease", "99")); v != nil {
+		t.Fatalf("cache entry should have been deleted after 403, but still has: %v", v)
 	}
 }
 

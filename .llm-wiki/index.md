@@ -17,6 +17,7 @@
 - [[source-project-root-v12]] — Re-ingest v12: Desktop chat smart scroll, KB tag view loading state, tag back button tooltip (2026-06-25)
 - [[source-project-root-v13]] — Re-ingest v13: Workspace inline file editor, PUT /workspace/write-file endpoint (2026-06-25)
 - [[source-project-root-v14]] — Re-ingest v14: Music player robustness fixes (stale URL cache retry, lyrics JSON injection, cache cleanup, audio element reload, error recovery) (2026-06-25)
+- [[source-project-root-v15]] — Re-ingest v15: Music deep-audit round 2 (FD leak fix, 403 stale detection, retry exhaustion, multi-try fallback, React audio lifecycle race) (2026-06-25)
 
 ## Entities
 - [[agent-core]] — Agent state machine and execution engine

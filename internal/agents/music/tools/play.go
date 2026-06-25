@@ -151,11 +151,13 @@ func (t *PlayTool) playByQuery(ctx context.Context, query string, src music.Sour
 		return agent.ToolResult{Content: "没有找到匹配的歌曲", IsError: true}, nil
 	}
 
-	// Try each result in the preferred source
-	for i, song := range result.Songs {
-		if i >= 5 {
-			break
-		}
+	// Try each result in the preferred source (max 5 candidates)
+	maxTry := 5
+	if len(result.Songs) < maxTry {
+		maxTry = len(result.Songs)
+	}
+	for i := 0; i < maxTry; i++ {
+		song := result.Songs[i]
 		res, err := t.playByID(ctx, song.ID, false)
 		if err == nil && !res.IsError {
 			return res, nil
@@ -167,9 +169,16 @@ func (t *PlayTool) playByQuery(ctx context.Context, query string, src music.Sour
 		// Fallback to NetEase
 		neteaseResult, neteaseErr := t.router.Search(ctx, query, 5, music.SourceNetease)
 		if neteaseErr == nil && len(neteaseResult.Songs) > 0 {
-			res, err := t.playByID(ctx, neteaseResult.Songs[0].ID, true)
-			if err == nil && !res.IsError {
-				return res, nil
+			// Try up to 3 netease results
+			maxFallback := 3
+			if len(neteaseResult.Songs) < maxFallback {
+				maxFallback = len(neteaseResult.Songs)
+			}
+			for i := 0; i < maxFallback; i++ {
+				res, err := t.playByID(ctx, neteaseResult.Songs[i].ID, true)
+				if err == nil && !res.IsError {
+					return res, nil
+				}
 			}
 		}
 	}

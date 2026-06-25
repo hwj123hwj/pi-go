@@ -96,15 +96,11 @@ export function MusicPlayer({ resultText, details }: MusicPlayerProps) {
   }
 
   const handlePlay = () => {
-    // If already the active track, toggle play/pause (or retry on error)
-    if (isActive) {
-      if (globalMusic.error) {
-        playMusic({ songName, artist, audioURL, duration: det?.duration || 0 });
-      } else {
-        useStore.getState().toggleMusic();
-      }
+    if (isActive && !globalMusic.error) {
+      // Same song, no error — toggle play/pause
+      useStore.getState().toggleMusic();
     } else {
-      // Otherwise, load this song into the global player
+      // New song, or retry after error — dispatch to global player
       playMusic({ songName, artist, audioURL, duration: det?.duration || 0 });
     }
   };

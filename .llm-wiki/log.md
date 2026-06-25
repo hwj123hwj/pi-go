@@ -2,6 +2,10 @@
 
 > Chronological record of wiki operations.
 
+## [2026-06-25] ingest | Project Root (.) — v15: Music player deep-audit round 2
+- **Created** `source-project-root-v15.md` — 5 issues: FD leak (idle conn limits), 403 stale detection, retry exhaustion guard, multi-try cross-source fallback, React audio lifecycle race condition
+- **Updated** `index.md` — Added source-project-root-v15
+
 ## [2026-06-25] ingest | Project Root (.) — v14: Music player robustness fixes
 - **Created** `source-project-root-v14.md` — 6 music bugs fixed: stale URL cache retry, lyrics JSON injection, cache memory growth, dead code, audio element src reload, error recovery button
 - **Updated** `index.md` — Added source-project-root-v14

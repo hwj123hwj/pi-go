@@ -61,20 +61,42 @@ export function GlobalMusicBar() {
     };
   }, [setMusicTime, setMusicDuration, setMusicPlaying, setMusicError]);
 
-  // Force-reload the audio element when src changes (new song selected).
-  // React updates the src attribute but the media element needs .load()
-  // to actually abandon the old source and start loading the new one.
+  // When the audio src changes (new song selected), force-reload the media
+  // element and auto-play. React updates the src attribute but the media
+  // element needs .load() to actually abandon the old source.
+  // We also call .play() here (not in a separate effect) to avoid a race
+  // where play() fires before the new src has finished loading.
   const audioURL = music.current?.audioURL ?? '';
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio || !audioURL) return;
+
+    const wasPlaying = music.playing;
     audio.load();
+
+    // If the store says we should be playing, start playback after load.
+    if (wasPlaying) {
+      // canplay fires when enough data is loaded to begin playback.
+      const onCanPlay = () => {
+        audio.play().catch(() => setMusicError(true));
+        audio.removeEventListener('canplay', onCanPlay);
+      };
+      audio.addEventListener('canplay', onCanPlay);
+      return () => audio.removeEventListener('canplay', onCanPlay);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [audioURL]);
 
-  // Auto play / pause when store state changes
+  // Auto play / pause when store state changes.
+  // NOTE: This handles the toggle play/pause case (same song). New-song
+  // auto-play is handled by the audioURL effect above.
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio || !music.current) return;
+
+    // Skip if the audio src is still loading the current track.
+    // The audioURL effect handles initial play.
+    if (audio.readyState < audio.HAVE_CURRENT_DATA) return;
 
     if (music.playing) {
       audio.play().catch(() => setMusicError(true));
@@ -86,10 +108,15 @@ export function GlobalMusicBar() {
   // Nothing to show if no song loaded
   if (!music.current) return null;
 
-  // Error recovery: re-dispatch the same track to clear error and retry
+  // Error recovery: directly reload the audio element and retry playback.
+  // We don't go through playMusic() because the URL hasn't changed, so the
+  // audioURL effect wouldn't fire. Instead, we manipulate the element directly.
   const handleRetry = () => {
-    if (!music.current) return;
-    playMusic(music.current);
+    const audio = audioRef.current;
+    if (!audio || !music.current) return;
+    setMusicError(false);
+    audio.load();
+    audio.play().catch(() => setMusicError(true));
   };
 
   const handleButtonClick = () => {
