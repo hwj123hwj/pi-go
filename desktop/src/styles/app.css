@@ -2703,6 +2703,61 @@ body.resizing .resizer {
   padding: 0;
   font-size: 1em;
 }
+
+/* Code block wrapper with copy button */
+.md-code-block {
+  position: relative;
+  margin: 0 0 12px;
+}
+.md-code-block pre {
+  margin: 0;
+}
+.md-code-copy {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  opacity: 0;
+  border: 1px solid var(--border);
+  background: var(--bg-elev);
+  border-radius: var(--radius-xs);
+  padding: 4px 6px;
+  cursor: pointer;
+  color: var(--text-dim);
+  display: grid;
+  place-items: center;
+  transition: opacity 0.15s, color 0.15s;
+  z-index: 1;
+}
+.md-code-block:hover .md-code-copy {
+  opacity: 1;
+}
+.md-code-copy:hover {
+  color: var(--accent);
+  border-color: var(--accent-border);
+}
+.md-code-copy:active {
+  transform: scale(0.92);
+}
+/* "Show N more lines" expand button on collapsed code blocks */
+.md-code-expand {
+  width: 100%;
+  padding: 6px;
+  text-align: center;
+  font-size: 11.5px;
+  font-family: var(--mono);
+  color: var(--text-dim);
+  background: var(--bg-sunken);
+  border: 1px solid var(--border);
+  border-top: none;
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+.md-code-expand:hover {
+  color: var(--accent);
+  background: var(--bg-hover);
+}
+
 .md h1,
 .md h2,
 .md h3 {
@@ -5467,6 +5522,187 @@ body.resizing .resizer {
   .right-sidebar-rail button {
     min-width: 44px;
     min-height: 44px;
+  }
+
+  /* ── Mobile Diff Preview ────────────────────────────────────────────────── */
+
+  /* Hide line-number gutters — too narrow on phones, saves horizontal space */
+  .diff-preview-body .diff-gut {
+    display: none !important;
+  }
+  .diff-preview-body {
+    font-size: 11px;
+    line-height: 1.45;
+  }
+  .diff-preview-head {
+    padding: 7px 10px;
+    font-size: 11px;
+    gap: 5px;
+  }
+  .diff-preview-path {
+    font-size: 10.5px;
+  }
+  .diff-mark {
+    width: 14px;
+    font-size: 11px;
+  }
+  .diff-code {
+    padding-right: 8px;
+  }
+
+  /* ── Mobile Tool Body (console output, search results) ──────────────────── */
+
+  .tool-body {
+    padding: 10px !important;
+  }
+  .tool-text {
+    font-size: 11.5px;
+    line-height: 1.5;
+    max-height: 200px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .console {
+    font-size: 11px;
+    line-height: 1.45;
+    max-height: 200px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .tool-loc {
+    font-size: 10.5px;
+    padding: 3px 6px;
+  }
+
+  /* ── Mobile Modal / Dialog ───────────────────────────────────────────────── */
+
+  .modal {
+    width: 94vw !important;
+    max-width: 94vw !important;
+    max-height: 88vh !important;
+    border-radius: 14px !important;
+  }
+  .modal-head {
+    padding: 14px 16px 6px !important;
+  }
+  .modal-head h3 {
+    font-size: 16px;
+  }
+  .modal-body {
+    padding: 8px 16px !important;
+    -webkit-overflow-scrolling: touch;
+  }
+  .modal-foot {
+    padding: 12px 16px 16px !important;
+    gap: 8px;
+  }
+  .modal-foot .btn,
+  .modal-foot button {
+    min-height: 40px;
+    font-size: 14px;
+    padding: 8px 16px;
+  }
+  /* Ask card: stack vertically on mobile */
+  .modal.ask-card {
+    width: 94vw !important;
+    max-width: 94vw !important;
+  }
+  .ask-option {
+    min-height: 44px;
+    padding: 10px 12px !important;
+  }
+
+  /* ── Mobile Markdown (deep pass) ────────────────────────────────────────── */
+
+  .md pre {
+    font-size: 11.5px;
+    padding: 10px 12px;
+    border-radius: 8px !important;
+    /* Allow horizontal scroll with momentum */
+    -webkit-overflow-scrolling: touch;
+  }
+  .md code {
+    font-size: 11.5px;
+    padding: 1px 4px;
+  }
+  .md h1 {
+    font-size: 18px;
+  }
+  .md h2 {
+    font-size: 15px;
+  }
+  .md h3 {
+    font-size: 14px;
+  }
+  .md p {
+    margin-bottom: 10px;
+  }
+  .md ul,
+  .md ol {
+    padding-left: 20px;
+    margin-bottom: 10px;
+  }
+  .md li {
+    margin-bottom: 4px;
+  }
+  .md a {
+    word-break: break-all;
+  }
+
+  /* ── Mobile Session List ────────────────────────────────────────────────── */
+
+  .session-item {
+    padding: 10px 12px !important;
+    min-height: 56px;
+  }
+  .session-item-title {
+    font-size: 14px;
+  }
+  .session-item-meta {
+    font-size: 11px;
+  }
+
+  /* ── Mobile Scrolling & Momentum ─────────────────────────────────────────── */
+
+  .transcript {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+  .sidebar-list {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
+  /* ── Mobile Role Tag ─────────────────────────────────────────────────────── */
+
+  .role-tag {
+    font-size: 10px;
+    margin-bottom: 5px;
+  }
+  .role-tag .role-badge {
+    width: 18px;
+    height: 18px;
+  }
+
+  /* ── Mobile Typing Indicator ─────────────────────────────────────────────── */
+
+  .typing-dots span {
+    width: 6px;
+    height: 6px;
+  }
+
+  /* ── Mobile Code Block: copy always visible, collapsed height ────────────── */
+
+  .md-code-copy {
+    opacity: 1; /* always visible on touch devices */
+  }
+  .md-code-block.collapsed pre {
+    max-height: 200px;
+    overflow: hidden;
+    mask-image: linear-gradient(to bottom, black 80%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to bottom, black 80%, transparent 100%);
+  }
+  .md-code-expand {
+    min-height: 36px;
   }
 }
 

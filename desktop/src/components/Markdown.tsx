@@ -1,4 +1,5 @@
-import { Fragment, type ReactNode } from 'react';
+import { Fragment, useState, useCallback, type ReactNode } from 'react';
+import { Icon } from './Icon';
 import { Mermaid } from './Mermaid';
 
 /**
@@ -35,6 +36,52 @@ function resolveHref(href: string, basePath?: string): string {
   return parts.join('/');
 }
 
+/**
+ * Code block with copy button and tap-to-expand for long blocks on mobile.
+ * Keeps the same DOM structure (`pre > code`) for CSS compatibility, but wraps
+ * it in a positioned container with a copy button and optional collapse.
+ */
+const COLLAPSE_THRESHOLD = 12; // lines before we offer expand/collapse on mobile
+
+function CodeBlock({ lang, code }: { lang: string; code: string }) {
+  const [copied, setCopied] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const lineCount = code.split('\n').length;
+  const shouldCollapse = lineCount > COLLAPSE_THRESHOLD;
+
+  const onCopy = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    void navigator.clipboard?.writeText(code).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1400);
+    });
+  }, [code]);
+
+  return (
+    <div className={`md-code-block ${shouldCollapse && !expanded ? 'collapsed' : ''}`}>
+      <button
+        className="md-code-copy"
+        onClick={onCopy}
+        aria-label="Copy code"
+        title="Copy"
+      >
+        <Icon name={copied ? 'check' : 'copy'} size={13} />
+      </button>
+      <pre>
+        <code data-lang={lang}>{code}</code>
+      </pre>
+      {shouldCollapse && !expanded && (
+        <button
+          className="md-code-expand"
+          onClick={(e) => { e.stopPropagation(); setExpanded(true); }}
+        >
+          +{lineCount - COLLAPSE_THRESHOLD} more lines
+        </button>
+      )}
+    </div>
+  );
+}
+
 function renderBlocks(src: string, basePath?: string): ReactNode[] {
   const out: ReactNode[] = [];
   const lines = src.split('\n');
@@ -59,9 +106,7 @@ function renderBlocks(src: string, basePath?: string): ReactNode[] {
         out.push(<Mermaid key={key++} code={buf.join('\n')} />);
       } else {
         out.push(
-          <pre key={key++}>
-            <code data-lang={lang}>{buf.join('\n')}</code>
-          </pre>,
+          <CodeBlock key={key++} lang={lang} code={buf.join('\n')} />,
         );
       }
       continue;

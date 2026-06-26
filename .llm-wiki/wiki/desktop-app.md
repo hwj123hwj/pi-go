@@ -392,6 +392,33 @@ proceeding. The URL is persisted in `localStorage` (`pi-go-server-url`).
 | Right sidebar rail buttons | Icon size | 44px min-width/height (HIG) |
 | App height | `100vh` | `100dvh` (dynamic viewport — keyboard adaptive) |
 
+### Mobile-Specific Optimizations (v29, Round 3)
+
+| Area | Desktop | Mobile |
+|------|---------|--------|
+| Diff preview gutters | Line numbers visible | Hidden (saves horizontal space) |
+| Diff preview font | 12px | 11px, compact line-height |
+| Tool body text | Full height | max-height 200px, momentum scroll |
+| Console output | Full height | max-height 200px, momentum scroll |
+| Modal/dialog | 580px centered | 94vw, 88vh max, 14px radius |
+| Modal buttons | Default height | 40px min-height, 14px font |
+| Ask option cards | Default height | 44px min-height (HIG touch target) |
+| Code block copy button | Hover-visible | Always visible (touch devices) |
+| Long code blocks | Full text shown | Collapsed to 12 lines + "Show N more" expand |
+| Markdown headings | 19/16/14px | 18/15/14px |
+| Markdown lists/links | Default | Compact spacing, word-break links |
+| Session list items | 48px min | 56px min-height (touch friendly) |
+| Transcript scroll | Default | Momentum scroll + overscroll-contain |
+| Sidebar scroll | Default | Momentum scroll + overscroll-contain |
+| Role tags | 11px | 10px, 18px badge |
+| Typing dots | 7px | 6px |
+
+**Code Block Component** (`Markdown.tsx`): The `<pre>` element was replaced by
+a `CodeBlock` component wrapping `pre` in a positioned container with:
+- A copy button (clipboard API) in the top-right corner
+- A collapse/expand mechanism for blocks >12 lines on mobile
+- Gradient mask fade on collapsed code for visual hint
+
 ### Audio Streaming on Mobile (v27)
 
 The `GlobalMusicBar` component manages a single `<audio>` element mounted at
