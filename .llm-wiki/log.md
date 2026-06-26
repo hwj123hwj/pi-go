@@ -2,6 +2,10 @@
 
 > Chronological record of wiki operations.
 
+## [2026-06-27] ingest | Mobile UX Overhaul Round 2 (v28)
+- **Updated** `wiki/desktop-app.md` — Expanded mobile optimization table (v28): chat transcript density (padding, message spacing, user message radius, assistant text readability), tool card mobile touch targets (44px HIG minimum, status icon-only), inline music card compact mode (hidden progress bar), Markdown mobile rendering (table horizontal scroll, code block radius/height), empty state input iOS zoom prevention, sidebar search/head safe-area, right sidebar rail 44px buttons, `100dvh` keyboard-adaptive viewport
+- **Updated** `index.md` — Added source-project-root-v28 entry
+
 ## [2026-06-27] ingest | Mobile UX Overhaul (v27)
 - **Updated** `wiki/desktop-app.md` — Added comprehensive Mobile / Capacitor Platform section (v27): Server Connect flow, platform detection (`isElectron` / `isRemotePlatform` / `body.mobile`), mobile-specific optimization table (PromptBar, MusicBar, Sidebar, Toolbar, touch targets), audio streaming architecture (relative proxy URLs, `rewriteAudioURL`, Content-Type rejection in handler), Capacitor config details
 - **Updated** `index.md` — Added source-project-root-v27 entry

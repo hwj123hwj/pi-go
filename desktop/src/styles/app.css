@@ -5090,8 +5090,7 @@ body.resizing .resizer {
     display: none !important;
   }
 
-  /* Right sidebar becomes full-screen overlay */
-  .right-sidebar {
+  /* Right sidebar becomes full-screen overlay */  .right-sidebar {
     position: fixed !important;
     top: 0;
     right: 0;
@@ -5240,15 +5239,8 @@ body.resizing .resizer {
     padding-bottom: calc(76px + env(safe-area-inset-bottom)) !important;
   }
 
-  /* Toolbar: simplified for mobile */
-  .toolbar {
-    padding: 0 12px;
-    padding-top: env(safe-area-inset-top);
-    height: calc(48px + env(safe-area-inset-top));
-    min-height: 48px;
-  }
+  /* Toolbar: simplified for mobile (overrides from earlier block) */
   .toolbar-title {
-    font-size: 15px;
     max-width: 180px;
   }
 
@@ -5283,6 +5275,198 @@ body.resizing .resizer {
   /* Boot screen: center vertically */
   .boot {
     padding-top: env(safe-area-inset-top);
+  }
+
+  /* ── Mobile Chat Transcript ─────────────────────────────────────────────── */
+
+  .transcript {
+    max-width: 100% !important;
+    padding: 16px 14px 40px !important;
+  }
+
+  /* Reduce message gap for denser mobile reading */
+  .msg {
+    margin-bottom: 16px !important;
+  }
+
+  /* User messages: full-width rounded card */
+  .msg-user {
+    padding: 10px 14px !important;
+    border-radius: 16px !important;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  /* Assistant messages: slightly larger text for readability */
+  .msg-assistant {
+    font-size: 14px;
+    line-height: 1.65;
+  }
+
+  /* Thought messages: more compact on mobile */
+  .msg-thought {
+    font-size: 12.5px;
+    padding-left: 10px;
+  }
+
+  /* Error messages: touch-friendly */
+  .msg-error {
+    padding: 10px 12px !important;
+    font-size: 13px;
+    border-radius: 12px !important;
+  }
+
+  /* ── Mobile Tool Call Cards ─────────────────────────────────────────────── */
+
+  .tool {
+    margin-bottom: 8px !important;
+    border-radius: 12px !important;
+  }
+  .tool-head {
+    padding: 10px 12px !important;
+    min-height: 44px; /* Apple HIG minimum touch target */
+  }
+  .tool-ico {
+    width: 28px;
+    height: 28px;
+  }
+  .tool-title {
+    font-size: 12px;
+  }
+  .tool-summary {
+    font-size: 11px;
+  }
+  .tool-status {
+    font-size: 10px;
+    padding: 2px 7px;
+  }
+  /* Hide the status text on mobile — show only the icon/dot */
+  .tool-status .ic {
+    display: none;
+  }
+  .tool-body {
+    max-height: 300px;
+    font-size: 12px;
+  }
+
+  /* Summary density: compact single-line */
+  .tool-summary-line {
+    padding: 6px 10px !important;
+    font-size: 12.5px;
+    min-height: 36px;
+  }
+
+  /* ── Mobile Inline Music Card ───────────────────────────────────────────── */
+
+  .music-player {
+    padding: 10px 14px !important;
+    border-radius: 14px !important;
+  }
+  .music-player-info {
+    margin-bottom: 8px;
+  }
+  .music-player-icon {
+    font-size: 22px;
+  }
+  .music-player-song {
+    font-size: 14px;
+  }
+  .music-player-btn {
+    width: 40px;
+    height: 40px;
+    font-size: 18px;
+  }
+  /* Hide progress bar and time on inline mobile card — the global bar handles it */
+  .music-player-progress,
+  .music-player-volume,
+  .music-player-vol-icon {
+    display: none !important;
+  }
+  .music-player-time {
+    font-size: 12px;
+  }
+
+  /* ── Mobile Markdown rendering ──────────────────────────────────────────── */
+
+  .chat-content pre {
+    max-height: 280px;
+    border-radius: 10px !important;
+  }
+  .chat-content code {
+    font-size: 12.5px;
+  }
+  .chat-content table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+  }
+  .chat-content img {
+    max-width: 100%;
+    height: auto;
+  }
+  .chat-content blockquote {
+    padding: 8px 12px;
+    margin: 8px 0;
+    border-radius: 8px;
+  }
+
+  /* ── Mobile Empty State ─────────────────────────────────────────────────── */
+
+  .empty {
+    padding: 20px !important;
+  }
+  .empty-card {
+    padding: 16px !important;
+    border-radius: 18px !important;
+  }
+  .empty-input {
+    font-size: 16px; /* prevent iOS zoom */
+    padding: 12px 14px !important;
+  }
+  .empty-title {
+    font-size: 20px !important;
+  }
+  .empty-hint {
+    font-size: 12px !important;
+  }
+
+  /* ── Mobile Keyboard Adaptation ─────────────────────────────────────────── */
+  /* When the mobile keyboard is visible, the viewport shrinks.
+     Use dvh to ensure the app fills exactly the visible area. */
+  .app {
+    height: 100dvh;
+  }
+
+  /* ── Mobile Sidebar Search ──────────────────────────────────────────────── */
+
+  .sidebar-search {
+    padding: 8px 12px !important;
+  }
+  .sidebar-search input {
+    font-size: 15px;
+    min-height: 36px;
+  }
+
+  /* ── Mobile Sidebar Head ────────────────────────────────────────────────── */
+
+  .sidebar-head {
+    padding: 12px !important;
+    padding-top: calc(12px + env(safe-area-inset-top)) !important;
+  }
+  .brand {
+    font-size: 17px;
+  }
+  .btn-new {
+    padding: 8px 12px !important;
+    font-size: 13px;
+  }
+
+  /* ── Mobile Right Sidebar Rail ──────────────────────────────────────────── */
+
+  .right-sidebar-rail button {
+    min-width: 44px;
+    min-height: 44px;
   }
 }
 

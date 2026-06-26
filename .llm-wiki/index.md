@@ -29,7 +29,8 @@
 - [[source-project-root-v24]] — Re-ingest v24: Code review round 3 — stale removal persistence, scanner buffer limit (2026-06-27)
 - [[source-project-root-v25]] — Re-ingest v25: Desktop profile panel — user profile UI adaptation (2026-06-27)
 - [[source-project-root-v26]] — Re-ingest v26: Desktop UI fixes (bottom terminal, sidebar toggle, profile error), KB absolute paths, cmd/pi-music removal (2026-06-27)
-- [[source-project-root-v27]] — Re-ingest v27: Mobile UX overhaul (PromptBar compact, MusicBar full-width, audio proxy HTML rejection, Capacitor details) (2026-06-27)
+- [[source-project-root-v27]] — Re-ingest v27: Mobile UX overhaul round 1 (PromptBar compact, MusicBar full-width, audio proxy HTML rejection, Capacitor details) (2026-06-27)
+- [[source-project-root-v28]] — Re-ingest v28: Mobile UX overhaul round 2 (chat transcript density, tool cards touch targets, Markdown mobile rendering, keyboard-adaptive dvh, inline music card compact) (2026-06-27)
 
 ## Entities
 - [[agent-core]] — Agent state machine and execution engine

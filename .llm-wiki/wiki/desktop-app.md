@@ -377,6 +377,20 @@ proceeding. The URL is persisted in `localStorage` (`pi-go-server-url`).
 | Resizers | Visible | Hidden (`display: none`) |
 | New project button | Visible | Hidden (no folder picker on mobile) |
 | Workspace toggles | Icon buttons | Bottom bar items (36px min touch) |
+| Chat transcript padding | `28px` | `16px 14px` (edge-efficient) |
+| Message spacing | `22px` | `16px` (denser reading) |
+| User message | `12px radius` | `16px radius` (rounder, chat-like) |
+| Assistant text | 13.5px | 14px + `1.65` line-height (readability) |
+| Tool card head | `9px padding` | `10px padding`, 44px min-height (HIG) |
+| Tool status badge | Text + icon | Icon only (space saving) |
+| Inline music card progress | Visible | Hidden (global bar handles playback) |
+| Markdown tables | Static | Horizontal scroll (`overflow-x: auto`) |
+| Markdown code blocks | `border-radius: var(--radius)` | `10px radius`, max-height 280px |
+| Empty state input | 13px | 16px (iOS zoom prevention) |
+| Sidebar search input | 13px | 15px, 36px min-height |
+| Sidebar head | `env(safe-area-inset-top)` | `calc(12px + safe-area-inset-top)` |
+| Right sidebar rail buttons | Icon size | 44px min-width/height (HIG) |
+| App height | `100vh` | `100dvh` (dynamic viewport — keyboard adaptive) |
 
 ### Audio Streaming on Mobile (v27)
 
