@@ -20,6 +20,7 @@
 - [[source-project-root-v15]] — Re-ingest v15: Music deep-audit round 2 (FD leak fix, 403 stale detection, retry exhaustion, multi-try fallback, React audio lifecycle race) (2026-06-25)
 - [[source-project-root-v16]] — Re-ingest v16: Music personalization (preference store, listening history, fixed-size prompt injection, music_history tool) (2026-06-26)
 - [[source-project-root-v17]] — Re-ingest v17: Unified user profile (cross-agent second brain, OpenViking-inspired, all agents share fixed-size profile summary) (2026-06-26)
+- [[source-project-root-v18]] — Re-ingest v18: OpenViking deep-absorption (KB L1 overview mode, hotness-based memory eviction with frequency×recency) (2026-06-26)
 
 ## Entities
 - [[agent-core]] — Agent state machine and execution engine

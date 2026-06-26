@@ -24,6 +24,7 @@ package profile
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"sort"
@@ -48,10 +49,11 @@ const (
 
 // Fact is a single piece of information about the user.
 type Fact struct {
-	Key     string    `json:"key"`    // Unique within category, e.g. "language", "artist:周杰伦"
-	Value   string    `json:"value"`  // e.g. "Go", "playcount:42"
-	Source  string    `json:"source"` // Which agent recorded this, e.g. "music-agent"
-	Updated time.Time `json:"updated"`
+	Key      string    `json:"key"`    // Unique within category, e.g. "language", "artist:周杰伦"
+	Value    string    `json:"value"`  // e.g. "Go", "playcount:42"
+	Source   string    `json:"source"` // Which agent recorded this, e.g. "music-agent"
+	Updated  time.Time `json:"updated"`
+	AccessCount int    `json:"access_count"` // how many times this fact was read/updated
 }
 
 // Store is a persistent, thread-safe user profile.
@@ -73,7 +75,7 @@ func NewStore(filePath string) *Store {
 }
 
 // Record upserts a fact into the profile.
-// If a fact with the same category+key exists, it is updated.
+// If a fact with the same category+key exists, it is updated (access_count incremented).
 func (s *Store) Record(category, key, value, source string) {
 	if category == "" || key == "" {
 		return
@@ -82,16 +84,22 @@ func (s *Store) Record(category, key, value, source string) {
 	defer s.mu.Unlock()
 
 	cat := s.getOrCreateCategory(category)
+	now := time.Now()
+	count := 1
+	if existing, ok := cat[key]; ok {
+		count = existing.AccessCount + 1
+	}
 	cat[key] = Fact{
-		Key:     key,
-		Value:   value,
-		Source:  source,
-		Updated: time.Now(),
+		Key:         key,
+		Value:       value,
+		Source:      source,
+		Updated:     now,
+		AccessCount: count,
 	}
 
-	// Evict oldest if over limit
+	// Evict lowest hotness if over limit
 	if len(cat) > s.maxForCategory(category) {
-		s.evictOldest(category)
+		s.evictLowestHotness(category)
 	}
 
 	_ = s.save()
@@ -108,15 +116,20 @@ func (s *Store) RecordBatch(category, source string, items map[string]string) {
 	cat := s.getOrCreateCategory(category)
 	now := time.Now()
 	for key, value := range items {
+		count := 1
+		if existing, ok := cat[key]; ok {
+			count = existing.AccessCount + 1
+		}
 		cat[key] = Fact{
-			Key:     key,
-			Value:   value,
-			Source:  source,
-			Updated: now,
+			Key:         key,
+			Value:       value,
+			Source:      source,
+			Updated:     now,
+			AccessCount: count,
 		}
 	}
 	if len(cat) > s.maxForCategory(category) {
-		s.evictOldest(category)
+		s.evictLowestHotness(category)
 	}
 	_ = s.save()
 }
@@ -209,29 +222,53 @@ func (s *Store) getOrCreateCategory(category string) map[string]Fact {
 	return cat
 }
 
-func (s *Store) evictOldest(category string) {
+// evictLowestHotness removes the fact with the lowest hotness score.
+// Hotness = frequency (access_count) × recency (exponential time-decay).
+// This is a Go adaptation of OpenViking's hotness_score algorithm, but
+// simplified for the small dataset (≤20 items per category).
+func (s *Store) evictLowestHotness(category string) {
 	cat := s.facts[category]
 	limit := s.maxForCategory(category)
 	if len(cat) <= limit {
 		return
 	}
-	// Find and remove the oldest entries
-	type kv struct {
-		key string
-		t   time.Time
-	}
-	entries := make([]kv, 0, len(cat))
+
+	now := time.Now()
+	halfLifeDays := 7.0
+	decayRate := math.Ln2 / halfLifeDays
+
+	var lowestKey string
+	lowestScore := math.MaxFloat64
+
 	for k, f := range cat {
-		entries = append(entries, kv{k, f.Updated})
+		// Frequency: sigmoid(log1p(access_count))
+		freq := 1.0 / (1.0 + math.Exp(-math.Log1p(float64(f.AccessCount))))
+
+		// Recency: exponential decay
+		recency := 0.0
+		if !f.Updated.IsZero() {
+			ageDays := now.Sub(f.Updated).Hours() / 24.0
+			if ageDays < 0 {
+				ageDays = 0
+			}
+			recency = math.Exp(-decayRate * ageDays)
+		}
+
+		score := freq * recency
+		if score < lowestScore {
+			lowestScore = score
+			lowestKey = k
+		}
 	}
-	sort.Slice(entries, func(i, j int) bool {
-		return entries[i].t.Before(entries[j].t)
-	})
-	// Remove oldest until we're at capacity
-	toRemove := len(entries) - limit
-	for i := 0; i < toRemove; i++ {
-		delete(cat, entries[i].key)
+
+	if lowestKey != "" {
+		delete(cat, lowestKey)
 	}
+}
+
+// evictOldest is kept for backward compatibility but delegates to hotness.
+func (s *Store) evictOldest(category string) {
+	s.evictLowestHotness(category)
 }
 
 func (s *Store) allEmpty() bool {
