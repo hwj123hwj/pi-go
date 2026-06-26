@@ -1,6 +1,7 @@
 package profile
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -283,5 +284,25 @@ func TestConcurrentAccess(t *testing.T) {
 	facts := s.GetFacts(CategoryCoding)
 	if len(facts) > maxPerCategory {
 		t.Errorf("expected at most %d facts, got %d", maxPerCategory, len(facts))
+	}
+}
+
+func TestRecordBatchEvictsMultiple(t *testing.T) {
+	s := tempStore(t)
+
+	// Record maxPerCategory+5 items in one batch — all are new keys
+	items := make(map[string]string)
+	for i := 0; i < maxPerCategory+5; i++ {
+		items[fmt.Sprintf("key_%d", i)] = fmt.Sprintf("val_%d", i)
+	}
+	s.RecordBatch(CategoryCoding, "test", items)
+
+	facts := s.GetFacts(CategoryCoding)
+	if len(facts) > maxPerCategory {
+		t.Errorf("batch insert should evict down to limit, got %d (max %d)",
+			len(facts), maxPerCategory)
+	}
+	if len(facts) == 0 {
+		t.Error("should have some facts remaining after eviction")
 	}
 }

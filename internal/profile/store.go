@@ -129,7 +129,7 @@ func (s *Store) RecordBatch(category, source string, items map[string]string) {
 		}
 	}
 	if len(cat) > s.maxForCategory(category) {
-		s.evictLowestHotness(category)
+		s.evictToLimit(category)
 	}
 	_ = s.save()
 }
@@ -222,7 +222,17 @@ func (s *Store) getOrCreateCategory(category string) map[string]Fact {
 	return cat
 }
 
-// evictLowestHotness removes the fact with the lowest hotness score.
+// evictToLimit removes facts with the lowest hotness scores until the category
+// is within its limit. Handles batch inserts where multiple items may be over.
+func (s *Store) evictToLimit(category string) {
+	cat := s.facts[category]
+	limit := s.maxForCategory(category)
+	for len(cat) > limit {
+		s.evictLowestHotness(category)
+	}
+}
+
+// evictLowestHotness removes the single fact with the lowest hotness score.
 // Hotness = frequency (access_count) × recency (exponential time-decay).
 // This is a Go adaptation of OpenViking's hotness_score algorithm, but
 // simplified for the small dataset (≤20 items per category).
@@ -266,9 +276,9 @@ func (s *Store) evictLowestHotness(category string) {
 	}
 }
 
-// evictOldest is kept for backward compatibility but delegates to hotness.
+// evictOldest is kept for backward compatibility but delegates to evictToLimit.
 func (s *Store) evictOldest(category string) {
-	s.evictLowestHotness(category)
+	s.evictToLimit(category)
 }
 
 func (s *Store) allEmpty() bool {

@@ -46,6 +46,22 @@ func TestSynopsisAfterHook_LargeOutput(t *testing.T) {
 	}
 }
 
+func TestSynopsisAfterHook_NoDoubleSynopsis(t *testing.T) {
+	// Simulate a tool that already produced a synopsis (e.g. kb_read overview=true)
+	large := "[输出概览] " + strings.Repeat("line\n", 1000) // >4000 chars
+	result := ToolResult{Content: large, UserFacing: "full content here"}
+
+	got, err := SynopsisAfterHook(context.Background(), ToolCallContext{}, result)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Content should NOT be double-synopsized
+	if got.Content != large {
+		t.Error("should not re-synopsis content that already contains [输出概览]")
+	}
+}
+
 func TestDetectContentType(t *testing.T) {
 	tests := []struct {
 		name    string

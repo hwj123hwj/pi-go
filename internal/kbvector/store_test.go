@@ -110,3 +110,42 @@ func TestEmbeddingClientAvailable(t *testing.T) {
 		t.Error("client with key should be available")
 	}
 }
+
+func TestStoreStaleEntryRemoval(t *testing.T) {
+	dir := t.TempDir()
+	path := dir + "/vectors.json"
+	s := NewStore(path)
+
+	// Add 3 entries
+	entries := []VectorEntry{
+		{Path: "/abs/a.md", RelPath: "a.md", Title: "A", Vector: []float32{1, 0}},
+		{Path: "/abs/b.md", RelPath: "b.md", Title: "B", Vector: []float32{0, 1}},
+		{Path: "/abs/c.md", RelPath: "c.md", Title: "C", Vector: []float32{1, 1}},
+	}
+	for _, e := range entries {
+		s.pathIndex[e.Path] = len(s.entries)
+		s.entries = append(s.entries, e)
+	}
+
+	// Simulate "b.md" deleted: remove it via removeEntryLocked
+	s.mu.Lock()
+	s.removeEntryLocked("/abs/b.md")
+	s.mu.Unlock()
+
+	if s.Len() != 2 {
+		t.Fatalf("expected 2 entries after removal, got %d", s.Len())
+	}
+	// b.md should no longer be in pathIndex
+	s.mu.Lock()
+	if _, ok := s.pathIndex["/abs/b.md"]; ok {
+		t.Error("b.md should have been removed from pathIndex")
+	}
+	// Remaining entries should be findable
+	if idx, ok := s.pathIndex["/abs/a.md"]; !ok || s.entries[idx].Title != "A" {
+		t.Error("a.md not correctly indexed after removal")
+	}
+	if idx, ok := s.pathIndex["/abs/c.md"]; !ok || s.entries[idx].Title != "C" {
+		t.Error("c.md not correctly indexed after removal")
+	}
+	s.mu.Unlock()
+}

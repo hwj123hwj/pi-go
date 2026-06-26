@@ -62,12 +62,17 @@ func (v *VectorSearcher) Search(entries []kbtools.Entry, q kbtools.SearchQuery) 
 	var results []kbtools.SearchResult
 	for _, vr := range vecResults {
 		// Find the matching entry to apply filters
+		found := false
 		var entry kbtools.Entry
 		for _, e := range entries {
 			if e.RelPath == vr.RelPath {
 				entry = e
+				found = true
 				break
 			}
+		}
+		if !found {
+			continue // vector store has a stale entry not in current index
 		}
 		// Apply tag/category filters
 		if q.Category != "" && !strings.EqualFold(entry.Category, q.Category) {

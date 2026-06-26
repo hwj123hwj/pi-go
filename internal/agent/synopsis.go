@@ -28,10 +28,11 @@ import (
 )
 
 const (
-	synopsisThreshold = 4000 // chars — outputs larger than this get a synopsis
-	maxExcerptChars   = 600
-	maxHeadersShown   = 10
-	maxCodeSymbols    = 15
+	synopsisThreshold   = 4000 // chars — outputs larger than this get a synopsis
+	synopsisSkipMarker  = "[输出概览]" // if Content already contains this, skip double-synopsis
+	maxExcerptChars     = 600
+	maxHeadersShown     = 10
+	maxCodeSymbols      = 15
 )
 
 // SynopsisAfterHook is an AfterToolCallHook that auto-synopsizes large outputs.
@@ -41,6 +42,12 @@ const (
 func SynopsisAfterHook(_ context.Context, _ ToolCallContext, result ToolResult) (ToolResult, error) {
 	if len(result.Content) <= synopsisThreshold {
 		return result, nil // small enough, no synopsis needed
+	}
+
+	// Skip if Content already appears to be a synopsis (avoid double-synopsis
+	// when a tool like kb_read overview=true already returned structured output)
+	if strings.Contains(result.Content, synopsisSkipMarker) {
+		return result, nil
 	}
 
 	// Preserve full output for the UI (only if not already set by the tool)

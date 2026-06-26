@@ -171,9 +171,7 @@ func generateOverview(relPath string, lines []string) string {
 			if currentHeader != "" {
 				firstLine := strings.TrimSpace(headerContent.String())
 				if firstLine != "" {
-					if len(firstLine) > 120 {
-						firstLine = firstLine[:120] + "..."
-					}
+					firstLine = truncateRunes(firstLine, 120)
 					sections = append(sections, fmt.Sprintf("  %s\n    → %s", currentHeader, firstLine))
 				} else {
 					sections = append(sections, fmt.Sprintf("  %s", currentHeader))
@@ -198,9 +196,7 @@ func generateOverview(relPath string, lines []string) string {
 	if currentHeader != "" {
 		firstLine := strings.TrimSpace(headerContent.String())
 		if firstLine != "" {
-			if len(firstLine) > 120 {
-				firstLine = firstLine[:120] + "..."
-			}
+			firstLine = truncateRunes(firstLine, 120)
 			sections = append(sections, fmt.Sprintf("  %s\n    → %s", currentHeader, firstLine))
 		} else {
 			sections = append(sections, fmt.Sprintf("  %s", currentHeader))
@@ -222,4 +218,14 @@ func generateOverview(relPath string, lines []string) string {
 	b.WriteString("\n💡 如需完整内容，用 kb_read path=" + relPath + "（不加 overview）")
 
 	return b.String()
+}
+
+// truncateRunes returns s truncated to maxRunes runes, with "..." if truncated.
+// Rune-safe: does not split multi-byte UTF-8 characters.
+func truncateRunes(s string, maxRunes int) string {
+	runes := []rune(s)
+	if len(runes) <= maxRunes {
+		return s
+	}
+	return string(runes[:maxRunes]) + "..."
 }

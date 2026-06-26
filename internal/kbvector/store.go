@@ -70,9 +70,11 @@ func (s *Store) Index(ctx context.Context, client *EmbeddingClient, docs []Index
 	}
 
 	s.mu.Lock()
-	// Find docs that need embedding
+	// Find docs that need embedding AND detect stale entries
 	var toEmbed []IndexDoc
+	currentPaths := make(map[string]bool, len(docs))
 	for _, doc := range docs {
+		currentPaths[doc.Path] = true
 		if idx, ok := s.pathIndex[doc.Path]; ok {
 			// Already indexed — check if modified
 			if !doc.Modified.After(s.entries[idx].Modified) {
@@ -80,6 +82,17 @@ func (s *Store) Index(ctx context.Context, client *EmbeddingClient, docs []Index
 			}
 		}
 		toEmbed = append(toEmbed, doc)
+	}
+
+	// Remove stale entries (files that were deleted from the repo)
+	var stalePaths []string
+	for path := range s.pathIndex {
+		if !currentPaths[path] {
+			stalePaths = append(stalePaths, path)
+		}
+	}
+	for _, path := range stalePaths {
+		s.removeEntryLocked(path)
 	}
 	s.mu.Unlock()
 
@@ -177,6 +190,22 @@ func (s *Store) Len() int {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return len(s.entries)
+}
+
+// removeEntryLocked deletes an entry by path and rebuilds the path index.
+// Caller must hold s.mu.
+func (s *Store) removeEntryLocked(path string) {
+	idx, ok := s.pathIndex[path]
+	if !ok {
+		return
+	}
+	// Remove from entries slice
+	s.entries = append(s.entries[:idx], s.entries[idx+1:]...)
+	// Rebuild path index (indices shifted)
+	s.pathIndex = make(map[string]int, len(s.entries))
+	for i, e := range s.entries {
+		s.pathIndex[e.Path] = i
+	}
 }
 
 // ── Internal: similarity + persistence ──────────────────────────────────────
