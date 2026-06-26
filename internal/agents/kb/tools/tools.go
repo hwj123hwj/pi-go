@@ -6,9 +6,10 @@ import (
 
 // ListOptions controls how the kb-agent toolset is assembled.
 type ListOptions struct {
-	RepoPath     string // path to agent-lessons repo
-	AllowedTools []string
-	BlockedTools []string
+	RepoPath       string          // path to agent-lessons repo
+	SearchStrategy SearchStrategy  // optional: inject custom search strategy (vector/hybrid)
+	AllowedTools   []string
+	BlockedTools   []string
 }
 
 // BaseToolNames returns the canonical kb-agent tool names.
@@ -18,8 +19,13 @@ func BaseToolNames() []string {
 
 // BuildList assembles the concrete kb-agent toolset.
 func BuildList(opts ListOptions) []agent.Tool {
+	searchTool := NewSearchTool(opts.RepoPath)
+	// Inject custom search strategy if provided (e.g. HybridSearcher)
+	if opts.SearchStrategy != nil {
+		searchTool = NewSearchToolWithStrategy(opts.RepoPath, opts.SearchStrategy)
+	}
 	toolList := []agent.Tool{
-		NewSearchTool(opts.RepoPath),
+		searchTool,
 		NewReadTool(opts.RepoPath),
 		NewListTool(opts.RepoPath),
 		NewSaveTool(opts.RepoPath),

@@ -58,6 +58,11 @@ type Config struct {
 
 	// Knowledge base (second-brain)
 	KBRepoPath string // path to the personal knowledge repo (default: ~/agent-lessons)
+
+	// KB vector search (optional, for semantic search)
+	KBEmbeddingAPIKey string // API key for embedding provider (e.g. SiliconFlow)
+	KBEmbeddingModel  string // embedding model name (e.g. BAAI/bge-m3)
+	KBEmbeddingBaseURL string // embedding API base URL
 }
 
 func Default() Config {
@@ -213,6 +218,17 @@ func (c *Config) LoadFromEnv() {
 	// Knowledge base
 	if v := os.Getenv("PI_GO_KB_REPO_PATH"); v != "" {
 		c.KBRepoPath = v
+	}
+
+	// KB vector search
+	if v := os.Getenv("SILICONFLOW_API_KEY"); v != "" {
+		c.KBEmbeddingAPIKey = v
+	}
+	if v := os.Getenv("SILICONFLOW_EMBEDDING_MODEL"); v != "" {
+		c.KBEmbeddingModel = v
+	}
+	if v := os.Getenv("SILICONFLOW_BASE_URL"); v != "" {
+		c.KBEmbeddingBaseURL = v
 	}
 }
 

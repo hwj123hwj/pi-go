@@ -1,10 +1,14 @@
 package kb
 
 import (
+	"log/slog"
+	"path/filepath"
+
 	"github.com/hwj123hwj/pi-go/internal/agent"
 	kbprompt "github.com/hwj123hwj/pi-go/internal/agents/kb/prompt"
 	kbtools "github.com/hwj123hwj/pi-go/internal/agents/kb/tools"
 	"github.com/hwj123hwj/pi-go/internal/config"
+	"github.com/hwj123hwj/pi-go/internal/kbvector"
 	"github.com/hwj123hwj/pi-go/internal/profile"
 	"github.com/hwj123hwj/pi-go/internal/runtime"
 )
@@ -12,8 +16,8 @@ import (
 // KBApplication implements runtime.Application for the knowledge-base agent.
 type KBApplication struct {
 	Cfg      config.Config
-	RepoPath string          // path to agent-lessons repo, e.g. ~/agent-lessons
-	Profile  *profile.Store  // unified user profile for personalization
+	RepoPath string         // path to agent-lessons repo, e.g. ~/agent-lessons
+	Profile  *profile.Store // unified user profile for personalization
 }
 
 // NewKBApplication creates a new KBApplication.
@@ -34,12 +38,38 @@ func NewKBApplicationWithProfile(cfg config.Config, repoPath string, profileStor
 }
 
 // BuildTools assembles the kb-agent toolset.
+// If embedding API key is configured, uses HybridSearcher (keyword + vector).
+// Otherwise falls back to KeywordSearcher (pure keyword).
 func (a KBApplication) BuildTools(opts runtime.ToolBuildOptions) []agent.Tool {
+	searchStrategy := a.buildSearchStrategy()
+
 	return kbtools.BuildList(kbtools.ListOptions{
-		RepoPath:     a.RepoPath,
-		AllowedTools: opts.AllowedTools,
-		BlockedTools: opts.BlockedTools,
+		RepoPath:         a.RepoPath,
+		SearchStrategy:   searchStrategy,
+		AllowedTools:     opts.AllowedTools,
+		BlockedTools:     opts.BlockedTools,
 	})
+}
+
+// buildSearchStrategy creates the search strategy based on config.
+// When embedding API is available, returns HybridSearcher; else KeywordSearcher.
+func (a KBApplication) buildSearchStrategy() kbtools.SearchStrategy {
+	if a.Cfg.KBEmbeddingAPIKey == "" {
+		return kbtools.KeywordSearcher{} // fallback: pure keyword
+	}
+
+	// Vector search available — create HybridSearcher
+	client := kbvector.NewEmbeddingClient(
+		a.Cfg.KBEmbeddingAPIKey,
+		a.Cfg.KBEmbeddingBaseURL,
+		a.Cfg.KBEmbeddingModel,
+	)
+	vectorPath := filepath.Join(a.Cfg.DataDir, "kb_vectors.json")
+	store := kbvector.NewStore(vectorPath)
+
+	slog.Info("KB vector search enabled", "model", a.Cfg.KBEmbeddingModel, "store", vectorPath)
+
+	return kbvector.NewHybridSearcher(client, store)
 }
 
 // BuildPrompt constructs the kb-agent system prompt.
