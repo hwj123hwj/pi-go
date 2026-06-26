@@ -5154,8 +5154,8 @@ body.resizing .resizer {
     height: 8px;
   }
 
-  /* Right sidebar becomes full-screen overlay */
-  .right-sidebar {
+  /* Right sidebar (rsidebar) becomes full-screen overlay on mobile */
+  .rsidebar {
     position: fixed !important;
     top: 0;
     right: 0;
@@ -5165,32 +5165,47 @@ body.resizing .resizer {
     z-index: 200;
     border-left: none !important;
     box-shadow: var(--shadow-lg);
-  }
-  .right-sidebar::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.5);
-    z-index: -1;
-    pointer-events: none;
+    flex-direction: column-reverse !important; /* rail at bottom, content on top */
   }
 
   /* Right sidebar rail: horizontal bottom bar on mobile */
-  .right-sidebar-rail {
+  .rsidebar-rail {
     flex-direction: row !important;
     width: 100% !important;
     height: auto !important;
     border-right: none !important;
-    border-bottom: 1px solid var(--border) !important;
-    padding: 0 4px !important;
+    border-bottom: none !important;
+    border-top: 1px solid var(--border) !important;
+    padding: 4px 8px !important;
     padding-bottom: env(safe-area-inset-bottom) !important;
+    justify-content: space-around;
+    overflow-x: auto;
+  }
+  .rsidebar-rail .rail-item {
+    flex-direction: column;
+    gap: 2px;
+    padding: 6px 4px;
+    min-width: 44px;
+    min-height: 44px;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .rsidebar-rail .rail-label {
+    display: block !important;
+    font-size: 9px;
+    text-align: center;
+    flex: none;
+  }
+  .rsidebar-rail .rail-shortcut {
+    display: none !important;
   }
 
-  /* Hide right sidebar content panel on mobile (full screen) */
-  .right-sidebar-content {
+  /* Right sidebar content: fill remaining space */
+  .rsidebar-content {
     flex: 1;
     width: 100%;
     border: none !important;
+    min-height: 0;
   }
 
   /* Bottom terminal: full width */
@@ -5290,6 +5305,11 @@ body.resizing .resizer {
   .gm-btn {
     width: 36px;
     height: 36px;
+    font-size: 16px;
+  }
+  .gm-close {
+    width: 32px;
+    height: 32px;
     font-size: 16px;
   }
   .gm-progress {
@@ -5529,10 +5549,7 @@ body.resizing .resizer {
 
   /* ── Mobile Right Sidebar Rail ──────────────────────────────────────────── */
 
-  .right-sidebar-rail button {
-    min-width: 44px;
-    min-height: 44px;
-  }
+  /* (rsidebar-rail buttons already handled above) */
 
   /* ── Mobile Diff Preview ────────────────────────────────────────────────── */
 
@@ -5732,6 +5749,57 @@ body.resizing .resizer {
     width: 56px;
     height: 56px;
     border-radius: 14px;
+  }
+
+  /* ── Mobile File Panel (right sidebar content) ──────────────────────────── */
+
+  /* File tree: hide on mobile, use search or file tabs instead */
+  .files-panel .files-sidebar {
+    display: none !important;
+  }
+  .files-body {
+    flex-direction: column;
+  }
+  /* File tabs: scrollable, touch-friendly */
+  .file-tab {
+    padding: 8px 10px;
+    font-size: 13px;
+  }
+  .file-tab-name {
+    max-width: 100px;
+  }
+  .file-tab-close {
+    opacity: 1; /* always visible on touch */
+    width: 20px;
+    height: 20px;
+  }
+  /* File toolbar: hide non-essential buttons */
+  .file-toolbar-external {
+    display: none !important;
+  }
+  .file-content {
+    font-size: 13px;
+  }
+  .file-code {
+    font-size: 12px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* ── Mobile File Tree (if shown via Files rail) ─────────────────────────── */
+
+  .file-tree {
+    width: 100% !important;
+  }
+  .file-tree-head {
+    padding: 10px 12px;
+    font-size: 14px;
+  }
+  .file-tree-body {
+    font-size: 13px;
+  }
+  .file-tree-item {
+    padding: 8px 12px;
+    min-height: 36px;
   }
 }
 

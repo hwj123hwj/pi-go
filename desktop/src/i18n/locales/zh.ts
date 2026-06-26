@@ -350,6 +350,7 @@ export const zh = {
   'music.play': '播放',
   'music.pause': '暂停',
   'music.retry': '重试',
+  'music.close': '关闭',
   'music.volume': '音量',
   'music.nowPlaying': '正在播放：{name}',
   // ── workspace (right sidebar + layout toggles) ────────────────────────────

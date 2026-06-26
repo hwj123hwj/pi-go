@@ -2,6 +2,9 @@
 
 > Chronological record of wiki operations.
 
+## [2026-06-27] ingest | Mobile File Access + Music Bar Close (v30)
+- **Updated** `wiki/desktop-app.md` — Added v30 mobile fixes: (1) Right sidebar CSS class name mismatch fixed — `.right-sidebar` → `.rsidebar` for full-screen overlay, rail icons now show labels in column layout at bottom with 44px touch targets; (2) File panel mobile optimizations — file tree hidden on mobile, file tabs touch-friendly (opacity:1 close buttons), compact code view; (3) Global music bar close button added (✕ button, calls `clearMusic()` to stop playback and hide bar), 32px touch target on mobile; (4) i18n: `music.close` key added (EN: "Close", ZH: "关闭")
+
 ## [2026-06-27] ingest | Mobile UX Overhaul Round 3 (v29)
 - **Updated** `wiki/desktop-app.md` — Added Round 3 mobile optimizations: Diff preview mobile (gutter hidden, compact font), tool body compact (max-height 200px, momentum scroll), modal/dialog full-screen mobile (94vw, 40px button height), deep Markdown mobile pass (headings, lists, links word-break), code block copy button + long code collapse/expand feature (CodeBlock component in Markdown.tsx), session list 56px touch height, transcript/sidebar momentum scroll + overscroll-contain, role-tag compact, typing-dots compact, server connect screen iOS zoom prevention + 48px touch button, toolbar status text hidden (dot only)
 - **Updated** `index.md` — Added source-project-root-v29 entry

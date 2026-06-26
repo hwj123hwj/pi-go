@@ -441,3 +441,33 @@ sent to the audio player.
 - `allowMixedContent: true` — mixed HTTP/HTTPS content
 - `webContentsDebuggingEnabled: true` — remote debugging via `chrome://inspect`
 
+### Mobile Right Sidebar Fix (v30)
+
+**Bug**: The mobile CSS rules for the right sidebar (Files, Review, Plan, KB,
+Profile panels) targeted `.right-sidebar`, `.right-sidebar-rail`, and
+`.right-sidebar-content`, but the actual component classes are `.rsidebar`,
+`.rsidebar-rail`, and `.rsidebar-content`. The mismatch meant the full-screen
+overlay styling never applied on mobile — the file browser was inaccessible.
+
+**Fix**: Updated all CSS selectors from `.right-sidebar*` → `.rsidebar*`. On
+mobile, the right sidebar now:
+- Opens as a full-screen fixed overlay (z-index 200)
+- Uses `flex-direction: column-reverse` so the rail sits at the bottom
+- Rail buttons display as a horizontal bottom bar with icon + 9px label
+- Each rail item: 44px minimum touch target, column layout
+
+### Mobile File Panel (v30)
+
+When the right sidebar Files panel is open on mobile:
+- The file tree sidebar is hidden (`display: none`) — saves space, users
+  navigate via file tabs and fuzzy search
+- File tabs: 13px font, close buttons always visible (opacity:1)
+- Code content: 12px font with momentum scrolling
+
+### Global Music Bar Close Button (v30)
+
+Added a `✕` close button to `GlobalMusicBar` that calls `clearMusic()` — this
+stops playback (pauses the audio element) and sets `music.current = null`,
+which causes the bar to unmount (the `if (!music.current) return null` guard).
+On mobile the close button is 32px for comfortable touch interaction.
+

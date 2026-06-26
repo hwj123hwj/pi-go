@@ -352,6 +352,7 @@ export const en = {
   'music.play': 'Play',
   'music.pause': 'Pause',
   'music.retry': 'Retry',
+  'music.close': 'Close',
   'music.volume': 'Volume',
   'music.nowPlaying': 'Now playing: {name}',
   // ── workspace (right sidebar + layout toggles) ────────────────────────────

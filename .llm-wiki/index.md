@@ -32,6 +32,7 @@
 - [[source-project-root-v27]] — Re-ingest v27: Mobile UX overhaul round 1 (PromptBar compact, MusicBar full-width, audio proxy HTML rejection, Capacitor details) (2026-06-27)
 - [[source-project-root-v28]] — Re-ingest v28: Mobile UX overhaul round 2 (chat transcript density, tool cards touch targets, Markdown mobile rendering, keyboard-adaptive dvh, inline music card compact) (2026-06-27)
 - [[source-project-root-v29]] — Re-ingest v29: Mobile UX overhaul round 3 (Diff preview mobile, modal/dialog full-screen, code block copy + collapse, tool body compact, momentum scroll, session list touch) (2026-06-27)
+- [[source-project-root-v30]] — Re-ingest v30: Mobile right sidebar CSS fix (file browser now accessible), music bar close button, file panel touch-friendly (2026-06-27)
 
 ## Entities
 - [[agent-core]] — Agent state machine and execution engine
