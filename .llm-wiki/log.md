@@ -2,6 +2,9 @@
 
 > Chronological record of wiki operations.
 
+## [2026-06-27] ingest | Mobile Toolbar + Empty State + Keyboard Dismiss (v32)
+- **Updated** `wiki/desktop-app.md` — Added v32 mobile optimizations: (1) Density toggle on mobile now uses `toolbar-density-mobile` class — compact 28px buttons instead of hidden; (2) Empty state hides folder picker and model selector on mobile (`isElectron` gated) — mobile users get a clean single-purpose prompt + send button; (3) Keyboard auto-dismiss — touching/scrolling the transcript blurs active input (textarea/input) to hide the soft keyboard, improving scroll UX; (4) Empty state send button: 44px min touch target
+
 ## [2026-06-27] ingest | Mobile Panel Close Button + PromptBar + File Panel (v31)
 - **Updated** `wiki/desktop-app.md` — Added v31 mobile optimizations: (1) Right sidebar mobile close button — floating 40px back-arrow in top-left of any right sidebar panel, calls `toggleWorkspaceRight()` to close; `rsidebar-content` gets top padding to avoid overlap; (2) PromptBar stop button mobile — circular 36px icon-only (removed text label to match send button size); (3) File panel mobile details (file tree, tabs, code view touch)
 

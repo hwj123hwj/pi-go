@@ -6,6 +6,7 @@ import { MusicPlayer } from '../MusicPlayer';
 import { LyricsViewer } from '../LyricsViewer';
 import { Icon, toolKindIcon } from '../Icon';
 import { useT, type TFunc } from '../../i18n/useT';
+import { isElectron } from '../../platform';
 
 export function ChatPane({ view }: { view: SessionView }) {
   const density = view.density;
@@ -52,7 +53,17 @@ export function ChatPane({ view }: { view: SessionView }) {
   }, [view.meta.id]);
 
   return (
-    <div className="pane-body" ref={scrollContainerRef}>
+    <div
+      className="pane-body"
+      ref={scrollContainerRef}
+      onTouchStart={isElectron ? undefined : () => {
+        // Dismiss keyboard when scrolling the transcript on mobile
+        const el = document.activeElement;
+        if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) {
+          (el as HTMLElement).blur();
+        }
+      }}
+    >
       <div className="transcript">
         {view.transcript.length === 0 && (
           <div className="empty" style={{ height: 280 }}>

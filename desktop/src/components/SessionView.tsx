@@ -7,6 +7,7 @@ import { WorkspaceToggles } from './workspace/WorkspaceToggles';
 import { useT, type TFunc } from '../i18n/useT';
 import { BottomTerminal } from './workspace/BottomTerminal';
 import { Resizer } from './workspace/Resizer';
+import { isElectron } from '../platform';
 
 export function SessionView() {
   const activeId = useStore((s) => s.activeSessionId);
@@ -41,8 +42,8 @@ export function SessionView() {
 
         <WorkspaceToggles />
 
-        {/* Density toggle (summary / normal / verbose) */}
-        <div className="views-menu toolbar-density">
+        {/* Density toggle (summary / normal / verbose) — desktop only on mobile */}
+        <div className={`views-menu ${isElectron ? 'toolbar-density' : 'toolbar-density-mobile'}`}>
           {(['summary', 'normal', 'verbose'] as ViewDensity[]).map((d) => (
             <button
               key={d}
@@ -176,7 +177,8 @@ function EmptyState() {
               }}
             />
             <div className="empty-controls">
-              {/* Project / directory selector */}
+              {/* Project / directory selector — desktop only (no folder picker on mobile) */}
+              {isElectron && (
               <div className="empty-target" ref={menuRef}>
                 <button
                   className="chip interactive"
@@ -207,8 +209,10 @@ function EmptyState() {
                   </div>
                 )}
               </div>
+              )}
 
-              {/* Model selector */}
+              {/* Model selector — desktop only on mobile (server uses default) */}
+              {isElectron && (
               <span className="chip">
                 <Icon name="cpu" size={14} />
                 <select value={model} onChange={(e) => setModel(e.target.value)}>
@@ -220,6 +224,7 @@ function EmptyState() {
                   ))}
                 </select>
               </span>
+              )}
 
               <span className="grow" />
 

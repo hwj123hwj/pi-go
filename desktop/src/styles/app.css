@@ -5842,6 +5842,39 @@ body.resizing .resizer {
     padding: 8px 12px;
     min-height: 36px;
   }
+
+  /* ── Mobile Toolbar Density Toggle (compact) ───────────────────────────── */
+
+  .toolbar-density-mobile {
+    display: flex;
+    gap: 0;
+    flex-wrap: nowrap;
+  }
+  .toolbar-density-mobile button {
+    min-width: 28px;
+    min-height: 28px;
+    font-size: 10px;
+    padding: 2px 5px;
+    border-radius: 6px;
+  }
+
+  /* ── Mobile Empty State (hide folder picker, simplify) ─────────────────── */
+
+  .empty-controls {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .empty-send {
+    min-height: 44px;
+    min-width: 44px;
+    font-size: 16px;
+  }
+
+  /* ── Mobile Keyboard Dismiss: tap transcript to blur active input ──────── */
+
+  .transcript {
+    cursor: pointer;
+  }
 }
 
 /* ── Tablet (769-1024px): keep most desktop layout, slightly narrower ────── */

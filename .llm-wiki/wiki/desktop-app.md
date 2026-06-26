@@ -482,6 +482,29 @@ overlap with the floating button.
 
 On desktop, `.rsidebar-mobile-close` is `display: none`.
 
+### Mobile Density Toggle (v32)
+
+The density toggle (summary/normal/verbose) was previously hidden entirely on
+mobile. Now it uses a separate `toolbar-density-mobile` class with compact
+28px buttons and 10px font — small enough to fit the toolbar but still
+functional for users who want to switch between detailed and compact views.
+
+### Mobile Empty State (v32)
+
+On mobile (non-Electron), the empty state screen hides:
+- **Folder picker** — no native folder dialog on mobile
+- **Model selector** — server uses its configured default
+
+Mobile users see a clean prompt textarea + 44px send button only. The model
+and working directory are determined server-side.
+
+### Mobile Keyboard Auto-Dismiss (v32)
+
+When a mobile user touches or scrolls the chat transcript while the keyboard
+is open, the active input element is automatically blurred. This dismisses
+the soft keyboard, reclaiming screen space for reading. Implemented via
+`onTouchStart` handler on `.pane-body` that checks `document.activeElement`.
+
 ### Mobile PromptBar Stop Button (v31)
 
 The stop button (shown when agent is thinking) was originally a pill with
