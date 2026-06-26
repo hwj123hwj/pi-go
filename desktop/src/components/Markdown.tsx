@@ -54,6 +54,8 @@ function CodeBlock({ lang, code }: { lang: string; code: string }) {
     void navigator.clipboard?.writeText(code).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 1400);
+    }).catch(() => {
+      /* clipboard API may fail on insecure origin — silently ignore */
     });
   }, [code]);
 

@@ -5230,7 +5230,7 @@ body.resizing .resizer {
     border: none !important;
     min-height: 0;
     position: relative;
-    overflow-y: auto;
+    overflow-y: auto !important;
     -webkit-overflow-scrolling: touch;
     padding-top: calc(env(safe-area-inset-top) + 56px);
   }

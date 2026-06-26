@@ -2,6 +2,11 @@
 
 > Chronological record of wiki operations.
 
+## [2026-06-27] fix | Mobile Code Review Round 4 — Bug Fixes (v36)
+- **Updated** `wiki/desktop-app.md` — Code review round 4 found and fixed 2 bugs:
+  1. **`.rsidebar-content` overflow conflict** — Desktop definition sets `overflow: hidden` (line 494), mobile sets `overflow-y: auto` (line 5227). Without `!important`, the desktop `overflow: hidden` could prevent scrolling inside the right sidebar on mobile (e.g. long file content, KB articles). Fixed: `overflow-y: auto !important` on mobile.
+  2. **CodeBlock copy button unhandled promise rejection** — `navigator.clipboard?.writeText(code).then(...)` had no `.catch()` handler. On mobile browsers with insecure origins (HTTP without HTTPS), the Clipboard API throws `NotAllowedError`, causing an unhandled promise rejection. Fixed: added `.catch()` to silently ignore.
+
 ## [2026-06-27] fix | Mobile Code Review Round 3 — Bug Fixes (v35)
 - **Updated** `wiki/desktop-app.md` — Code review round 3 found and fixed 2 bugs:
   1. **Sidebar backdrop double-dimming on mobile** — The app has both a `::before` pseudo-element overlay AND a `.sidebar-mobile-backdrop` div, both at 50% black. With `pointer-events: none` on `::before`, clicks passed through to the underlying app. Fixed: keep `::before` as `pointer-events: none` but make it transparent when `.sidebar-mobile-backdrop` is present (via `:has()` selector) to prevent double-dimming.

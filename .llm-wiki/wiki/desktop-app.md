@@ -562,6 +562,23 @@ After 6 rounds of mobile optimizations (v27–v32), a code review found 4 bugs:
    base values could override the mobile overrides. Fixed: all critical
    properties now have `!important`.
 
+### Code Review Bug Fixes Round 4 (v36)
+
+1. **`.rsidebar-content` overflow conflict** — Desktop definition (line 494)
+   sets `overflow: hidden` to prevent content spilling. Mobile definition
+   (line 5227) sets `overflow-y: auto` to enable scrolling. Without
+   `!important`, CSS cascade order could let the desktop rule win, making
+   the right sidebar panel unscrollable on mobile — users couldn't scroll
+   through long file content or KB articles. Fixed: `overflow-y: auto
+   !important` on mobile.
+
+2. **CodeBlock clipboard unhandled rejection** —
+   `navigator.clipboard?.writeText(code).then(...)` in `Markdown.tsx`
+   had no error handler. On mobile browsers serving over HTTP (not HTTPS),
+   the Clipboard API is blocked (`NotAllowedError`), causing an unhandled
+   promise rejection warning in the console. Fixed: added `.catch()` to
+   silently ignore clipboard failures.
+
 ### Mobile PromptBar Stop Button (v31)
 
 The stop button (shown when agent is thinking) was originally a pill with

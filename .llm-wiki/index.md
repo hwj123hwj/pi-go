@@ -38,6 +38,7 @@
 - [[source-project-root-v33]] — Code review: fix duplicate CSS (toolbar-density-mobile, rsidebar-content), GlobalMusicBar audio src cleanup, remove unused playMusic var (2026-06-27)
 - [[source-project-root-v34]] — Code review round 2: fix file tree not hidden on mobile (wrong CSS class), ChatPane onTouchStart stealing focus from buttons (2026-06-27)
 - [[source-project-root-v35]] — Code review round 3: fix sidebar backdrop double-dimming on mobile, btn-stop mobile CSS missing !important (2026-06-27)
+- [[source-project-root-v36]] — Code review round 4: fix rsidebar-content overflow conflict (hidden vs auto), CodeBlock clipboard unhandled rejection (2026-06-27)
 
 ## Entities
 - [[agent-core]] — Agent state machine and execution engine
