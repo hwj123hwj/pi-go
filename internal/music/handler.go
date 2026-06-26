@@ -108,6 +108,17 @@ func (h *Handler) proxyAudio(w http.ResponseWriter, r *http.Request, audioURL, r
 		return false
 	}
 
+	// Detect fake responses: NetEase sometimes returns HTTP 200 with an HTML
+	// error page instead of audio data. Check Content-Type to avoid sending
+	// HTML to the audio player.
+	ct := resp.Header.Get("Content-Type")
+	if resp.StatusCode == http.StatusOK && isNonAudioContentType(ct) {
+		slog.Info("upstream returned non-audio content type, treating as stale",
+			"content_type", ct, "status", resp.StatusCode)
+		resp.Body.Close()
+		return false
+	}
+
 	defer resp.Body.Close()
 
 	// Passthrough headers
@@ -227,6 +238,16 @@ func parseCompositeID(id string) (Source, string) {
 		return Source(id[:idx]), id[idx+1:]
 	}
 	return ParseSourceID(id)
+}
+
+// isNonAudioContentType returns true if the Content-Type header indicates
+// non-audio content (HTML, JSON, plain text) that NetEase/Bilibili sometimes
+// return instead of real audio when the URL is blocked or the song is VIP-only.
+func isNonAudioContentType(ct string) bool {
+	ct = strings.ToLower(ct)
+	return strings.Contains(ct, "text/html") ||
+		strings.Contains(ct, "text/plain") ||
+		strings.Contains(ct, "application/json")
 }
 
 // itoa converts an int64 to its decimal string representation without

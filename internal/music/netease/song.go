@@ -170,11 +170,11 @@ func (c *Client) GetAudioURL(songID int64) (string, error) {
 		}
 	}
 
-	// Strategy 3: return the outer URL anyway — the proxy will try to fetch it
-	// and if it truly fails the user gets a proper error in the player.  This
-	// avoids failing outright when the HEAD check was over-strict (NetEase
-	// sometimes blocks HEAD but allows GET).
-	return outerURL, nil
+	// Strategy 3: all strategies failed — return an error instead of a
+	// broken URL. Previously we returned the outer URL unchecked, but NetEase
+	// often returns HTML error pages with HTTP 200 for blocked/VIP songs,
+	// which the audio player can't play.
+	return "", fmt.Errorf("audio URL not available for song %d (all strategies failed)", songID)
 }
 
 // checkURL does a GET request with a small range to verify the URL returns
