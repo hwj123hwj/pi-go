@@ -160,6 +160,7 @@ func generateOverview(relPath string, lines []string) string {
 	var sections []string // header + first content line
 
 	scanner := bufio.NewScanner(strings.NewReader(strings.Join(lines, "\n")))
+	scanner.Buffer(make([]byte, 0, 1024), 1024*1024) // 1MB max line — default 64KB silently truncates long lines
 	var currentHeader string
 	var headerContent strings.Builder
 

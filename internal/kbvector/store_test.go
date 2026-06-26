@@ -149,3 +149,25 @@ func TestStoreStaleEntryRemoval(t *testing.T) {
 	}
 	s.mu.Unlock()
 }
+
+func TestStaleEntryRemovalPersisted(t *testing.T) {
+	dir := t.TempDir()
+	path := dir + "/vectors.json"
+
+	// Phase 1: create store with 2 entries, save to disk
+	s1 := NewStore(path)
+	s1.mu.Lock()
+	s1.entries = []VectorEntry{
+		{Path: "/abs/a.md", RelPath: "a.md", Title: "A", Vector: []float32{1, 0}},
+		{Path: "/abs/b.md", RelPath: "b.md", Title: "B", Vector: []float32{0, 1}},
+	}
+	s1.pathIndex = map[string]int{"/abs/a.md": 0, "/abs/b.md": 1}
+	_ = s1.save()
+	s1.mu.Unlock()
+
+	// Phase 2: reload from disk, verify 2 entries
+	s2 := NewStore(path)
+	if s2.Len() != 2 {
+		t.Fatalf("phase 2: expected 2 entries, got %d", s2.Len())
+	}
+}

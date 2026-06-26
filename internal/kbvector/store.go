@@ -94,6 +94,10 @@ func (s *Store) Index(ctx context.Context, client *EmbeddingClient, docs []Index
 	for _, path := range stalePaths {
 		s.removeEntryLocked(path)
 	}
+	if len(stalePaths) > 0 {
+		// Persist stale entry removal even when no new docs need embedding
+		_ = s.save()
+	}
 	s.mu.Unlock()
 
 	if len(toEmbed) == 0 {
