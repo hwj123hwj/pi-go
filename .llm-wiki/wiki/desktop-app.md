@@ -505,6 +505,30 @@ is open, the active input element is automatically blurred. This dismisses
 the soft keyboard, reclaiming screen space for reading. Implemented via
 `onTouchStart` handler on `.pane-body` that checks `document.activeElement`.
 
+### Code Review Bug Fixes (v33)
+
+After 6 rounds of mobile optimizations (v27–v32), a code review found 4 bugs:
+
+1. **Duplicate `.toolbar-density-mobile` CSS** — Two separate blocks existed
+   in the mobile media query (lines ~5151 and ~5858). The second block was a
+   leftover from v32. Consolidated into a single definition with `display:
+   flex` and `margin-left: auto` so the toggle pushes to the right.
+
+2. **Duplicate `.rsidebar-content` CSS** — Three definitions existed (line 494
+   desktop + line 5221 mobile + line 5255 mobile). The third was a leftover
+   `padding-top` rule. Merged into the single mobile definition.
+
+3. **GlobalMusicBar close didn't release audio resource** — `clearMusic()`
+   set `music.current = null` and called `audio.pause()`, but the `src`
+   attribute remained, keeping the media resource loaded in memory. Fixed by
+   calling `audio.removeAttribute('src')` + `audio.load()` to fully release
+   the resource.
+
+4. **Unused `playMusic` store subscription** — After the v30 refactor added
+   `clearMusic`, the `playMusic` subscription was no longer needed but still
+   present, causing unnecessary re-renders when `playMusic` was called
+   elsewhere. Removed.
+
 ### Mobile PromptBar Stop Button (v31)
 
 The stop button (shown when agent is thinking) was originally a pill with

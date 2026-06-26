@@ -35,6 +35,7 @@
 - [[source-project-root-v30]] — Re-ingest v30: Mobile right sidebar CSS fix (file browser now accessible), music bar close button, file panel touch-friendly (2026-06-27)
 - [[source-project-root-v31]] — Re-ingest v31: Mobile right sidebar close button (back arrow), PromptBar stop button circular icon, file panel touch details (2026-06-27)
 - [[source-project-root-v32]] — Re-ingest v32: Mobile toolbar compact density toggle, empty state (hide folder picker/model selector), keyboard auto-dismiss on scroll (2026-06-27)
+- [[source-project-root-v33]] — Code review: fix duplicate CSS (toolbar-density-mobile, rsidebar-content), GlobalMusicBar audio src cleanup, remove unused playMusic var (2026-06-27)
 
 ## Entities
 - [[agent-core]] — Agent state machine and execution engine

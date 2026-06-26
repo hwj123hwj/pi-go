@@ -2,6 +2,13 @@
 
 > Chronological record of wiki operations.
 
+## [2026-06-27] fix | Mobile Code Review — Bug Fixes (v33)
+- **Updated** `wiki/desktop-app.md` — Code review of commits v27–v32 found and fixed 4 bugs:
+  1. **Duplicate `.toolbar-density-mobile` CSS** — Two blocks defined with conflicting properties. Consolidated to one in the mobile media query with `display: flex` + `margin-left: auto`.
+  2. **Duplicate `.rsidebar-content` CSS** — Three definitions existed (desktop + two mobile). Merged into one mobile definition with `padding-top` for the close button clearance.
+  3. **`GlobalMusicBar.close` didn't clear audio src** — Calling `audio.pause()` + `clearMusic()` left the `src` attribute intact, causing the browser to keep the media resource loaded. Fixed: now calls `audio.removeAttribute('src')` + `audio.load()` to fully release.
+  4. **Unused `playMusic` variable in GlobalMusicBar** — After v30 refactor, `playMusic` was subscribed but never used, causing unnecessary store re-renders. Removed.
+
 ## [2026-06-27] ingest | Mobile Toolbar + Empty State + Keyboard Dismiss (v32)
 - **Updated** `wiki/desktop-app.md` — Added v32 mobile optimizations: (1) Density toggle on mobile now uses `toolbar-density-mobile` class — compact 28px buttons instead of hidden; (2) Empty state hides folder picker and model selector on mobile (`isElectron` gated) — mobile users get a clean single-purpose prompt + send button; (3) Keyboard auto-dismiss — touching/scrolling the transcript blurs active input (textarea/input) to hide the soft keyboard, improving scroll UX; (4) Empty state send button: 44px min touch target
 

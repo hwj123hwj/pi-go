@@ -5148,6 +5148,19 @@ body.resizing .resizer {
   .toolbar-density {
     display: none !important;
   }
+  .toolbar-density-mobile {
+    display: flex;
+    gap: 0;
+    flex-wrap: nowrap;
+    margin-left: auto;
+  }
+  .toolbar-density-mobile button {
+    min-width: 28px;
+    min-height: 28px;
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 6px;
+  }
   /* Hide status text on mobile — keep only the dot */
   .toolbar-status {
     font-size: 0;
@@ -5213,6 +5226,7 @@ body.resizing .resizer {
     position: relative;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
+    padding-top: calc(env(safe-area-inset-top) + 56px);
   }
 
   /* Mobile close button — floating back arrow in top-left of panel */
@@ -5236,10 +5250,6 @@ body.resizing .resizer {
   }
   .rsidebar-mobile-close:active {
     background: var(--bg-hover);
-  }
-  /* When the mobile close button is visible, push content down to avoid overlap */
-  .rsidebar-content {
-    padding-top: calc(env(safe-area-inset-top) + 56px);
   }
 
   /* Bottom terminal: full width */
@@ -5841,21 +5851,6 @@ body.resizing .resizer {
   .file-tree-item {
     padding: 8px 12px;
     min-height: 36px;
-  }
-
-  /* ── Mobile Toolbar Density Toggle (compact) ───────────────────────────── */
-
-  .toolbar-density-mobile {
-    display: flex;
-    gap: 0;
-    flex-wrap: nowrap;
-  }
-  .toolbar-density-mobile button {
-    min-width: 28px;
-    min-height: 28px;
-    font-size: 10px;
-    padding: 2px 5px;
-    border-radius: 6px;
   }
 
   /* ── Mobile Empty State (hide folder picker, simplify) ─────────────────── */

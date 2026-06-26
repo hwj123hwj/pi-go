@@ -26,7 +26,6 @@ export function GlobalMusicBar() {
   const setMusicDuration = useStore((s) => s.setMusicDuration);
   const setMusicError = useStore((s) => s.setMusicError);
   const toggleMusic = useStore((s) => s.toggleMusic);
-  const playMusic = useStore((s) => s.playMusic);
   const clearMusic = useStore((s) => s.clearMusic);
   const t = useT();
 
@@ -173,12 +172,16 @@ export function GlobalMusicBar() {
         <span className="gm-time">{music.duration ? formatTime(music.duration) : '—'}</span>
       </div>
 
-      {/* Close button — stops playback and hides the bar */}
+      {/* Close button — stops playback, clears src, and hides the bar */}
       <button
         className="gm-close"
         onClick={() => {
           const audio = audioRef.current;
-          if (audio) audio.pause();
+          if (audio) {
+            audio.pause();
+            audio.removeAttribute('src');
+            audio.load();
+          }
           clearMusic();
         }}
         title={t('music.close')}
