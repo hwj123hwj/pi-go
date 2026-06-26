@@ -23,6 +23,7 @@
 - [[source-project-root-v18]] — Re-ingest v18: OpenViking deep-absorption (KB L1 overview mode, hotness-based memory eviction with frequency×recency) (2026-06-26)
 - [[source-project-root-v19]] — Re-ingest v19: KB vector search (SiliconFlow bge-m3, hybrid keyword+vector retrieval, local JSON vector store) (2026-06-26)
 - [[source-project-root-v20]] — Re-ingest v20: Session memory extraction (OpenViking ExtractLoop adaptation, LLM-based user fact extraction, async non-blocking) (2026-06-26)
+- [[source-project-root-v21]] — Re-ingest v21: Tool output auto-synopsis (context window protection, After-hook replaces large outputs with structural synopsis) (2026-06-26)
 
 ## Entities
 - [[agent-core]] — Agent state machine and execution engine

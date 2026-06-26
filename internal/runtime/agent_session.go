@@ -374,6 +374,11 @@ func (s *AgentSession) buildAgent(ctx context.Context, registry *providers.Regis
 		lifecycleHooks = s.extRegistry.LifecycleHooks()
 	}
 
+	// Register the auto-synopsis hook: large tool outputs are automatically
+	// replaced with a structural synopsis, saving context window tokens.
+	// The full output is preserved in UserFacing for the UI.
+	lifecycleHooks.After = append(lifecycleHooks.After, agent.SynopsisAfterHook)
+
 	return agent.New(agent.Options{
 		Model:              model,
 		Registry:           registry,
