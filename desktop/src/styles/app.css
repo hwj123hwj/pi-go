@@ -5804,8 +5804,9 @@ body.resizing .resizer {
 
   /* ── Mobile File Panel (right sidebar content) ──────────────────────────── */
 
-  /* File tree: hide on mobile, use search or file tabs instead */
-  .files-panel .files-sidebar {
+  /* Hide file tree sidebar + its resizer on mobile — users navigate via tabs/search */
+  .files-panel .file-tree,
+  .files-body > .resizer {
     display: none !important;
   }
   .files-body {

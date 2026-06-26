@@ -2,6 +2,11 @@
 
 > Chronological record of wiki operations.
 
+## [2026-06-27] fix | Mobile Code Review Round 2 — Bug Fixes (v34)
+- **Updated** `wiki/desktop-app.md` — Code review round 2 found and fixed 2 bugs:
+  1. **File tree not hidden on mobile** — CSS targeted `.files-sidebar` class that doesn't exist in the DOM; the actual elements are `.file-tree` and `.resizer` rendered directly inside `.files-body`. Fixed selectors to `.files-panel .file-tree` + `.files-body > .resizer`.
+  2. **ChatPane onTouchStart steals focus from interactive elements** — The keyboard-dismiss `onTouchStart` handler called `.blur()` on any touch, including taps on buttons (code copy, tool card expand, etc.). Fixed with `target.closest()` guard to skip interactive elements.
+
 ## [2026-06-27] fix | Mobile Code Review — Bug Fixes (v33)
 - **Updated** `wiki/desktop-app.md` — Code review of commits v27–v32 found and fixed 4 bugs:
   1. **Duplicate `.toolbar-density-mobile` CSS** — Two blocks defined with conflicting properties. Consolidated to one in the mobile media query with `display: flex` + `margin-left: auto`.

@@ -529,6 +529,20 @@ After 6 rounds of mobile optimizations (v27–v32), a code review found 4 bugs:
    present, causing unnecessary re-renders when `playMusic` was called
    elsewhere. Removed.
 
+### Code Review Bug Fixes Round 2 (v34)
+
+1. **File tree not hidden on mobile** — The CSS rule `.files-panel
+   .files-sidebar { display: none }` targeted a class that doesn't exist.
+   The FilesPanel component renders `<Resizer>` and `<FileTree>` directly
+   inside `.files-body`, not wrapped in `.files-sidebar`. Fixed to target
+   `.files-panel .file-tree` and `.files-body > .resizer`.
+
+2. **ChatPane onTouchStart steals focus from interactive elements** — The
+   keyboard-dismiss handler blurred `document.activeElement` on every touch,
+   including taps on code copy buttons, tool card expand/collapse, etc.
+   Added a `target.closest('button, a, input, textarea, .tool-head,
+   .md-code-copy, .gm-btn')` guard so only empty-area touches trigger blur.
+
 ### Mobile PromptBar Stop Button (v31)
 
 The stop button (shown when agent is thinking) was originally a pill with

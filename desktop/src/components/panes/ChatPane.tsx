@@ -56,8 +56,12 @@ export function ChatPane({ view }: { view: SessionView }) {
     <div
       className="pane-body"
       ref={scrollContainerRef}
-      onTouchStart={isElectron ? undefined : () => {
-        // Dismiss keyboard when scrolling the transcript on mobile
+      onTouchStart={isElectron ? undefined : (e) => {
+        // Dismiss keyboard when touching the transcript scroll area on mobile.
+        // Skip if the touch target is a button, link, or inside interactive
+        // elements (code copy, tool cards, etc.) — only blur for empty-area scrolls.
+        const target = e.target as HTMLElement;
+        if (target.closest('button, a, input, textarea, .tool-head, .md-code-copy, .gm-btn')) return;
         const el = document.activeElement;
         if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) {
           (el as HTMLElement).blur();
