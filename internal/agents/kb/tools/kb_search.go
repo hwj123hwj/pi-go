@@ -119,6 +119,7 @@ func (t *SearchTool) Execute(_ context.Context, params json.RawMessage, _ func(a
 	b.WriteString(fmt.Sprintf("📚 找到 %d 条记录（知识库共 %d 条）：\n\n", len(results), len(idx.Entries)))
 	for i, r := range results {
 		e := r.Entry
+		absPath := filepath.Join(t.repoPath, e.RelPath)
 		b.WriteString(fmt.Sprintf("%d. **%s**\n", i+1, e.Title))
 		// Metadata line
 		var meta []string
@@ -134,9 +135,9 @@ func (t *SearchTool) Execute(_ context.Context, params json.RawMessage, _ func(a
 		if e.Summary != "" {
 			b.WriteString(fmt.Sprintf("   > %s\n", e.Summary))
 		}
-		b.WriteString(fmt.Sprintf("   📄 %s\n\n", e.RelPath))
+		b.WriteString(fmt.Sprintf("   📄 `%s`\n\n", absPath))
 	}
-	b.WriteString("使用 kb_read 工具读取完整内容，参数 path 填上面的文件路径。")
+	b.WriteString("使用 kb_read 工具读取完整内容，参数 path 填上面的文件路径（绝对路径或相对路径均可）。")
 
 	return agent.ToolResult{Content: b.String()}, nil
 }
@@ -147,4 +148,14 @@ func resolvePath(repoPath, p string) string {
 		return p
 	}
 	return filepath.Join(repoPath, p)
+}
+
+// formatRelPath returns the relative path for display, with a fallback to the
+// absolute path if the file is outside the repository.
+func formatRelPath(repoPath, absPath string) string {
+	rel, err := filepath.Rel(repoPath, absPath)
+	if err != nil || strings.HasPrefix(rel, "..") {
+		return absPath
+	}
+	return rel
 }

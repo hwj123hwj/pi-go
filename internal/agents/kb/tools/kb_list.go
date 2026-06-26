@@ -7,6 +7,8 @@ import (
 	"sort"
 	"strings"
 
+	"path/filepath"
+
 	"github.com/hwj123hwj/pi-go/internal/agent"
 )
 
@@ -153,6 +155,7 @@ func (t *ListTool) Execute(_ context.Context, params json.RawMessage, _ func(age
 			}
 			b.WriteString(fmt.Sprintf("## %s\n\n", displayCat))
 		}
+		absPath := filepath.Join(t.repoPath, e.RelPath)
 		b.WriteString(fmt.Sprintf("- **%s**", e.Title))
 		var meta []string
 		if len(e.Tags) > 0 {
@@ -169,10 +172,10 @@ func (t *ListTool) Execute(_ context.Context, params json.RawMessage, _ func(age
 			b.WriteString(fmt.Sprintf(" — %s", strings.Join(meta, " ")))
 		}
 		b.WriteString("\n")
-		b.WriteString(fmt.Sprintf("  📄 `%s`\n", e.RelPath))
+		b.WriteString(fmt.Sprintf("  📄 `%s`\n", absPath))
 	}
 
-	b.WriteString("\n使用 kb_read 读取完整内容，或 kb_search 搜索特定关键词。")
+	b.WriteString("\n使用 kb_read 读取完整内容（参数 path 支持绝对路径或相对路径），或 kb_search 搜索特定关键词。")
 
 	return agent.ToolResult{Content: b.String()}, nil
 }

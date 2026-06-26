@@ -156,21 +156,19 @@ func (t *SaveTool) Execute(_ context.Context, params json.RawMessage, _ func(age
 	// Invalidate cache so next search includes the new entry
 	ClearCache()
 
-	relPath, _ := filepath.Rel(t.repoPath, targetPath)
-
 	var b2 strings.Builder
 	b2.WriteString(fmt.Sprintf("✅ 已保存到知识库！\n\n"))
-	b2.WriteString(fmt.Sprintf("📄 %s\n\n", relPath))
+	b2.WriteString(fmt.Sprintf("📄 `%s`\n\n", targetPath))
 	b2.WriteString(fmt.Sprintf("**标题**: %s\n", p.Title))
 	b2.WriteString(fmt.Sprintf("**分类**: %s\n", category))
 	if len(p.Tags) > 0 {
 		b2.WriteString(fmt.Sprintf("**标签**: %s\n", strings.Join(p.Tags, ", ")))
 	}
-	b2.WriteString(fmt.Sprintf("\n可以用 `kb_read path=\"%s\"` 验证，或用 `kb_search query=\"%s\"` 重新搜索。", relPath, p.Title))
+	b2.WriteString(fmt.Sprintf("\n可以用 `kb_read path=\"%s\"` 验证，或用 `kb_search query=\"%s\"` 重新搜索。", targetPath, p.Title))
 
 	return agent.ToolResult{
 		Content:    b2.String(),
-		UserFacing: fmt.Sprintf("已保存知识条目「%s」到 %s", p.Title, relPath),
+		UserFacing: fmt.Sprintf("已保存知识条目「%s」到 %s", p.Title, targetPath),
 	}, nil
 }
 

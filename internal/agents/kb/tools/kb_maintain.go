@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"github.com/hwj123hwj/pi-go/internal/agent"
@@ -124,14 +125,16 @@ func (t *MaintainTool) runHealthCheck(idx *Index) agent.ToolResult {
 	if len(report.EntriesMissingTitle) > 0 {
 		b.WriteString(fmt.Sprintf("- ⚠️ **%d 条目缺标题**:\n", len(report.EntriesMissingTitle)))
 		for _, e := range report.EntriesMissingTitle {
-			b.WriteString(fmt.Sprintf("  - `%s`\n", e.RelPath))
+			absPath := filepath.Join(t.repoPath, e.RelPath)
+			b.WriteString(fmt.Sprintf("  - `%s`\n", absPath))
 		}
 		gapCount += len(report.EntriesMissingTitle)
 	}
 	if len(report.EntriesMissingSummary) > 0 {
 		b.WriteString(fmt.Sprintf("- ⚠️ **%d 条目缺摘要**:\n", len(report.EntriesMissingSummary)))
 		for _, e := range report.EntriesMissingSummary {
-			b.WriteString(fmt.Sprintf("  - `%s` — %s\n", e.RelPath, e.Title))
+			absPath := filepath.Join(t.repoPath, e.RelPath)
+			b.WriteString(fmt.Sprintf("  - `%s` — %s\n", absPath, e.Title))
 		}
 		gapCount += len(report.EntriesMissingSummary)
 	}
@@ -143,7 +146,8 @@ func (t *MaintainTool) runHealthCheck(idx *Index) agent.ToolResult {
 				b.WriteString(fmt.Sprintf("  - ...还有 %d 条\n", len(report.EntriesMissingTags)-10))
 				break
 			}
-			b.WriteString(fmt.Sprintf("  - `%s` — %s\n", e.RelPath, e.Title))
+			absPath := filepath.Join(t.repoPath, e.RelPath)
+			b.WriteString(fmt.Sprintf("  - `%s` — %s\n", absPath, e.Title))
 		}
 		gapCount += len(report.EntriesMissingTags)
 	}
@@ -159,7 +163,8 @@ func (t *MaintainTool) runHealthCheck(idx *Index) agent.ToolResult {
 		for i, g := range report.DuplicateGroups {
 			b.WriteString(fmt.Sprintf("%d. **%s** (%d条)\n", i+1, g.CanonicalTitle, len(g.Entries)))
 			for _, e := range g.Entries {
-				b.WriteString(fmt.Sprintf("   - `%s` (%s)\n", e.RelPath, e.Category))
+				absPath := filepath.Join(t.repoPath, e.RelPath)
+				b.WriteString(fmt.Sprintf("   - `%s` (%s)\n", absPath, e.Category))
 			}
 			b.WriteString("\n")
 		}
@@ -204,7 +209,8 @@ func (t *MaintainTool) runDuplicateCheck(idx *Index) agent.ToolResult {
 	for i, g := range dups {
 		b.WriteString(fmt.Sprintf("### %d. %s (%d条)\n\n", i+1, g.CanonicalTitle, len(g.Entries)))
 		for _, e := range g.Entries {
-			b.WriteString(fmt.Sprintf("- `%s` — 分类: %s", e.RelPath, e.Category))
+			absPath := filepath.Join(t.repoPath, e.RelPath)
+			b.WriteString(fmt.Sprintf("- `%s` — 分类: %s", absPath, e.Category))
 			if e.Summary != "" {
 				s := e.Summary
 				if len(s) > 60 {

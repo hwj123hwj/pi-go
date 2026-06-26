@@ -134,7 +134,7 @@ func (t *ReadTool) Execute(_ context.Context, params json.RawMessage, _ func(age
 		content += "\n\n... (内容过长已截断，使用 offset 参数继续读取)"
 	}
 
-	header := fmt.Sprintf("📄 %s (%d行)", p.Path, len(lines))
+	header := fmt.Sprintf("📄 %s (%d行)", path, len(lines))
 	if offset > 0 || end < len(lines) {
 		header += fmt.Sprintf(" [显示第%d-%d行]", offset+1, end)
 	}
