@@ -5704,6 +5704,25 @@ body.resizing .resizer {
   .md-code-expand {
     min-height: 36px;
   }
+
+  /* ── Mobile Server Connect Screen ────────────────────────────────────────── */
+
+  .server-connect-input input {
+    font-size: 16px; /* prevent iOS zoom */
+    padding: 14px 0;
+  }
+  .server-connect-btn {
+    min-height: 48px;
+    font-size: 16px;
+  }
+  .server-connect-card h1 {
+    font-size: 24px;
+  }
+  .server-connect-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 14px;
+  }
 }
 
 /* ── Tablet (769-1024px): keep most desktop layout, slightly narrower ────── */
