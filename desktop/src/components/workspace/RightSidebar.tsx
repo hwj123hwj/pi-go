@@ -53,7 +53,21 @@ export function RightSidebar() {
       className={`rsidebar ${hasContent ? '' : 'launcher'}`}
       style={hasContent ? { flexBasis: rightWidth, width: rightWidth } : undefined}
     >
-      {hasContent && <div className="rsidebar-content">{content}</div>}
+      {hasContent && (
+        <div className="rsidebar-content">
+          {/* Mobile close button — floating X in top-left of the panel */}
+          <button
+            className="rsidebar-mobile-close"
+            onClick={() => {
+              useStore.getState().toggleWorkspaceRight();
+            }}
+            aria-label="Close panel"
+          >
+            <Icon name="arrow-left" size={18} />
+          </button>
+          {content}
+        </div>
+      )}
       <RightRail
         items={RAIL}
         rightView={rightView}

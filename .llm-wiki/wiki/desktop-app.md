@@ -471,3 +471,21 @@ stops playback (pauses the audio element) and sets `music.current = null`,
 which causes the bar to unmount (the `if (!music.current) return null` guard).
 On mobile the close button is 32px for comfortable touch interaction.
 
+### Mobile Right Sidebar Close Button (v31)
+
+When a right sidebar panel (Files, Review, Plan, KB, Profile) is open on
+mobile, a floating **← back arrow** button appears in the top-left corner
+of the panel. It calls `toggleWorkspaceRight()` to close the sidebar and
+return to the chat. The `rsidebar-content` receives `padding-top:
+calc(env(safe-area-inset-top) + 56px)` on mobile so the content doesn't
+overlap with the floating button.
+
+On desktop, `.rsidebar-mobile-close` is `display: none`.
+
+### Mobile PromptBar Stop Button (v31)
+
+The stop button (shown when agent is thinking) was originally a pill with
+text + icon. On mobile it is now a **36px circular icon-only button** to
+match the send button's size and visual rhythm. The text label is removed
+(`font-size: 0`).
+
