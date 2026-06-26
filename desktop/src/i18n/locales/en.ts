@@ -307,6 +307,9 @@ export const en = {
   'terminal.noOutput': '(no command output yet)',
   'terminal.backendLog': 'Backend log',
   'terminal.none': '(none)',
+  'terminal.command': 'command',
+  'terminal.commands': 'commands',
+  'terminal.resize': 'Drag to resize terminal panel',
   'file.empty': 'Click a file path in a tool call to view it',
 
   // ── version update ───────────────────────────────────────────────────────────────────────────
@@ -426,5 +429,6 @@ export const en = {
   'profile.loadFailed': 'Failed to load',
   'profile.agentSummary': 'Agent Summary',
   'profile.delete': 'Delete',
+  'profile.retry': 'Retry',
   'profile.hint': 'The profile grows automatically as you use the app. Agents learn your preferences, habits, and info during conversations.',
 };

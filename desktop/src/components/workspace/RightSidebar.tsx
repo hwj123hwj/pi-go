@@ -35,7 +35,7 @@ const RAIL: RailItem[] = [
 export function RightSidebar() {
   const rightView = useStore((s) => s.workspace.rightView);
   const rightWidth = useStore((s) => s.workspace.rightWidth);
-  const openView = useStore((s) => s.openWorkspaceView);
+  const toggleView = useStore((s) => s.toggleWorkspaceView);
   const t = useT();
 
   let content: ReactNode = null;
@@ -58,7 +58,7 @@ export function RightSidebar() {
         items={RAIL}
         rightView={rightView}
         collapsed={hasContent}
-        onSelect={(item) => openView(item.view)}
+        onSelect={(item) => toggleView(item.view)}
         t={t}
       />
     </div>

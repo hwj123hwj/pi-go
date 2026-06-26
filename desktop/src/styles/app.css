@@ -1286,6 +1286,7 @@ body.resizing .resizer {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  overflow: visible;
 }
 .file-toolbar {
   display: flex;
@@ -1294,7 +1295,7 @@ body.resizing .resizer {
   padding: 4px 8px;
   border-bottom: 1px solid var(--border);
   font-size: 11px;
-  overflow: hidden;
+  overflow: visible;
 }
 .file-toolbar .grow {
   flex: 1;
@@ -4817,5 +4818,79 @@ body.resizing .resizer {
   white-space: pre-wrap;
   word-break: break-all;
   margin: 0;
+}
+
+/* ── bottom terminal panel ─────────────────────────────────────────────── */
+.bottom-terminal {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  background: var(--bg-sunken);
+  border-top: 1px solid var(--border);
+  overflow: hidden;
+}
+.bottom-terminal-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  height: 32px;
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+.bottom-terminal-count {
+  color: var(--text-faint);
+  font-size: 10.5px;
+}
+.bottom-terminal-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 12px;
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.terminal-entry {
+  margin-bottom: 10px;
+}
+.terminal-entry-cmd {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--accent);
+  font-weight: 500;
+  margin-bottom: 2px;
+}
+.terminal-prompt {
+  opacity: 0.7;
+}
+.terminal-cmd-text {
+  flex: 1;
+}
+.terminal-status {
+  font-size: 8px;
+}
+.terminal-status.completed {
+  color: var(--green, #4ec9b0);
+}
+.terminal-status.failed {
+  color: var(--red, #f48771);
+}
+.terminal-status.in_progress {
+  color: var(--accent, #5b8def);
+  animation: pulse 1s ease-in-out infinite;
+}
+.terminal-output {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--text-dim);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
 }
 

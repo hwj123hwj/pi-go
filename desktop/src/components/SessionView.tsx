@@ -5,11 +5,16 @@ import { PromptBar } from './PromptBar';
 import { Icon } from './Icon';
 import { WorkspaceToggles } from './workspace/WorkspaceToggles';
 import { useT, type TFunc } from '../i18n/useT';
+import { BottomTerminal } from './workspace/BottomTerminal';
+import { Resizer } from './workspace/Resizer';
 
 export function SessionView() {
   const activeId = useStore((s) => s.activeSessionId);
   const view = useStore((s) => (activeId ? s.sessions[activeId] : undefined));
   const setDensity = useStore((s) => s.setDensity);
+  const bottomOpen = useStore((s) => s.workspace.bottomOpen);
+  const bottomHeight = useStore((s) => s.workspace.bottomHeight);
+  const setWorkspaceSize = useStore((s) => s.setWorkspaceSize);
   const t = useT();
 
   if (!view) {
@@ -51,7 +56,7 @@ export function SessionView() {
         </div>
       </div>
 
-      <div className="workspace">
+      <div className={`workspace ${bottomOpen ? 'with-bottom' : ''}`}>
         <div className="pane">
           <div className="pane-head">
             <Icon name="chat" size={15} />
@@ -61,6 +66,19 @@ export function SessionView() {
           <ChatPane view={view} />
         </div>
       </div>
+
+      {bottomOpen && (
+        <>
+          <Resizer
+            axis="y"
+            sign={1}
+            title={t('terminal.resize')}
+            getValue={() => useStore.getState().workspace.bottomHeight}
+            onChange={(v) => setWorkspaceSize('bottomHeight', v)}
+          />
+          <BottomTerminal view={view} height={bottomHeight} />
+        </>
+      )}
 
       <PromptBar view={view} />
     </main>

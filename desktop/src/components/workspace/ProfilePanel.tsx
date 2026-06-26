@@ -82,19 +82,23 @@ export function ProfilePanel() {
   const t = useT();
   const [data, setData] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [expandedCats, setExpandedCats] = useState<Set<string>>(new Set());
 
   const load = () => {
     setLoading(true);
+    setError(null);
     void fetchProfile()
       .then((d) => {
         setData(d);
-        setError(false);
+        setError(null);
         // Expand all categories by default
         setExpandedCats(new Set(d.categories.map((c) => c.name)));
       })
-      .catch(() => setError(true))
+      .catch((err) => {
+        console.error('[ProfilePanel] Failed to load profile:', err);
+        setError(err.message || 'Failed to load');
+      })
       .finally(() => setLoading(false));
   };
 
@@ -141,7 +145,22 @@ export function ProfilePanel() {
           <Icon name="user" size={15} />
           <span>{t('profile.title')}</span>
         </div>
-        <div className="empty">{t('profile.loadFailed')}</div>
+        <div className="empty">
+          {t('profile.loadFailed')}
+          <br />
+          <span style={{ fontSize: '11px', color: 'var(--text-faint)', fontFamily: 'var(--mono)' }}>
+            {error}
+          </span>
+          <br />
+          <button
+            className="chip interactive"
+            style={{ marginTop: 8 }}
+            onClick={load}
+          >
+            <Icon name="refresh" size={13} />
+            <span>{t('profile.retry')}</span>
+          </button>
+        </div>
       </div>
     );
   }

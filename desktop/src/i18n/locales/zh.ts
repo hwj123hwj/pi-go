@@ -305,6 +305,9 @@ export const zh = {
   'terminal.noOutput': '（暂无命令输出）',
   'terminal.backendLog': '后端日志',
   'terminal.none': '（无）',
+  'terminal.command': '条命令',
+  'terminal.commands': '条命令',
+  'terminal.resize': '拖动调整终端面板高度',
   'file.empty': '点击工具调用中的文件路径以查看',
 
   // ── version update ───────────────────────────────────────────────────────────────────────────
@@ -424,5 +427,6 @@ export const zh = {
   'profile.loadFailed': '加载失败',
   'profile.agentSummary': 'Agent 注入摘要',
   'profile.delete': '删除',
+  'profile.retry': '重试',
   'profile.hint': '用户画像会随使用自动积累。Agent 在对话中会自动学习你的偏好、习惯和信息。',
 } as const;

@@ -314,6 +314,7 @@ interface StoreState {
   workspace: WorkspaceUiState;
   toggleSidebar: () => void;
   toggleWorkspaceRight: () => void;
+  toggleWorkspaceView: (view: RightView) => void;
   toggleWorkspaceBottom: () => void;
   openWorkspaceView: (view: RightView) => void;
   setWorkspaceSize: (key: keyof typeof WORKSPACE_SIZE_LIMITS, value: number) => void;
@@ -543,6 +544,20 @@ export const useStore = create<StoreState>((set, get) => ({
       const rightOpen = !s.workspace.rightOpen;
       const rightView = rightOpen ? (s.workspace.rightView ?? 'files') : s.workspace.rightView;
       const workspace: WorkspaceUiState = { ...s.workspace, rightOpen, rightView };
+      persistWorkspaceUi(workspace);
+      return { workspace };
+    });
+  },
+  toggleWorkspaceView: (view) => {
+    set((s) => {
+      // If the clicked view is already active, collapse to launcher (rightView = null).
+      // Otherwise, open the selected view.
+      if (s.workspace.rightView === view) {
+        const workspace = { ...s.workspace, rightView: null };
+        persistWorkspaceUi(workspace);
+        return { workspace };
+      }
+      const workspace = { ...s.workspace, rightOpen: true, rightView: view };
       persistWorkspaceUi(workspace);
       return { workspace };
     });
