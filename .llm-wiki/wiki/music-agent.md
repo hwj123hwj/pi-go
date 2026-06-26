@@ -252,7 +252,7 @@ The music agent is integrated into `pi-agent` via per-session application mode �
 - `internal/music/netease_adapter.go` — NetEase adapter implementing MusicSource
 - `internal/music/bilibili_adapter.go` — Bilibili adapter implementing MusicSource
 - `internal/agents/music/` — MusicApplication + tools + prompt
-- `cmd/pi-music/` — Music-specific entrypoint
+- ~~`cmd/pi-music/`~~ — **Removed v26**. Fully redundant with `cmd/pi-agent` which bundles all 3 applications.
 
 ## System Prompt (v5)
 

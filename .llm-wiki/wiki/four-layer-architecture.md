@@ -1,6 +1,6 @@
 ---
 type: concept
-date: 2026-06-22
+date: 2026-06-27
 tags: [architecture, layers, design, decision-framework]
 related: [[runtime-application-interface]], [[agent-core]], [[tool-system]], [[llm-provider-system]]
 ---
@@ -14,7 +14,7 @@ related: [[runtime-application-interface]], [[agent-core]], [[tool-system]], [[l
 ```
 ┌─────────────────────────────────────────────┐
 │  Entrypoints (组装与入口)                    │
-│  cmd/pi-agent  cmd/pi-feishu-bridge  cmd/pi-music  │
+│  cmd/pi-agent  cmd/pi-feishu-bridge          │
 ├─────────────────────────────────────────────┤
 │  Application (领域应用层，可插拔)             │
 │  agents/coding/ — 工具集、提示、命令、Profile │

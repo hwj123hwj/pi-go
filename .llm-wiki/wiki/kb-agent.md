@@ -229,6 +229,11 @@ The desktop client now includes a **Knowledge Base Browser Panel** in the right 
 5. **Search Debounce**: Browse view search input now debounced at 300ms.
 6. **Tag View Stale Selection**: Switching tags now resets selected entry detail panel.
 
+**v26 (absolute paths):**
+1. **Clickable Desktop Links**: All KB tools now emit absolute paths (`filepath.Join(repoPath, relPath)`) instead of relative paths, so the desktop Markdown renderer's `isFilePath()` can detect and render them as clickable links.
+2. **6 files updated**: `kb_search`, `kb_list`, `kb_maintain`, `kb_save`, `kb_read`, `prompt.go` — all output absolute paths in backtick-wrapped code spans.
+3. **Prompt instruction updated**: Agent is now instructed to preserve absolute paths from tool output, not truncate to relative.
+
 ## Source
 
 - `internal/agents/kb/application.go` — KBApplication

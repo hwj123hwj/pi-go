@@ -1,6 +1,6 @@
 ---
 tags: [project-overview, architecture, agent-framework]
-date: 2026-06-22
+date: 2026-06-27
 ---
 
 # Pi-Go 项目概览
@@ -37,7 +37,7 @@ See [[four-layer-architecture]] for the Skills vs Application decision framework
 | 循环检测 | SHA256 指纹，连续相同工具调用检测 | ✅ |
 | 确认门控 | 危险工具执行前用户确认 | ✅ |
 | SSH 远程执行 | 通过 Operations 抽象切换 | ✅ |
-| Slash Commands | 15 个内置命令 | ✅ |
+| Slash Commands | 16 个内置命令 | ✅ |
 | HTTP API | REST + SSE + WebSocket | ✅ |
 | 桌面客户端 | Electron + React ([[desktop-app]]) | ✅ |
 | 飞书桥接 | 独立服务接入飞书群聊 ([[feishu-integration]]) | ✅ |
@@ -48,9 +48,11 @@ See [[four-layer-architecture]] for the Skills vs Application decision framework
 
 ## 三种交付入口
 
-1. **CLI** — 交互式/单次/服务模式
+1. **CLI** — 交互式/单次/服务模式 (`cmd/pi-agent`)
 2. **Desktop** — Electron + React GUI ([[desktop-app]])
 3. **Server + Feishu** — 飞书群聊 Agent ([[feishu-integration]])
+
+> **Note**: `cmd/pi-music` was removed in v26 — it was fully redundant with `cmd/pi-agent` which bundles all three applications.
 
 ## 三种应用层
 
@@ -64,7 +66,7 @@ See [[four-layer-architecture]] for the Skills vs Application decision framework
 - **桌面端**：Electron 33 / React 19 / Vite 6 / TypeScript 5 / Zustand
 - **外部依赖**：极简（标准库为主；gorilla/websocket, larksuite oapi-sdk, lipgloss）
 - **存储**：文件系统（JSONL 会话 + JSON meta）
-- **代码量**：~14,000 行 Go + 54 个测试文件 + ~4,000 行 TypeScript/React
+- **代码量**：~26,000 行 (144 源文件 + 67 测试文件) + ~4,000 行 TypeScript/React
 
 ## 竞争力分析
 

@@ -137,9 +137,13 @@ The Views dropdown has been **removed entirely**. The main area always shows Cha
 | Plan | `plan` | Agent execution plan / TODO progress |
 | Tasks | `tasks` | In-flight + recent tool calls |
 | KB | `kb` | Knowledge base browser |
-| Profile | `profile` | User profile viewer (NEW v25) |
+| Profile | `profile` | User profile viewer (v25) |
 
 `RightView` type: `'review' | 'files' | 'plan' | 'tasks' | 'kb' | 'profile'`
+
+### Sidebar Toggle (v26)
+
+Clicking the already-active rail icon now **toggles the sidebar closed** instead of being a no-op. The `toggleWorkspaceView` store action checks if the clicked view is already active — if so, it closes the sidebar; otherwise it switches to the new view.
 
 ### Knowledge Base Panel (NEW)
 
@@ -154,7 +158,7 @@ The KB panel provides visual access to the second brain (`~/agent-lessons`).
 
 Density toggle (summary/normal/verbose) moved from Views dropdown to toolbar inline buttons.
 
-### Profile Panel (NEW v25)
+### Profile Panel (v25)
 
 The profile panel provides visual access to the [[unified-profile]] — the "condensed second brain" that agents use.
 
@@ -164,6 +168,7 @@ The profile panel provides visual access to the [[unified-profile]] — the "con
 - **Per-fact metadata**: Source agent, last-updated (relative time), access count (hotness indicator)
 - **Delete**: Hover-reveal delete button for individual facts
 - **Empty state**: Helpful hint explaining auto-learning behavior
+- **Error state (v26)**: On load failure, shows the actual error message + retry button instead of silently failing
 
 **Backend endpoint:** `GET /profile` → categories + facts + summary; `DELETE /profile` → remove fact
 
@@ -177,6 +182,21 @@ The profile panel provides visual access to the [[unified-profile]] — the "con
 | Tasks | Task list panel |
 | Terminal | Terminal output panel |
 | File | File content viewer + editor |
+
+## Bottom Terminal Panel (v26)
+
+The bottom panel toggle (accessible from the toolbar toggles) now renders a `BottomTerminal` component showing aggregated command/tool output from the active session.
+
+**Architecture:**
+- `BottomTerminal.tsx` — renders in a horizontally resizable panel at the bottom of SessionView
+- Wired via `bottomOpen` + `bottomHeight` state in the Zustand store
+- Uses the [[workspace/Resizer]] component for drag-to-resize (y-axis)
+- SessionView conditionally renders `{bottomOpen && <Resizer> + <BottomTerminal>}`
+
+**Store state additions:**
+- `workspace.bottomOpen: boolean` — panel visibility
+- `workspace.bottomHeight: number` — pixel height (resizable)
+- `toggleBottomPanel()` — toggle open/close
 
 ## Density Modes
 

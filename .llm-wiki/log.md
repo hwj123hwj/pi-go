@@ -2,6 +2,16 @@
 
 > Chronological record of wiki operations.
 
+## [2026-06-27] ingest | Project Root (.) — v26: Desktop UI fixes, KB path fix, entrypoint cleanup
+- **Created** `wiki/source-project-root-v26.md` — Source summary covering 4 commits: README sync, cmd/pi-music removal, KB absolute path output, desktop 4 UI fixes (bottom terminal, sidebar toggle, file menu overflow, profile error state)
+- **Updated** `wiki/four-layer-architecture.md` — Removed `cmd/pi-music` from Entrypoints layer diagram; updated date
+- **Updated** `wiki/music-agent.md` — Marked `cmd/pi-music/` source as removed v26
+- **Updated** `wiki/desktop-app.md` — Added Bottom Terminal Panel section (v26), Sidebar Toggle behavior (v26), Profile Panel error state (v26), updated Profile Panel heading from "NEW v25" to "v25"
+- **Updated** `wiki/kb-agent.md` — Added v26 Bug Fixes section (absolute path output for clickable desktop links, 6 files updated)
+- **Updated** `wiki/overview.md` — Updated slash command count 15→16, code stats to "~26,000 行 (144 源文件 + 67 测试文件)", removed cmd/pi-music from entrypoints, added note about pi-music removal, updated date
+- **Updated** `index.md` — Added source-project-root-v26
+- **Contradictions flagged & resolved**: (1) cmd/pi-music referenced in 3 wiki pages but now deleted — all updated. (2) Slash command count was 15 in overview but README says 16 — updated. (3) LOC stats were outdated — updated from ~14k/54 to ~26k/67.
+
 ## [2026-06-27] ingest | Project Root (.) — v25: Full re-ingest (v17–v25: profile, vector search, memory extraction, synopsis, desktop panel)
 - **Created** `wiki/source-project-root-v25.md` — Source summary covering unified profile, KB vector search, memory extraction, tool synopsis, desktop profile panel, 3 code review rounds
 - **Created** `wiki/unified-profile.md` — New concept page: cross-agent persistent profile store, hotness eviction, fixed-size summary, REST API, desktop panel
