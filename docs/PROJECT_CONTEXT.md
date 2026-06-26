@@ -21,7 +21,7 @@ pi-go 是一个用 Go 实现的通用 Agent 框架，核心目标是：**可扩�
 ┌─────────────────────────────────────────────────────┐
 │  Entrypoints（组装与入口）                           │
 │  app/ CLI/ server/                                   │
-│  cmd/pi-agent  cmd/pi-feishu-bridge  cmd/pi-music    │
+│  cmd/pi-agent  cmd/pi-feishu-bridge                  │
 ├─────────────────────────────────────────────────────┤
 │  Application（领域应用层，可插拔）                    │
 │  agents/coding/ — coding-agent 的工具集、提示、命令   │
@@ -132,4 +132,3 @@ pi-go 是一个用 Go 实现的通用 Agent 框架，核心目标是：**可扩�
 | `internal/music/source.go` / `router.go` | MusicSource 接口 + SourceRouter 多源路由 |
 | `internal/music/netease_adapter.go` / `bilibili_adapter.go` | 网易/B站源 adapter（实现 MusicSource） |
 | `internal/music/handler.go` | 音频代理 HTTP handler（Range 透传 + 多源防盗链 Referer） |
-| `cmd/pi-music/main.go` | music 专用入口（默认 serve 模式） |

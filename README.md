@@ -9,7 +9,7 @@
 ```
 ┌─────────────────────────────────────────────────────┐
 │  Entrypoints（组装与入口）                           │
-│  cmd/pi-agent  cmd/pi-feishu-bridge  cmd/pi-music    │
+│  cmd/pi-agent  cmd/pi-feishu-bridge                  │
 ├─────────────────────────────────────────────────────┤
 │  Application（领域应用层，可插拔）                    │
 │  agents/coding/ — 工具集、提示、命令、Profile        │
