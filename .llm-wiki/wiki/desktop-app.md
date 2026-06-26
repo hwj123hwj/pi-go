@@ -340,3 +340,60 @@ Plus Electron IPC handlers for system integration:
 - [[config-system]] — Environment variables for desktop mode
 - [[deployment-infrastructure]] — Server-side deployment (separate from desktop)
 - [[source-project-root-v5]] — Documents workspace layout + global music player changes
+
+## Mobile / Capacitor Platform (v27)
+
+The frontend is packaged as an Android APK via **Capacitor**. The same React
+codebase serves both Electron desktop and mobile, with `isElectron` checks
+for platform-specific behavior.
+
+### Server Connect Flow
+
+On mobile, the backend is remote. `ServerConnect.tsx` shows a full-screen
+URL input where the user enters the server address (e.g.
+`http://8.141.97.21:8080`). A `/health` check validates connectivity before
+proceeding. The URL is persisted in `localStorage` (`pi-go-server-url`).
+
+### Platform Detection
+
+- `isElectron` — `typeof window.piAPI !== 'undefined'`
+- `isRemotePlatform` — `!isElectron` (covers Capacitor + browser/PWA)
+- `body.mobile` class added on remote platforms for CSS targeting
+
+### Mobile-Specific Optimizations (v27)
+
+| Area | Desktop | Mobile |
+|------|---------|--------|
+| Sidebar | Resizable panel | Slide-in drawer (85% width, max 320px) |
+| PromptBar model selector | Visible chip | Hidden (saves vertical space) |
+| PromptBar ⌘V hint | Visible | Hidden |
+| PromptBar send button | Small square | 36px circular (larger touch target) |
+| PromptBar input | 13.5px font | 16px font (prevents iOS zoom) |
+| Music bar | Floating capsule (centered, 420-560px) | Full-width bottom bar (edge-to-edge) |
+| Music bar padding | `12px` bottom offset | `env(safe-area-inset-bottom)` |
+| Session items | `min-height: 48px` | `min-height: 64px` (larger touch targets) |
+| Toolbar density toggle | Visible | Hidden |
+| Right sidebar | Resizable panel | Full-screen overlay |
+| Resizers | Visible | Hidden (`display: none`) |
+| New project button | Visible | Hidden (no folder picker on mobile) |
+| Workspace toggles | Icon buttons | Bottom bar items (36px min touch) |
+
+### Audio Streaming on Mobile (v27)
+
+The `GlobalMusicBar` component manages a single `<audio>` element mounted at
+the app root, so music persists across session switches. Audio proxy URLs are
+relative (`/music/audio/netease_12345`), resolved to the server base URL via
+`getBaseUrl()` in `MusicPlayer.tsx::rewriteAudioURL()`.
+
+The backend audio proxy (`internal/music/handler.go`) detects and rejects
+non-audio Content-Types (`text/html`, `text/plain`, `application/json`)
+even when upstream returns HTTP 200, preventing HTML error pages from being
+sent to the audio player.
+
+### Capacitor Config
+
+`capacitor.config.json` enables:
+- `androidScheme: http` + `cleartext: true` — allows HTTP audio streaming
+- `allowMixedContent: true` — mixed HTTP/HTTPS content
+- `webContentsDebuggingEnabled: true` — remote debugging via `chrome://inspect`
+

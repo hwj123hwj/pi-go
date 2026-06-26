@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useStore, type SessionView } from '../store';
 import { Icon } from './Icon';
 import { useT } from '../i18n/useT';
+import { isElectron } from '../platform';
 
 export function PromptBar({ view }: { view: SessionView }) {
   const sendPrompt = useStore((s) => s.sendPrompt);
@@ -42,19 +43,22 @@ export function PromptBar({ view }: { view: SessionView }) {
   return (
     <div className="promptbar">
       <div className="promptbar-inner">
-        <div className="prompt-config">
-          <span className="chip">
-            <Icon name="cpu" size={14} />
-            <select value={meta.model ?? ''} onChange={(e) => void setModel(meta.id, e.target.value)}>
-              {!meta.model && <option value="">{t('prompt.defaultModel')}</option>}
-              {models.map((m) => (
-                <option key={m.modelId} value={m.modelId}>
-                  {m.name}
-                </option>
-              ))}
-            </select>
-          </span>
-        </div>
+        {/* Model selector — hidden on mobile to save space */}
+        {isElectron && (
+          <div className="prompt-config">
+            <span className="chip">
+              <Icon name="cpu" size={14} />
+              <select value={meta.model ?? ''} onChange={(e) => void setModel(meta.id, e.target.value)}>
+                {!meta.model && <option value="">{t('prompt.defaultModel')}</option>}
+                {models.map((m) => (
+                  <option key={m.modelId} value={m.modelId}>
+                    {m.name}
+                  </option>
+                ))}
+              </select>
+            </span>
+          </div>
+        )}
 
         <div className="prompt-input-wrap" style={{ position: 'relative' }}>
           <textarea
@@ -71,7 +75,7 @@ export function PromptBar({ view }: { view: SessionView }) {
           {busy ? (
             <button className="btn-stop" onClick={() => void cancel(meta.id)}>
               <Icon name="stop" size={14} />
-              {t('common.stop')}
+              {isElectron ? t('common.stop') : ''}
             </button>
           ) : null}
           <button
@@ -82,7 +86,8 @@ export function PromptBar({ view }: { view: SessionView }) {
             <Icon name="send" size={16} />
           </button>
         </div>
-        <div className="hint">{t('prompt.hint', { paste: '⌘V' })}</div>
+        {/* Hint with keyboard shortcut — desktop only */}
+        {isElectron && <div className="hint">{t('prompt.hint', { paste: '⌘V' })}</div>}
       </div>
     </div>
   );

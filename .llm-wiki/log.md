@@ -2,6 +2,10 @@
 
 > Chronological record of wiki operations.
 
+## [2026-06-27] ingest | Mobile UX Overhaul (v27)
+- **Updated** `wiki/desktop-app.md` — Added comprehensive Mobile / Capacitor Platform section (v27): Server Connect flow, platform detection (`isElectron` / `isRemotePlatform` / `body.mobile`), mobile-specific optimization table (PromptBar, MusicBar, Sidebar, Toolbar, touch targets), audio streaming architecture (relative proxy URLs, `rewriteAudioURL`, Content-Type rejection in handler), Capacitor config details
+- **Updated** `index.md` — Added source-project-root-v27 entry
+
 ## [2026-06-27] ingest | Project Root (.) — v26: Desktop UI fixes, KB path fix, entrypoint cleanup
 - **Created** `wiki/source-project-root-v26.md` — Source summary covering 4 commits: README sync, cmd/pi-music removal, KB absolute path output, desktop 4 UI fixes (bottom terminal, sidebar toggle, file menu overflow, profile error state)
 - **Updated** `wiki/four-layer-architecture.md` — Removed `cmd/pi-music` from Entrypoints layer diagram; updated date

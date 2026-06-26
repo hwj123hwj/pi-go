@@ -5149,35 +5149,118 @@ body.resizing .resizer {
   }
 
   /* Prompt bar: mobile-friendly with safe-area */
-  .prompt-bar {
-    padding-bottom: env(safe-area-inset-bottom) !important;
+  .promptbar {
+    padding: 8px 12px !important;
+    padding-bottom: calc(8px + env(safe-area-inset-bottom)) !important;
   }
-  .prompt-bar textarea {
+  .promptbar-inner {
+    max-width: 100% !important;
+  }
+  .prompt-input-wrap {
+    padding: 10px 12px !important;
+    border-radius: 22px !important;
+  }
+  .promptbar textarea {
     font-size: 16px; /* prevent iOS zoom */
+    line-height: 1.5;
+  }
+  .prompt-config {
+    display: none !important;
+  }
+  .btn-send {
+    width: 36px !important;
+    height: 36px !important;
+    border-radius: 50% !important;
+    flex-shrink: 0;
+  }
+  .btn-stop {
+    padding: 8px 14px !important;
+    font-size: 13px;
   }
 
   /* Session items: larger touch targets */
   .session-item {
-    min-height: 56px;
-    padding: 10px 12px !important;
+    min-height: 64px;
+    padding: 12px 14px !important;
   }
   .session-actions {
     opacity: 1 !important;
   }
+  .session-title {
+    font-size: 15px;
+  }
 
-  /* Global music bar: full width on mobile */
+  /* Global music bar: compact full-width on mobile */
   .global-music-bar {
-    left: 8px !important;
-    right: 8px !important;
+    left: 0 !important;
+    right: 0 !important;
     min-width: 0 !important;
-    width: auto !important;
-    bottom: calc(60px + env(safe-area-inset-bottom)) !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    bottom: 0 !important;
+    border-radius: 0 !important;
+    border-left: none !important;
+    border-right: none !important;
+    border-bottom: none !important;
+    padding: 10px 16px !important;
+    padding-bottom: calc(10px + env(safe-area-inset-bottom)) !important;
+    box-shadow: 0 -4px 20px rgba(0,0,0,0.15) !important;
+    animation: gm-slide-up-mobile 0.3s cubic-bezier(0.22, 1, 0.36, 1) !important;
+  }
+  @keyframes gm-slide-up-mobile {
+    from { opacity: 0; transform: translateY(100%); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .gm-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    font-size: 18px;
+  }
+  .gm-song {
+    font-size: 14px;
+  }
+  .gm-artist {
+    font-size: 12px;
+  }
+  .gm-btn {
+    width: 36px;
+    height: 36px;
+    font-size: 16px;
+  }
+  .gm-progress {
+    height: 4px !important;
+  }
+  .gm-time {
+    font-size: 11px;
+    min-width: 32px;
+  }
+  /* When music bar is visible on mobile, add extra bottom padding to promptbar */
+  body.mobile .app.music-active .promptbar {
+    padding-bottom: calc(76px + env(safe-area-inset-bottom)) !important;
+  }
+
+  /* Toolbar: simplified for mobile */
+  .toolbar {
+    padding: 0 12px;
+    padding-top: env(safe-area-inset-top);
+    height: calc(48px + env(safe-area-inset-top));
+    min-height: 48px;
+  }
+  .toolbar-title {
+    font-size: 15px;
+    max-width: 180px;
   }
 
   /* Workspace toggles: show as bottom toolbar items */
   .workspace-toggles {
     flex-wrap: nowrap;
     gap: 2px;
+  }
+  .workspace-toggles .icon-btn,
+  .workspace-toggles button {
+    min-width: 36px;
+    min-height: 36px;
   }
 
   /* Hide features not available on mobile */
