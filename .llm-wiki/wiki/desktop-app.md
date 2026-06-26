@@ -543,6 +543,25 @@ After 6 rounds of mobile optimizations (v27–v32), a code review found 4 bugs:
    Added a `target.closest('button, a, input, textarea, .tool-head,
    .md-code-copy, .gm-btn')` guard so only empty-area touches trigger blur.
 
+### Code Review Bug Fixes Round 3 (v35)
+
+1. **Sidebar backdrop double-dimming on mobile** — The app uses both a
+   `.app::before` pseudo-element overlay (z-index 150, 50% black) AND a
+   separate `.sidebar-mobile-backdrop` div (z-index 150, 50% black, has
+   click handler to close sidebar). With `pointer-events: none` on `::before`,
+   clicks on the backdrop area passed through to the underlying app instead
+   of closing the sidebar. However, changing `::before` to `pointer-events:
+   auto` would block clicks on the backdrop div. Fixed by keeping
+   `::before` as `pointer-events: none` but making it transparent when the
+   mobile backdrop is present (using `:has(.sidebar-mobile-backdrop)`).
+
+2. **`.btn-stop` mobile CSS missing `!important`** — In the mobile media
+   query, several `.btn-stop` properties (`width`, `height`, `font-size`,
+   `gap`) lacked `!important` while the base `.btn-stop` definition (at
+   line 3179) sets conflicting values. Depending on CSS specificity, the
+   base values could override the mobile overrides. Fixed: all critical
+   properties now have `!important`.
+
 ### Mobile PromptBar Stop Button (v31)
 
 The stop button (shown when agent is thinking) was originally a pill with

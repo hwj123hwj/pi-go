@@ -2,6 +2,11 @@
 
 > Chronological record of wiki operations.
 
+## [2026-06-27] fix | Mobile Code Review Round 3 — Bug Fixes (v35)
+- **Updated** `wiki/desktop-app.md` — Code review round 3 found and fixed 2 bugs:
+  1. **Sidebar backdrop double-dimming on mobile** — The app has both a `::before` pseudo-element overlay AND a `.sidebar-mobile-backdrop` div, both at 50% black. With `pointer-events: none` on `::before`, clicks passed through to the underlying app. Fixed: keep `::before` as `pointer-events: none` but make it transparent when `.sidebar-mobile-backdrop` is present (via `:has()` selector) to prevent double-dimming.
+  2. **`.btn-stop` mobile CSS missing `!important`** — `width: 36px`, `height: 36px`, `font-size: 0`, `gap: 0` lacked `!important` and could be overridden by the base `.btn-stop` definition (which sets `height: 32px`, `padding: 0 12px`, `font-size: 12.5px`). Fixed: all critical properties now have `!important`.
+
 ## [2026-06-27] fix | Mobile Code Review Round 2 — Bug Fixes (v34)
 - **Updated** `wiki/desktop-app.md` — Code review round 2 found and fixed 2 bugs:
   1. **File tree not hidden on mobile** — CSS targeted `.files-sidebar` class that doesn't exist in the DOM; the actual elements are `.file-tree` and `.resizer` rendered directly inside `.files-body`. Fixed selectors to `.files-panel .file-tree` + `.files-body > .resizer`.
