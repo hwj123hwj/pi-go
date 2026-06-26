@@ -95,6 +95,7 @@ func main() {
 		Config:      cfg,
 		SkillDirs:   skillDirs(*skillDir),
 		Application: coding.NewCodingApplication(cfg),
+		Profile:     userProfile,
 		Applications: map[string]runtime.Application{
 			"coding": coding.NewCodingApplication(cfg),
 			"music":  musicapp.NewMusicApplication(cfg, musicRouter, musicCache, userProfile),

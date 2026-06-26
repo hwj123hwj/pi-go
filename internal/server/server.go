@@ -101,6 +101,9 @@ func (s *Server) Handler() http.Handler {
 	// Knowledge base browser endpoints
 	s.registerKBRoutes(restMux)
 
+	// User profile endpoints
+	s.registerProfileRoutes(restMux)
+
 	var restHandler http.Handler = restMux
 	restHandler = corsMiddleware(restHandler)
 	restHandler = recoveryMiddleware(restHandler)
@@ -123,6 +126,7 @@ func (s *Server) Handler() http.Handler {
 	topMux.Handle("/applications", restHandler)
 	topMux.Handle("/workspace/", restHandler)
 	topMux.Handle("/kb/", restHandler)
+	topMux.Handle("/profile", restHandler)
 
 	// Register web UI routes (serves embedded static files at /)
 	web.RegisterRoutes(topMux)

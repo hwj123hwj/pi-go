@@ -170,6 +170,29 @@ func (s *Store) GetFacts(category string) []Fact {
 	return result
 }
 
+// AllFacts returns all facts across all categories, grouped by category.
+// This is intended for the profile REST API (desktop UI visualization).
+func (s *Store) AllFacts() map[string][]Fact {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	result := make(map[string][]Fact, len(s.facts))
+	for cat, facts := range s.facts {
+		if len(facts) == 0 {
+			continue
+		}
+		list := make([]Fact, 0, len(facts))
+		for _, f := range facts {
+			list = append(list, f)
+		}
+		sort.Slice(list, func(i, j int) bool {
+			return list[i].Updated.After(list[j].Updated)
+		})
+		result[cat] = list
+	}
+	return result
+}
+
 // Summary returns a compact, FIXED-SIZE string with ALL categories.
 // This is the full "condensed second brain" used by the KB agent.
 func (s *Store) Summary() string {

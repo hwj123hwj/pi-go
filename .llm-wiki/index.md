@@ -27,6 +27,7 @@
 - [[source-project-root-v22]] — Re-ingest v22: Code review fixes for v17–v21 (UTF-8 safety, mutex copy, error logging, import double-counting) (2026-06-27)
 - [[source-project-root-v23]] — Re-ingest v23: Code review round 2 — stale vectors, batch eviction, phantom results, double-synopsis (2026-06-27)
 - [[source-project-root-v24]] — Re-ingest v24: Code review round 3 — stale removal persistence, scanner buffer limit (2026-06-27)
+- [[source-project-root-v25]] — Re-ingest v25: Desktop profile panel — user profile UI adaptation (2026-06-27)
 
 ## Entities
 - [[agent-core]] — Agent state machine and execution engine

@@ -355,6 +355,7 @@ export const zh = {
   'workspace.plan': '计划',
   'workspace.tasks': '任务',
   'workspace.kb': '知识库',
+  'workspace.profile': '用户画像',
   'workspace.toggleRight': '显示/隐藏右侧面板',
   'workspace.toggleBottom': '显示/隐藏底部面板',
 
@@ -415,4 +416,13 @@ export const zh = {
   'mode.chooseMode': '选择模式',
   'session.defaultTitle': '新会话',
   'session.musicTitle': '🎵 音乐',
+
+  // ── user profile panel ────────────────────────────────────────────────────
+  'profile.title': '用户画像',
+  'profile.facts': '条',
+  'profile.empty': '暂无画像数据',
+  'profile.loadFailed': '加载失败',
+  'profile.agentSummary': 'Agent 注入摘要',
+  'profile.delete': '删除',
+  'profile.hint': '用户画像会随使用自动积累。Agent 在对话中会自动学习你的偏好、习惯和信息。',
 } as const;

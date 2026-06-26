@@ -222,7 +222,7 @@ export type ViewDensity = 'normal' | 'verbose' | 'summary';
 export type PaneKind = 'chat' | 'diff' | 'plan' | 'tasks' | 'terminal' | 'file';
 
 /** Which feature the right workspace sidebar is showing. */
-export type RightView = 'review' | 'files' | 'plan' | 'tasks' | 'kb';
+export type RightView = 'review' | 'files' | 'plan' | 'tasks' | 'kb' | 'profile';
 
 /**
  * Global workspace layout — the right feature sidebar + the bottom terminal.

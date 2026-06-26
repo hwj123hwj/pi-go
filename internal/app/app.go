@@ -11,6 +11,7 @@ import (
 	"github.com/hwj123hwj/pi-go/internal/config"
 	"github.com/hwj123hwj/pi-go/internal/extensions"
 	"github.com/hwj123hwj/pi-go/internal/operations"
+	"github.com/hwj123hwj/pi-go/internal/profile"
 	"github.com/hwj123hwj/pi-go/internal/runtime"
 	"github.com/hwj123hwj/pi-go/internal/sessionmgr"
 	"github.com/hwj123hwj/pi-go/internal/slashcmd"
@@ -29,6 +30,7 @@ type App struct {
 	application  runtime.Application            // default application (backward compat)
 	applications map[string]runtime.Application // named applications for per-session selection
 	extraTools   []agent.ExternalToolDef
+	profile      *profile.Store // unified user profile (shared across agents)
 }
 
 // AppOptions holds the options for creating a new App.
@@ -42,6 +44,10 @@ type AppOptions struct {
 	// can use to select which application a session should use.
 	// If empty, falls back to Application (or CodingApplication).
 	Applications map[string]runtime.Application
+
+	// Profile is the unified user profile store (shared across agents).
+	// Optional — if nil, profile API endpoints return empty.
+	Profile *profile.Store
 }
 
 // New creates a new App, assembling all shared dependencies.
@@ -89,6 +95,7 @@ func New(opts AppOptions) (*App, error) {
 		extRegistry:  extReg,
 		application:  application,
 		applications: apps,
+		profile:      opts.Profile,
 	}, nil
 }
 
@@ -110,6 +117,11 @@ func (a *App) ResolveApplication(name string) runtime.Application {
 		}
 	}
 	return a.application
+}
+
+// Profile returns the unified user profile store (may be nil if not configured).
+func (a *App) Profile() *profile.Store {
+	return a.profile
 }
 
 // NewSession creates a new AgentSession with a fresh session.

@@ -361,6 +361,7 @@ export const en = {
 
   // ── knowledge base panel ──────────────────────────────────────────────────
   'workspace.kb': 'Knowledge Base',
+  'workspace.profile': 'User Profile',
   'kb.title': 'Second Brain',
   'kb.browse': 'Browse',
   'kb.tagsView': 'Tags',
@@ -417,4 +418,13 @@ export const en = {
   'mode.chooseMode': 'Choose mode',
   'session.defaultTitle': 'New Session',
   'session.musicTitle': '🎵 Music',
+
+  // ── user profile panel ────────────────────────────────────────────────────
+  'profile.title': 'User Profile',
+  'profile.facts': 'facts',
+  'profile.empty': 'No profile data yet',
+  'profile.loadFailed': 'Failed to load',
+  'profile.agentSummary': 'Agent Summary',
+  'profile.delete': 'Delete',
+  'profile.hint': 'The profile grows automatically as you use the app. Agents learn your preferences, habits, and info during conversations.',
 };

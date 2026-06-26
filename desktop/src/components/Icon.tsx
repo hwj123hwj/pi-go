@@ -71,7 +71,8 @@ export type IconName =
   | 'activity'
   | 'tag'
   | 'alert-circle'
-  | 'stethoscope';
+  | 'stethoscope'
+  | 'user';
 
 /** Path/shape markup for each icon, drawn on a 24×24 canvas. */
 const PATHS: Record<IconName, string> = {
@@ -174,6 +175,7 @@ const PATHS: Record<IconName, string> = {
   tag: '<path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r=".5" fill="currentColor"/>',
   'alert-circle': '<circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/>',
   stethoscope: '<path d="M4.8 2.3A.3.3 0 0 0 4.6 2H3a1 1 0 0 0-1 1v3a5 5 0 0 0 5 5h.5"/><path d="M20 2v3a5 5 0 0 1-5 5h-.5"/><path d="M20 6h2"/><path d="M4 6H2"/><path d="M19 12.5V16a6 6 0 0 1-12 0v-3"/><circle cx="12" cy="17" r="3"/>',
+  user: '<circle cx="12" cy="8" r="4"/><path d="M6 21v-1a6 6 0 0 1 12 0v1"/>',
 };
 
 export interface IconProps {
