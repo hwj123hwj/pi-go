@@ -34,7 +34,7 @@
 - [[tool-system]] — 8 built-in tools + optional interfaces + external tools
 - [[web-fetch-tool]] — 8th built-in tool: URL→markdown with SSRF protection
 - [[music-agent]] — Bilibili-primary + NetEase recommendation music application layer (7 tools, preference store for personalization)
-- [[kb-agent]] — Knowledge base agent: search, browse, read, write, maintain (5 tools + desktop KB panel + v9 hardening)
+- [[kb-agent]] — Knowledge base agent: search, browse, read, write, maintain (5 tools + desktop KB panel + hybrid vector search v19 + L1 overview v18)
 - [[llm-provider-system]] — Anthropic/OpenAI providers (Mock removed v7, DeepV removed v6)
 - [[session-persistence]] — JSONL append-only with tree branching
 - [[session-manager]] — Session CRUD, forking, listing, metadata (sessionmgr package)
@@ -42,10 +42,10 @@
 - [[tool-lifecycle-hooks]] — 9-step execution flow, Before/After hooks, confirmation gate, session observer hooks
 - [[extension-system]] — Plugin-style tools/commands/hooks
 - [[skill-system]] — Markdown skill loading from `.claude/skills/`
-- [[desktop-app]] — Electron + React GUI client (global music player, workspace layout, KB panel, path clicking, v10 race condition fixes)
+- [[desktop-app]] — Electron + React GUI client (global music player, workspace layout, KB panel, profile panel v25, path clicking, v10 race condition fixes)
 - [[feishu-integration]] — Lark/Feishu bot bridge
-- [[server-websocket]] — HTTP REST + SSE + WebSocket server (protocol, file endpoints, KB endpoints, gateway models)
-- [[config-system]] — Environment-driven configuration (PI_GO_* env priority, LoadDotEnv no-override, provider required v7)
+- [[server-websocket]] — HTTP REST + SSE + WebSocket server (protocol, file endpoints, KB endpoints, profile endpoints v25, gateway models)
+- [[config-system]] — Environment-driven configuration (PI_GO_* env priority, LoadDotEnv no-override, provider required v7, KB embedding config v19)
 - [[coding-application]] — Coding agent (primary application layer)
 - [[tui-presenter]] — Terminal UI rendering system
 - [[external-tools]] — HTTP callback tool registration
@@ -62,8 +62,12 @@
 - [[context-compaction]] — LLM-driven conversation summarization (updated: cross-framework comparison)
 - [[goal-driven-loop]] — Autonomous goal-directed agent execution with LLM evaluator
 - [[operations-abstract]] — Local/SSH execution backend switching
-- [[personal-assistant-roadmap]] — Evolution to general personal assistant, memory layer design (unified profile implemented v17)
+- [[personal-assistant-roadmap]] — Evolution to general personal assistant, memory layer design (P0–P1.5 implemented v14–v25)
 - [[competitive-analysis]] — DeepV feature gap analysis, 30+ features prioritized (NEW)
+- [[unified-profile]] — Cross-agent persistent user profile ("condensed second brain"), hotness eviction, fixed-size summary injection (NEW v17)
+- [[kb-vector-search]] — Hybrid keyword + vector retrieval (SiliconFlow bge-m3, local JSON vector store) (NEW v19)
+- [[session-memory-extraction]] — Async LLM-based user fact extraction after each turn (OpenViking ExtractLoop adaptation) (NEW v20)
+- [[tool-output-synopsis]] — After-hook that replaces large tool outputs with deterministic structural synopsis (NEW v21)
 
 ## Synthesis
 <!-- Cross-cutting analysis pages will be listed here -->

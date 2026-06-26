@@ -57,6 +57,12 @@ type Config struct {
     AllowedTools string // PI_GO_ALLOWED_TOOLS (comma-separated)
     BlockedTools string // PI_GO_BLOCKED_TOOLS (comma-separated)
 
+    // KB
+    KBRepoPath         string // PI_GO_KB_REPO_PATH (default: ~/agent-lessons)
+    KBEmbeddingAPIKey  string // PI_GO_KB_EMBEDDING_API_KEY
+    KBEmbeddingBaseURL string // PI_GO_KB_EMBEDDING_BASE_URL
+    KBEmbeddingModel   string // PI_GO_KB_EMBEDDING_MODEL (default: bge-m3)
+
     // UI
     HistoryFile string // PI_GO_HISTORY_FILE
 
@@ -102,6 +108,16 @@ This prevents `.env` empty fields from zeroing out shell-set keys.
 - `PI_GO_EXECUTION_MODE=ssh` — Switch to remote execution
 - `PI_GO_SSH_HOST=server.example.com` — Remote host
 
+### Knowledge Base (v19+)
+- `PI_GO_KB_REPO_PATH` — Path to personal KB repo (default: `~/agent-lessons`)
+- `PI_GO_KB_EMBEDDING_API_KEY` — SiliconFlow API key for vector embeddings (empty → keyword-only search)
+- `PI_GO_KB_EMBEDDING_BASE_URL` — Embedding API base URL
+- `PI_GO_KB_EMBEDDING_MODEL` — Model name (default: `bge-m3`)
+
+### User Profile (v17+)
+- Profile is automatically stored at `{DataDir}/user_profile.json`
+- No config needed — agents auto-record facts via [[session-memory-extraction]]
+
 ## Integration
 
 Config is loaded in `cmd/pi-agent/main.go` via `godotenv.Load()` + env var parsing, then passed to:
@@ -114,3 +130,5 @@ Config is loaded in `cmd/pi-agent/main.go` via `godotenv.Load()` + env var parsi
 - [[server-websocket]] — Server uses Config for Host/Port
 - [[llm-provider-system]] — Provider selection driven by Config
 - [[operations-abstract]] — ExecutionMode selects local vs SSH
+- [[kb-vector-search]] — KB embedding config fields
+- [[unified-profile]] — Profile stored in DataDir

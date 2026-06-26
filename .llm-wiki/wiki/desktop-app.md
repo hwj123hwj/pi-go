@@ -1,8 +1,8 @@
 ---
 type: entity
-date: 2026-06-23
-tags: [desktop, electron, react, frontend, gui, workspace, global-music-player]
-related: [[server-websocket]], [[config-system]], [[agent-guidance-system]]
+date: 2026-06-27
+tags: [desktop, electron, react, frontend, gui, workspace, global-music-player, profile-panel]
+related: [[server-websocket]], [[config-system]], [[agent-guidance-system]], [[unified-profile]]
 ---
 
 # Desktop Application
@@ -128,7 +128,7 @@ The Views dropdown has been **removed entirely**. The main area always shows Cha
 
 ### Right Sidebar Rail
 
-5-icon vertical rail (VSCode/Codex-style):
+6-icon vertical rail (VSCode/Codex-style):
 
 | Icon | View | Description |
 |------|------|-------------|
@@ -136,9 +136,10 @@ The Views dropdown has been **removed entirely**. The main area always shows Cha
 | Files | `files` | File browser (tree, tabs, search, highlighting) |
 | Plan | `plan` | Agent execution plan / TODO progress |
 | Tasks | `tasks` | In-flight + recent tool calls |
-| KB | `kb` | Knowledge base browser (NEW) |
+| KB | `kb` | Knowledge base browser |
+| Profile | `profile` | User profile viewer (NEW v25) |
 
-`RightView` type: `'review' | 'files' | 'plan' | 'tasks' | 'kb'`
+`RightView` type: `'review' | 'files' | 'plan' | 'tasks' | 'kb' | 'profile'`
 
 ### Knowledge Base Panel (NEW)
 
@@ -152,6 +153,19 @@ The KB panel provides visual access to the second brain (`~/agent-lessons`).
 **Backend endpoints:** See [[kb-agent#Desktop KB Panel]] for API details.
 
 Density toggle (summary/normal/verbose) moved from Views dropdown to toolbar inline buttons.
+
+### Profile Panel (NEW v25)
+
+The profile panel provides visual access to the [[unified-profile]] — the "condensed second brain" that agents use.
+
+**Features:**
+- **Agent Summary**: Renders the exact Markdown string injected into agent prompts
+- **Category sections**: Expandable/collapsible by category (coding/music/general)
+- **Per-fact metadata**: Source agent, last-updated (relative time), access count (hotness indicator)
+- **Delete**: Hover-reveal delete button for individual facts
+- **Empty state**: Helpful hint explaining auto-learning behavior
+
+**Backend endpoint:** `GET /profile` → categories + facts + summary; `DELETE /profile` → remove fact
 
 ## Pane System (pre-v5, deprecated)
 

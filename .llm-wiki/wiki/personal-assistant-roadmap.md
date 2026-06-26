@@ -1,8 +1,8 @@
 ---
 type: concept
-date: 2026-06-22
-tags: [roadmap, memory, personal-assistant, architecture]
-related: [[four-layer-architecture]], [[runtime-application-interface]], [[music-agent]], [[coding-application]]
+date: 2026-06-27
+tags: [roadmap, memory, personal-assistant, architecture, implemented]
+related: [[four-layer-architecture]], [[runtime-application-interface]], [[music-agent]], [[coding-application]], [[unified-profile]], [session-memory-extraction]]
 ---
 
 # Personal Assistant Roadmap
@@ -32,6 +32,8 @@ Future agents planned: accounting (记账), health (健康), diary (日记). Cor
 Inspired by [OpenViking](https://github.com/volcengine/OpenViking) — adopt its data model and layered approach, but pi-go only defines thin abstraction interface.
 
 ### OpenViking Key Concepts
+
+> **Implementation Note (v17–v25)**: The original interface design (`runtime.Memory` with `Recall/Record`) was **superseded** by a simpler approach — `profile.Store` with category-based facts and a fixed-size `Summary()` string. See [[unified-profile]] for the actual implementation.
 
 **Three context types**:
 - **Resource**: User-added external knowledge (documents, manuals)
@@ -97,9 +99,9 @@ type ApplicationWithMemory interface {
 
 | Phase | Goal | Key Deliverable | Not Doing |
 |-------|------|-----------------|-----------|
-| **P0** | Fix music hard bugs | Audio proxy Range support + timeout/circuit-breaker; delete dead `GetOrLoad` code; music i18n; `music_play` structured result | Memory, panel refactor |
-| **P1** | **Memory layer (core)** | `runtime.Memory` interface + **local JSON implementation** (zero dependency, validates abstraction) + music preference PoC | OV integration, cross-agent memory, panel system |
-| **P1.5** | Upgrade to semantic memory (optional) | OV Go SDK as second Memory implementation (requires `docker compose up` OV) | — |
+| **P0** | ~~Fix music hard bugs~~ | ✅ Done (v14–v15) | — |
+| **P1** | ~~Memory layer (core)~~ | ✅ **Done (v17–v20)**: `profile.Store` (local JSON), [[unified-profile]], [[session-memory-extraction]], hotness eviction, KB vector search | — |
+| **P1.5** | ~~Upgrade to semantic memory~~ | ✅ Done (v19): SiliconFlow bge-m3 hybrid search implemented directly (no OV SDK needed) | — |
 | **P2** | Agent self-description + UI adaptation | Application declares metadata (icon/category/panel declarations); panel system supports agent-declared panels | New agents |
 | **P3** | Extend personal agents | Second personal agent (accounting/diary), validate P1/P2 abstractions | — |
 

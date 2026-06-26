@@ -1,8 +1,8 @@
 ---
 type: entity
-date: 2026-06-24
-tags: [kb, agent, application, knowledge-base, second-brain, search, retrieval, save, maintain, stewardship]
-related: [[runtime-application-interface]], [[coding-application]], [[music-agent]], [[four-layer-architecture]], [[agent-core]], [[personal-assistant-roadmap]], [[skill-system]]
+date: 2026-06-27
+tags: [kb, agent, application, knowledge-base, second-brain, search, retrieval, save, maintain, stewardship, vector-search, synopsis]
+related: [[runtime-application-interface]], [[coding-application]], [[music-agent]], [[four-layer-architecture]], [[agent-core]], [[personal-assistant-roadmap]], [[skill-system]], [[unified-profile]], [kb-vector-search], [[tool-output-synopsis]]
 ---
 
 # KB Agent (知识库 Agent / 第二大脑)
@@ -129,7 +129,9 @@ Weighted full-text matching:
 
 ### Extension Point
 
-Future strategies (e.g., `VectorSearcher`) implement the same interface. The `SearchTool` accepts any strategy via `NewSearchToolWithStrategy()`.
+~~Future strategies (e.g., `VectorSearcher`) implement the same interface.~~
+
+**UPDATE (v19):** Vector search is now implemented. See [[kb-vector-search]] for the `HybridSearcher` that blends keyword + vector (SiliconFlow bge-m3) retrieval. Falls back to `KeywordSearcher` when no embedding API key is configured.
 
 ## Maintenance Engine (`maintain.go`)
 
@@ -167,7 +169,7 @@ All maintenance operations are **read-only** — they produce recommendations. T
 | Tool | File | Mode | Description |
 |------|------|------|-------------|
 | `kb_search` | `kb_search.go` | Read | Delegates to pluggable SearchStrategy (default: keyword) |
-| `kb_read` | `kb_read.go` | Read | Read file content with offset/limit pagination |
+| `kb_read` | `kb_read.go` | Read | Read file content with offset/limit pagination; **overview mode** returns L1 structure (headers + first sentences + word count, ~10-20% of original size) |
 | `kb_list` | `kb_list.go` | Read | Browse entries, filter by category/tag, sort |
 | `kb_save` | `kb_save.go` | **Write** | Save new knowledge entry with auto-generated frontmatter |
 | `kb_maintain` | `kb_maintain.go` | **Maintain** | Health check, dedup, tag analysis, stats (NEW) |

@@ -1,8 +1,8 @@
 ---
 type: entity
-date: 2026-06-22
-tags: [server, http, api, websocket, sse, rest, cors, file-endpoints, gateway]
-related: [[desktop-app]], [[feishu-integration]], [[web-embed]], [[runtime-application-interface]], [[session-manager]]
+date: 2026-06-27
+tags: [server, http, api, websocket, sse, rest, cors, file-endpoints, gateway, profile-api]
+related: [[desktop-app]], [[feishu-integration]], [[web-embed]], [[runtime-application-interface]], [[session-manager]], [[unified-profile]]
 ---
 
 # Server & WebSocket
@@ -60,6 +60,8 @@ AgentSession
 | `GET` | `/kb/tags` | List KB tags with counts |
 | `GET` | `/kb/health` | KB health report (missing metadata, duplicates, tag clusters) |
 | `GET` | `/kb/read?path=` | Read KB entry content |
+| `GET` | `/profile` | User profile: all categories + facts + summary (v25) |
+| `DELETE` | `/profile` | Delete a specific profile fact by category+key (v25) |
 
 ## CreateSession Request
 
@@ -180,6 +182,7 @@ corsMiddleware → recoveryMiddleware → loggingMiddleware → handler
 ```
 GET /ws          → WebSocket handler (no middleware)
 /health, /chat, /sessions/*, /models, /tools, /applications → REST middleware chain
+/profile → REST middleware chain (v25)
 /*               → Web UI static files ([[web-embed]])
 /music/*         → Extra routes (music audio proxy, if set)
 ```

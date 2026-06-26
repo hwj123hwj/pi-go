@@ -2,6 +2,20 @@
 
 > Chronological record of wiki operations.
 
+## [2026-06-27] ingest | Project Root (.) — v25: Full re-ingest (v17–v25: profile, vector search, memory extraction, synopsis, desktop panel)
+- **Created** `wiki/source-project-root-v25.md` — Source summary covering unified profile, KB vector search, memory extraction, tool synopsis, desktop profile panel, 3 code review rounds
+- **Created** `wiki/unified-profile.md` — New concept page: cross-agent persistent profile store, hotness eviction, fixed-size summary, REST API, desktop panel
+- **Created** `wiki/kb-vector-search.md` — New concept page: hybrid keyword+vector search, SiliconFlow bge-m3, local JSON vector store, cosine similarity
+- **Created** `wiki/session-memory-extraction.md` — New concept page: async LLM-based fact extraction, OpenViking ExtractLoop adaptation
+- **Created** `wiki/tool-output-synopsis.md` — New concept page: After-hook for large output synopsis, content-type detection, double-synopsis prevention
+- **Updated** `wiki/desktop-app.md` — Added Profile Panel (6th rail icon), updated tags, updated RightView type, added related link to [[unified-profile]]
+- **Updated** `wiki/server-websocket.md` — Added `GET /profile` and `DELETE /profile` endpoints to REST table, updated route hierarchy, updated tags
+- **Updated** `wiki/kb-agent.md` — Updated Search Strategy section (vector search now implemented), updated kb_read description (L1 overview mode), added tags, added related links
+- **Updated** `wiki/personal-assistant-roadmap.md` — Marked P0/P1/P1.5 as ✅ done, added implementation note about interface design evolution, added related links, updated tags
+- **Updated** `wiki/config-system.md` — Added KB config fields (KBRepoPath, KBEmbeddingAPIKey, KBEmbeddingBaseURL, KBEmbeddingModel), added KB/user-profile config sections, added related links
+- **Updated** `index.md` — Added 4 new concept pages to Concepts section, updated entity descriptions (kb-agent, desktop-app, server-websocket, config-system), updated personal-assistant-roadmap description
+- **Contradictions flagged**: 5 items (roadmap P1 status, kb-agent vector search future tense, server endpoints table, desktop rail count, config KB fields) — all resolved in this ingest
+
 ## [2026-06-25] ingest | Project Root (.) — v15: Music player deep-audit round 2
 - **Created** `source-project-root-v15.md` — 5 issues: FD leak (idle conn limits), 403 stale detection, retry exhaustion guard, multi-try cross-source fallback, React audio lifecycle race condition
 - **Updated** `index.md` — Added source-project-root-v15
