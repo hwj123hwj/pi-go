@@ -176,7 +176,12 @@ func truncate(s string, maxLen int) string {
 	if len(s) <= maxLen {
 		return s
 	}
-	return s[:maxLen] + "..."
+	// Rune-safe truncation: don't split multi-byte UTF-8 characters
+	runes := []rune(s)
+	if len(runes) <= maxLen {
+		return s
+	}
+	return string(runes[:maxLen]) + "..."
 }
 
 // extractJSON finds the first JSON object in a string that may be wrapped

@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"unicode/utf8"
 )
 
 func TestSynopsisAfterHook_SmallOutput(t *testing.T) {
@@ -149,6 +150,7 @@ func TestGenerateSynopsis_JSON(t *testing.T) {
 }
 
 func TestTruncateToFirstN(t *testing.T) {
+	// ASCII case
 	got := truncateToFirstN("hello world", 5)
 	if got != "hello..." {
 		t.Errorf("truncateToFirstN = %q, want 'hello...'", got)
@@ -156,6 +158,14 @@ func TestTruncateToFirstN(t *testing.T) {
 	got = truncateToFirstN("hi", 10)
 	if got != "hi" {
 		t.Errorf("truncateToFirstN short = %q, want 'hi'", got)
+	}
+	// UTF-8 / Chinese: must not split multi-byte chars
+	got = truncateToFirstN("你好世界测试", 3)
+	if got != "你好世..." {
+		t.Errorf("truncateToFirstN Chinese = %q, want '你好世...'", got)
+	}
+	if !utf8.ValidString(got) {
+		t.Errorf("truncateToFirstN produced invalid UTF-8: %q", got)
 	}
 }
 
@@ -167,5 +177,13 @@ func TestTruncateToLastN(t *testing.T) {
 	got = truncateToLastN("hi", 10)
 	if got != "hi" {
 		t.Errorf("truncateToLastN short = %q, want 'hi'", got)
+	}
+	// UTF-8 / Chinese
+	got = truncateToLastN("你好世界测试", 3)
+	if got != "...界测试" {
+		t.Errorf("truncateToLastN Chinese = %q, want '...界测试'", got)
+	}
+	if !utf8.ValidString(got) {
+		t.Errorf("truncateToLastN produced invalid UTF-8: %q", got)
 	}
 }

@@ -126,7 +126,12 @@ func (t *ReadTool) Execute(_ context.Context, params json.RawMessage, _ func(age
 
 	// Truncate if too long (keep under 8K chars for LLM context)
 	if len(content) > 8000 {
-		content = content[:8000] + "\n\n... (内容过长已截断，使用 offset 参数继续读取)"
+		// Rune-safe truncation: don't split multi-byte UTF-8
+		runes := []rune(content)
+		if len(runes) > 8000 {
+			content = string(runes[:8000])
+		}
+		content += "\n\n... (内容过长已截断，使用 offset 参数继续读取)"
 	}
 
 	header := fmt.Sprintf("📄 %s (%d行)", p.Path, len(lines))

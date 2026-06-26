@@ -43,7 +43,7 @@ func SynopsisAfterHook(_ context.Context, _ ToolCallContext, result ToolResult) 
 		return result, nil // small enough, no synopsis needed
 	}
 
-	// Preserve full output for the UI
+	// Preserve full output for the UI (only if not already set by the tool)
 	if result.UserFacing == "" {
 		result.UserFacing = result.Content
 	}
@@ -135,6 +135,11 @@ func summarizeCode(lines []string) string {
 	symbols := 0
 	imports := 0
 	for _, line := range lines {
+		if importRegex.MatchString(line) && imports < 8 {
+			b.WriteString(fmt.Sprintf("  📥 %s\n", strings.TrimSpace(line)))
+			imports++
+			continue // don't double-count an import line as a symbol
+		}
 		if m := symbolRegex.FindStringSubmatch(line); m != nil {
 			b.WriteString(fmt.Sprintf("  • %s\n", strings.TrimSpace(m[0])))
 			symbols++
@@ -142,10 +147,6 @@ func summarizeCode(lines []string) string {
 				b.WriteString("  ...(更多符号省略)\n")
 				break
 			}
-		}
-		if importRegex.MatchString(line) && imports < 8 {
-			b.WriteString(fmt.Sprintf("  📥 %s\n", strings.TrimSpace(line)))
-			imports++
 		}
 	}
 
@@ -210,18 +211,22 @@ func summarizeText(content string, lines []string) string {
 	return b.String()
 }
 
-// truncateToFirstN returns the first n chars, with "..." if truncated.
+// truncateToFirstN returns the first n runes, with "..." if truncated.
+// Rune-safe: does not split multi-byte UTF-8 characters.
 func truncateToFirstN(s string, n int) string {
-	if len(s) <= n {
+	runes := []rune(s)
+	if len(runes) <= n {
 		return s
 	}
-	return s[:n] + "..."
+	return string(runes[:n]) + "..."
 }
 
-// truncateToLastN returns the last n chars, with "..." if truncated.
+// truncateToLastN returns the last n runes, with "..." if truncated.
+// Rune-safe: does not split multi-byte UTF-8 characters.
 func truncateToLastN(s string, n int) string {
-	if len(s) <= n {
+	runes := []rune(s)
+	if len(runes) <= n {
 		return s
 	}
-	return "..." + s[len(s)-n:]
+	return "..." + string(runes[len(runes)-n:])
 }

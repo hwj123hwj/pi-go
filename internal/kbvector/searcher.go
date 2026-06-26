@@ -12,6 +12,7 @@ package kbvector
 
 import (
 	"context"
+	"log/slog"
 	"sort"
 	"strings"
 	"sync"
@@ -111,9 +112,13 @@ func (v *VectorSearcher) ensureIndexed(entries []kbtools.Entry) {
 
 	// Index (only new/modified docs are embedded — saves API calls)
 	count, err := v.store.Index(context.Background(), v.client, docs)
-	if err == nil {
-		v.lastBuild = time.Now()
-		_ = count
+	if err != nil {
+		slog.Warn("vector index build failed", "error", err, "docs", len(docs))
+		return
+	}
+	v.lastBuild = time.Now()
+	if count > 0 {
+		slog.Info("vector index built", "embedded", count, "total", v.store.Len())
 	}
 }
 
@@ -122,13 +127,13 @@ func (v *VectorSearcher) ensureIndexed(entries []kbtools.Entry) {
 // HybridSearcher blends keyword and vector search results.
 // Inspired by OpenViking's approach of combining dense + sparse retrieval.
 type HybridSearcher struct {
-	vector VectorSearcher
+	vector *VectorSearcher // pointer — copying a mutex by value is a Go bug
 }
 
 // NewHybridSearcher creates a hybrid searcher that blends keyword and vector.
 func NewHybridSearcher(client *EmbeddingClient, store *Store) *HybridSearcher {
 	return &HybridSearcher{
-		vector: *NewVectorSearcher(client, store),
+		vector: NewVectorSearcher(client, store),
 	}
 }
 
