@@ -4894,3 +4894,319 @@ body.resizing .resizer {
   50% { opacity: 0.3; }
 }
 
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MOBILE LAYOUT — Responsive breakpoints for phone form factor.
+   Activated via @media (max-width: 768px) and body.mobile class.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Server Connect screen ───────────────────────────────────────────────── */
+
+.server-connect {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100dvh;
+  padding: 24px;
+  padding-top: env(safe-area-inset-top);
+  background: var(--bg);
+}
+.server-connect-card {
+  width: 100%;
+  max-width: 360px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+.server-connect-card h1 {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+.server-connect-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
+  background: var(--accent-weak);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+  margin-bottom: 4px;
+}
+.server-connect-subtitle {
+  margin: 0 0 8px;
+  color: var(--text-dim);
+  font-size: 14px;
+  text-align: center;
+}
+.server-connect-input {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-elev);
+  color: var(--text-faint);
+}
+.server-connect-input input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 15px;
+  padding: 12px 0;
+  outline: none;
+}
+.server-connect-input input::placeholder {
+  color: var(--text-faint);
+}
+.server-connect-error {
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--red-weak);
+  color: var(--red);
+  font-size: 13px;
+  text-align: center;
+}
+.server-connect-btn {
+  width: 100%;
+  padding: 13px;
+  border: none;
+  border-radius: var(--radius);
+  background: var(--accent);
+  color: var(--accent-text);
+  font-size: 15px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: opacity 0.15s;
+}
+.server-connect-btn:active {
+  opacity: 0.8;
+}
+.server-connect-btn:disabled {
+  opacity: 0.6;
+}
+.server-connect-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin-top: 8px;
+  color: var(--text-faint);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.server-connect-hint span {
+  flex: 1;
+}
+
+/* ── Mobile workspace overrides (≤768px) ─────────────────────────────────── */
+
+@media (max-width: 768px) {
+  body {
+    font-size: 14px;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    user-select: none;
+    overscroll-behavior: none;
+  }
+
+  /* Allow text selection in chat content */
+  .chat-content,
+  .chat-content * {
+    user-select: text;
+    -webkit-touch-callout: default;
+  }
+
+  /* Full-width app, no resizable sidebars */
+  .app {
+    --sidebar-w: 100% !important;
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+    overflow: hidden;
+  }
+
+  /* Sidebar becomes a slide-in drawer */
+  .app:not(.sidebar-collapsed) .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 85%;
+    max-width: 320px;
+    z-index: 200;
+    box-shadow: var(--shadow-lg);
+  }
+  .app:not(.sidebar-collapsed)::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 150;
+    pointer-events: none;
+  }
+
+  /* Hide the resize handles on mobile */
+  .resizer {
+    display: none !important;
+  }
+
+  /* SessionView takes full screen */
+  .main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Toolbar: simplified for mobile */
+  .toolbar {
+    padding: 0 12px;
+    padding-top: env(safe-area-inset-top);
+    height: calc(48px + env(safe-area-inset-top));
+    min-height: 48px;
+    gap: 6px;
+  }
+  .toolbar-title {
+    font-size: 15px;
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .toolbar-cwd {
+    display: none !important;
+  }
+  .toolbar-density {
+    display: none !important;
+  }
+
+  /* Right sidebar becomes full-screen overlay */
+  .right-sidebar {
+    position: fixed !important;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 100% !important;
+    max-width: 100%;
+    z-index: 200;
+    border-left: none !important;
+    box-shadow: var(--shadow-lg);
+  }
+  .right-sidebar::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: -1;
+    pointer-events: none;
+  }
+
+  /* Right sidebar rail: horizontal bottom bar on mobile */
+  .right-sidebar-rail {
+    flex-direction: row !important;
+    width: 100% !important;
+    height: auto !important;
+    border-right: none !important;
+    border-bottom: 1px solid var(--border) !important;
+    padding: 0 4px !important;
+    padding-bottom: env(safe-area-inset-bottom) !important;
+  }
+
+  /* Hide right sidebar content panel on mobile (full screen) */
+  .right-sidebar-content {
+    flex: 1;
+    width: 100%;
+    border: none !important;
+  }
+
+  /* Bottom terminal: full width */
+  .bottom-terminal {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    box-shadow: 0 -2px 12px rgba(0,0,0,0.3);
+  }
+
+  /* Chat pane: full width, more padding for touch */
+  .pane {
+    flex: 1;
+    min-height: 0;
+  }
+  .pane > .pane-head {
+    display: none;
+  }
+
+  /* Prompt bar: mobile-friendly with safe-area */
+  .prompt-bar {
+    padding-bottom: env(safe-area-inset-bottom) !important;
+  }
+  .prompt-bar textarea {
+    font-size: 16px; /* prevent iOS zoom */
+  }
+
+  /* Session items: larger touch targets */
+  .session-item {
+    min-height: 56px;
+    padding: 10px 12px !important;
+  }
+  .session-actions {
+    opacity: 1 !important;
+  }
+
+  /* Global music bar: full width on mobile */
+  .global-music-bar {
+    left: 8px !important;
+    right: 8px !important;
+    min-width: 0 !important;
+    width: auto !important;
+    bottom: calc(60px + env(safe-area-inset-bottom)) !important;
+  }
+
+  /* Workspace toggles: show as bottom toolbar items */
+  .workspace-toggles {
+    flex-wrap: nowrap;
+    gap: 2px;
+  }
+
+  /* Hide features not available on mobile */
+  .sidebar-reveal-zone,
+  .sidebar-overlay {
+    display: none !important;
+  }
+
+  /* Hide new project button on mobile (no folder picker) */
+  body.mobile .btn-new-project,
+  body.mobile .project-new-btn {
+    display: none !important;
+  }
+
+  /* Hide "Open in" external actions on mobile */
+  body.mobile .file-toolbar-external {
+    display: none !important;
+  }
+
+  /* Boot screen: center vertically */
+  .boot {
+    padding-top: env(safe-area-inset-top);
+  }
+}
+
+/* ── Tablet (769-1024px): keep most desktop layout, slightly narrower ────── */
+
+@media (max-width: 1024px) and (min-width: 769px) {
+  .app {
+    --sidebar-w: 220px !important;
+  }
+}

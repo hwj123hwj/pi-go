@@ -1,0 +1,20 @@
+{
+  "appId": "com.ezycode.pigo",
+  "appName": "Pi-Go",
+  "webDir": "dist/renderer",
+  "server": {
+    "androidScheme": "http",
+    "cleartext": true
+  },
+  "android": {
+    "allowMixedContent": true,
+    "webContentsDebuggingEnabled": true
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 1000,
+      "backgroundColor": "#262624",
+      "showSpinner": false
+    }
+  }
+}

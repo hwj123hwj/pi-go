@@ -10,6 +10,8 @@ import { Icon } from './components/Icon';
 import { useT } from './i18n/useT';
 import { applyTheme } from './theme';
 import { GlobalMusicBar } from './components/GlobalMusicBar';
+import { ServerConnect } from './components/ServerConnect';
+import { isElectron, isRemotePlatform, getStoredServerUrl } from './platform';
 
 export function App() {
   const init = useStore((s) => s.init);
@@ -19,18 +21,38 @@ export function App() {
   const musicActive = useStore((s) => s.music.current != null);
   const lang = useStore((s) => s.lang);
   const theme = useStore((s) => s.theme);
+  const toggleSidebar = useStore((s) => s.toggleSidebar);
   const t = useT();
 
-  // Auto-reveal collapsed sidebar on hover (VSCode-style)
+  // Auto-reveal collapsed sidebar on hover (VSCode-style) — desktop only
   const [revealed, setRevealed] = useState(false);
   const sidebarOpen = workspace.sidebarOpen;
   useEffect(() => {
     setRevealed(false);
   }, [sidebarOpen]);
 
+  // On remote platforms (mobile/PWA), show server connect screen first
+  const [serverReady, setServerReady] = useState(false);
   useEffect(() => {
+    if (isRemotePlatform) {
+      const stored = getStoredServerUrl();
+      if (stored) setServerReady(true);
+    } else {
+      setServerReady(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!serverReady) return;
     void init();
-  }, [init]);
+  }, [init, serverReady]);
+
+  // Mark body as mobile for CSS targeting
+  useEffect(() => {
+    if (!isElectron) {
+      document.body.classList.add('mobile');
+    }
+  }, []);
 
   // Global workspace shortcuts
   useEffect(() => {
@@ -66,6 +88,11 @@ export function App() {
     applyTheme(theme);
   }, [theme]);
 
+  // Show server connect screen on mobile/PWA
+  if (!serverReady) {
+    return <ServerConnect onConnect={() => setServerReady(true)} />;
+  }
+
   if (!ready) {
     return (
       <div className="boot">
@@ -88,33 +115,67 @@ export function App() {
       >
         {sidebarOpen ? (
           <>
+            {/* Mobile: tap backdrop to close sidebar drawer */}
+            {!isElectron && (
+              <div
+                className="sidebar-mobile-backdrop"
+                onClick={() => toggleSidebar()}
+                style={{
+                  position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
+                  zIndex: 150,
+                }}
+              />
+            )}
             <ErrorBoundary label="sidebar">
               <Sidebar />
             </ErrorBoundary>
-            <Resizer
-              axis="x"
-              sign={1}
-              title={t('sidebar.resize')}
-              getValue={() => useStore.getState().workspace.sidebarWidth}
-              onChange={(v) => setWorkspaceSize('sidebarWidth', v)}
-            />
+            {isElectron && (
+              <Resizer
+                axis="x"
+                sign={1}
+                title={t('sidebar.resize')}
+                getValue={() => useStore.getState().workspace.sidebarWidth}
+                onChange={(v) => setWorkspaceSize('sidebarWidth', v)}
+              />
+            )}
           </>
         ) : (
           <>
-            {/* Far-left hot zone: hovering it floats the collapsed sidebar out */}
-            <div
-              className="sidebar-reveal-zone"
-              onMouseEnter={() => setRevealed(true)}
-            />
-            {revealed && (
-              <div
-                className="sidebar-overlay"
-                onMouseLeave={() => setRevealed(false)}
+            {/* Far-left hot zone: hovering it floats the collapsed sidebar out — desktop only */}
+            {isElectron && (
+              <>
+                <div
+                  className="sidebar-reveal-zone"
+                  onMouseEnter={() => setRevealed(true)}
+                />
+                {revealed && (
+                  <div
+                    className="sidebar-overlay"
+                    onMouseLeave={() => setRevealed(false)}
+                  >
+                    <ErrorBoundary label="sidebar">
+                      <Sidebar />
+                    </ErrorBoundary>
+                  </div>
+                )}
+              </>
+            )}
+            {/* Mobile: floating hamburger to open sidebar */}
+            {!isElectron && (
+              <button
+                className="mobile-sidebar-toggle"
+                onClick={() => toggleSidebar()}
+                aria-label="Open sessions"
+                style={{
+                  position: 'fixed', top: 'calc(env(safe-area-inset-top) + 8px)', left: 12,
+                  zIndex: 100, width: 40, height: 40, borderRadius: 10,
+                  border: '1px solid var(--border)', background: 'var(--bg-elev)',
+                  color: 'var(--text-dim)', display: 'flex',
+                  alignItems: 'center', justifyContent: 'center',
+                }}
               >
-                <ErrorBoundary label="sidebar">
-                  <Sidebar />
-                </ErrorBoundary>
-              </div>
+                <Icon name="menu" size={18} />
+              </button>
             )}
           </>
         )}
@@ -124,7 +185,7 @@ export function App() {
         </ErrorBoundary>
         {workspace.rightOpen && (
           <>
-            {workspace.rightView && (
+            {isElectron && workspace.rightView && (
               <Resizer
                 axis="x"
                 getValue={() => useStore.getState().workspace.rightWidth}

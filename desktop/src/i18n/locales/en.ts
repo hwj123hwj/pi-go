@@ -431,4 +431,17 @@ export const en = {
   'profile.delete': 'Delete',
   'profile.retry': 'Retry',
   'profile.hint': 'The profile grows automatically as you use the app. Agents learn your preferences, habits, and info during conversations.',
+
+  // ── mobile / server connect ────────────────────────────────────────────────
+  'server.subtitle': 'Connect to your Pi-Go server',
+  'server.connect': 'Connect',
+  'server.connecting': 'Connecting…',
+  'server.errorEmpty': 'Please enter a server address',
+  'server.errorFormat': 'Please enter a valid URL (http:// or https://)',
+  'server.errorConnect': 'Could not connect',
+  'server.hint': 'Enter the address of your Pi-Go backend (e.g. http://192.168.1.100:8080). Run pi-agent -mode serve on your server.',
+  // ── mobile layout ──
+  'mobile.chats': 'Chats',
+  'mobile.settings': 'Settings',
+  'mobile.server': 'Server',
 };

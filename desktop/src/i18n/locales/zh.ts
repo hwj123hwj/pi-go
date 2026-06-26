@@ -429,4 +429,17 @@ export const zh = {
   'profile.delete': '删除',
   'profile.retry': '重试',
   'profile.hint': '用户画像会随使用自动积累。Agent 在对话中会自动学习你的偏好、习惯和信息。',
+
+  // ── mobile / server connect ────────────────────────────────────────────────
+  'server.subtitle': '连接你的 Pi-Go 服务器',
+  'server.connect': '连接',
+  'server.connecting': '连接中…',
+  'server.errorEmpty': '请输入服务器地址',
+  'server.errorFormat': '请输入有效的地址（http:// 或 https://）',
+  'server.errorConnect': '无法连接',
+  'server.hint': '输入 Pi-Go 后端地址（如 http://192.168.1.100:8080）。需要在服务器上运行 pi-agent -mode serve。',
+  // ── mobile layout ──
+  'mobile.chats': '聊天',
+  'mobile.settings': '设置',
+  'mobile.server': '服务器',
 } as const;

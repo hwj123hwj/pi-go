@@ -10,6 +10,7 @@ import { create } from 'zustand';
 import { type Lang, loadStoredLang, persistLang, translate } from './i18n/i18n';
 import { type ThemeMode, loadStoredTheme, persistTheme } from './theme';
 import { deriveTitleFromMessage } from './sessionTitle';
+import { getStoredServerUrl } from './platform';
 import type {
   AcpToolKind,
   DesktopSessionEvent,
@@ -617,10 +618,18 @@ export const useStore = create<StoreState>((set, get) => ({
     if (initialized) return;
     initialized = true;
 
-    // Get server URL from Electron main process
-    const serverUrl = await window.piAPI?.getServerUrl();
-    if (serverUrl) {
-      setBaseUrl(serverUrl);
+    // Get server URL: Electron uses IPC, mobile/browser uses stored URL
+    if (typeof window !== 'undefined' && window.piAPI) {
+      const serverUrl = await window.piAPI.getServerUrl();
+      if (serverUrl) {
+        setBaseUrl(serverUrl);
+      }
+    } else {
+      // Mobile/PWA: use stored server URL (set via ServerConnect screen)
+      const stored = getStoredServerUrl();
+      if (stored) {
+        setBaseUrl(stored);
+      }
     }
 
     // Connect WebSocket

@@ -11,12 +11,21 @@
     "electron:build": "vite build && tsc -p tsconfig.electron.json && electron-builder",
     "electron:build:arm64": "vite build && tsc -p tsconfig.electron.json && electron-builder --arm64",
     "electron:build:x64": "vite build && tsc -p tsconfig.electron.json && electron-builder --x64",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "android:init": "npm run build && npx cap add android && npx cap sync android",
+    "android:sync": "npm run build && npx cap sync android",
+    "android:debug": "npm run android:sync && cd android && ./gradlew assembleDebug",
+    "android:release": "npm run android:sync && cd android && ./gradlew assembleRelease"
   },
   "build": {
     "extends": "electron-builder.yml"
   },
   "dependencies": {
+    "@capacitor/android": "^7.0.0",
+    "@capacitor/core": "^7.0.0",
+    "@capacitor/app": "^7.0.0",
+    "@capacitor/splash-screen": "^7.0.0",
+    "@capacitor/status-bar": "^7.0.0",
     "@types/semver": "^7.7.1",
     "fuzzysort": "^3.1.0",
     "highlight.js": "^11.11.1",
@@ -27,6 +36,7 @@
     "zustand": "^5.0.0"
   },
   "devDependencies": {
+    "@capacitor/cli": "^7.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.3.0",
