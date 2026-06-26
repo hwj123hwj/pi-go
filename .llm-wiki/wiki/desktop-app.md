@@ -414,6 +414,7 @@ proceeding. The URL is persisted in `localStorage` (`pi-go-server-url`).
 | Typing dots | 7px | 6px |
 | Server connect input | 15px font | 16px (iOS zoom prevention) |
 | Server connect button | 13px padding | 48px min-height, 16px font |
+| Toolbar status | Text + dot | Dot only (text hidden, saves space) |
 
 **Code Block Component** (`Markdown.tsx`): The `<pre>` element was replaced by
 a `CodeBlock` component wrapping `pre` in a positioned container with:

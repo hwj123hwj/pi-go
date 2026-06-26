@@ -5144,8 +5144,18 @@ body.resizing .resizer {
   .toolbar-density {
     display: none !important;
   }
+  /* Hide status text on mobile — keep only the dot */
+  .toolbar-status {
+    font-size: 0;
+    gap: 0;
+  }
+  .toolbar-status .status-dot {
+    width: 8px;
+    height: 8px;
+  }
 
-  /* Right sidebar becomes full-screen overlay */  .right-sidebar {
+  /* Right sidebar becomes full-screen overlay */
+  .right-sidebar {
     position: fixed !important;
     top: 0;
     right: 0;

@@ -3,7 +3,7 @@
 > Chronological record of wiki operations.
 
 ## [2026-06-27] ingest | Mobile UX Overhaul Round 3 (v29)
-- **Updated** `wiki/desktop-app.md` — Added Round 3 mobile optimizations: Diff preview mobile (gutter hidden, compact font), tool body compact (max-height 200px, momentum scroll), modal/dialog full-screen mobile (94vw, 40px button height), deep Markdown mobile pass (headings, lists, links word-break), code block copy button + long code collapse/expand feature (CodeBlock component in Markdown.tsx), session list 56px touch height, transcript/sidebar momentum scroll + overscroll-contain, role-tag compact, typing-dots compact, server connect screen iOS zoom prevention + 48px touch button
+- **Updated** `wiki/desktop-app.md` — Added Round 3 mobile optimizations: Diff preview mobile (gutter hidden, compact font), tool body compact (max-height 200px, momentum scroll), modal/dialog full-screen mobile (94vw, 40px button height), deep Markdown mobile pass (headings, lists, links word-break), code block copy button + long code collapse/expand feature (CodeBlock component in Markdown.tsx), session list 56px touch height, transcript/sidebar momentum scroll + overscroll-contain, role-tag compact, typing-dots compact, server connect screen iOS zoom prevention + 48px touch button, toolbar status text hidden (dot only)
 - **Updated** `index.md` — Added source-project-root-v29 entry
 
 ## [2026-06-27] ingest | Mobile UX Overhaul Round 2 (v28)
