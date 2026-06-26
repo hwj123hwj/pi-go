@@ -41,12 +41,16 @@ function parsePlayResult(text: string) {
 
 /**
  * Rewrite a stored audio proxy URL to use the current server's base URL.
- * Historical sessions may contain URLs with old ports (from previous app launches).
- * The path portion (e.g. /music/audio/netease_576466) remains valid since it
- * identifies the resource, so we just replace the origin.
+ * Supports absolute URLs (http://...) and relative paths (/music/audio/...).
+ * Historical sessions may contain URLs with old ports; we replace the origin.
+ * Relative paths (new format) are resolved against the current server automatically.
  */
 function rewriteAudioURL(storedURL: string): string {
   if (!storedURL) return storedURL;
+  // Relative path — just prepend current base URL
+  if (storedURL.startsWith('/')) {
+    return getBaseUrl().replace(/\/$/, '') + storedURL;
+  }
   try {
     const currentBase = getBaseUrl();
     const storedUrl = new URL(storedURL);

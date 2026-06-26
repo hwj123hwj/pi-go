@@ -1,7 +1,6 @@
 package music
 
 import (
-	"fmt"
 	"path/filepath"
 
 	"github.com/hwj123hwj/pi-go/internal/agent"
@@ -45,8 +44,10 @@ func NewMusicApplication(cfg config.Config, router *music.SourceRouter, cache *m
 }
 
 // BuildTools assembles the music-agent toolset.
+// audioBaseURL uses a relative path so the frontend resolves it against the
+// current server — works correctly on mobile (Capacitor), desktop, and web.
 func (a MusicApplication) BuildTools(opts runtime.ToolBuildOptions) []agent.Tool {
-	audioBaseURL := fmt.Sprintf("http://%s:%d/music/audio", a.Cfg.Host, a.Cfg.Port)
+	audioBaseURL := "/music/audio"
 	return musictools.BuildList(musictools.ListOptions{
 		Router:        a.Router,
 		Cache:         a.Cache,
