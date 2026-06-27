@@ -315,13 +315,9 @@ export function Sidebar() {
             className="icon-btn sidebar-check-update"
             title="检查更新"
             onClick={async () => {
-              const btn = document.querySelector('.sidebar-check-update') as HTMLButtonElement;
-              if (btn) { btn.textContent = '⋯'; btn.disabled = true; }
               try {
-                const { MobileUpdateDialog } = await import('./MobileUpdateDialog');
                 const info = await checkMobileUpdate();
                 if (info) {
-                  // Trigger dialog by dispatching a custom event
                   window.dispatchEvent(new CustomEvent('pi-go-show-update', { detail: info }));
                 } else {
                   const ver = await getAppVersion();
@@ -330,7 +326,6 @@ export function Sidebar() {
               } catch {
                 alert('检查更新失败，请稍后重试');
               }
-              if (btn) { btn.textContent = '↻'; btn.disabled = false; }
             }}
           >
             <Icon name="refresh" size={15} />

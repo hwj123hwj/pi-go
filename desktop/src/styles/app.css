@@ -5897,6 +5897,18 @@ body.resizing .resizer {
     overscroll-behavior: contain;
   }
 
+  /* ── Mobile Sidebar Footer — safe area padding ──────────────────────────── */
+
+  .sidebar-foot {
+    padding: 10px 14px !important;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom)) !important;
+  }
+  .sidebar-foot .icon-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+  }
+
   /* ── Mobile Role Tag ─────────────────────────────────────────────────────── */
 
   .role-tag {
@@ -6017,6 +6029,40 @@ body.resizing .resizer {
 
   .transcript {
     cursor: pointer;
+  }
+
+  /* ── Mobile Edge Safety Zones ────────────────────────────────────────────── */
+  /* Android gesture nav pill area is ~24-48px from bottom.
+     iOS home indicator is ~34px. Use env(safe-area-inset-bottom). */
+
+  /* Sidebar drawer: extra bottom padding so footer buttons clear gesture area */
+  .sidebar-foot {
+    padding-bottom: calc(12px + env(safe-area-inset-bottom)) !important;
+  }
+
+  /* Promptbar: already has env(safe-area-inset-bottom) but enforce min gap */
+  .promptbar {
+    padding-bottom: max(12px, env(safe-area-inset-bottom)) !important;
+  }
+
+  /* Global music bar: already at bottom:0, ensure inner content clears */
+  .global-music-bar {
+    padding-bottom: calc(8px + env(safe-area-inset-bottom)) !important;
+  }
+
+  /* Right sidebar rail (bottom bar on mobile): add safe area */
+  .rsidebar-rail {
+    padding-bottom: calc(4px + env(safe-area-inset-bottom)) !important;
+  }
+
+  /* Right sidebar mobile close button: account for status bar */
+  .rsidebar-mobile-close {
+    top: calc(env(safe-area-inset-top) + 8px) !important;
+  }
+
+  /* Empty state send button: clear bottom edge */
+  .empty-send {
+    margin-bottom: env(safe-area-inset-bottom);
   }
 }
 
