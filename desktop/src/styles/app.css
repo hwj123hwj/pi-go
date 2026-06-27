@@ -5471,6 +5471,7 @@ body.resizing .resizer {
     width: 100% !important;
     max-width: 100% !important;
     bottom: 0 !important;
+    transform: none !important;
     border-radius: 0 !important;
     border-left: none !important;
     border-right: none !important;
