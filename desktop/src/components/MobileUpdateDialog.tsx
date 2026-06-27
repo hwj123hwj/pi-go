@@ -42,9 +42,30 @@ export function MobileUpdateDialog() {
       }
     }, 3000);
 
+    // Listen for manual trigger from sidebar button
+    const onManualShow = async (e: Event) => {
+      const detail = (e as CustomEvent).detail as MobileUpdateInfo | undefined;
+      const ver = await getAppVersion();
+      if (cancelled) return;
+      setCurrentVersion(ver);
+      if (detail) {
+        setUpdate(detail);
+        setVisible(true);
+      } else {
+        // Re-check
+        const info = await checkMobileUpdate();
+        if (info) {
+          setUpdate(info);
+          setVisible(true);
+        }
+      }
+    };
+    window.addEventListener('pi-go-show-update', onManualShow);
+
     return () => {
       cancelled = true;
       clearTimeout(timer);
+      window.removeEventListener('pi-go-show-update', onManualShow);
     };
   }, []);
 
