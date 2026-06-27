@@ -40,6 +40,7 @@
 - [[source-project-root-v35]] — Code review round 3: fix sidebar backdrop double-dimming on mobile, btn-stop mobile CSS missing !important (2026-06-27)
 - [[source-project-root-v36]] — Code review round 4: fix rsidebar-content overflow conflict (hidden vs auto), CodeBlock clipboard unhandled rejection (2026-06-27)
 - [[source-project-root-v37]] — Mobile toolbar declutter: hide density toggle, hide sidebar+bottom toggles, keep only right-panel toggle, justify-content space-between layout (2026-06-27)
+- [[source-project-root-v38]] — In-app self-update: custom ApkUpdaterPlugin (native APK download + install intent), MobileUpdateDialog UI, version 0.6.0 release (2026-06-27)
 
 ## Entities
 - [[agent-core]] — Agent state machine and execution engine

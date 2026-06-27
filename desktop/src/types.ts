@@ -112,3 +112,12 @@ export interface UpdateState {
   skipped?: boolean;
   snoozed?: boolean;
 }
+
+// ── Mobile Update ──────────────────────────────────────────────────────────
+
+export interface MobileUpdateInfo {
+  version: string;
+  downloadUrl: string;
+  releaseNotes: string;
+  apkSize: number;
+}

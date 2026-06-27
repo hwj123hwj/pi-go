@@ -2,6 +2,14 @@
 
 > Chronological record of wiki operations.
 
+## [2026-06-27] feat | Mobile Self-Update + v0.6.0 Release (v38)
+- **Updated** `wiki/desktop-app.md` — Major feature: in-app self-update for Android:
+  - Custom Capacitor plugin `ApkUpdaterPlugin.java`: native APK download (with progress events via `notifyListeners`) + FileProvider URI + `ACTION_VIEW` install intent
+  - `mobile-updater.ts`: TypeScript wrapper, GitHub Releases API check, semver comparison, `downloadAndInstallApk()` with progress callback
+  - `MobileUpdateDialog.tsx`: update dialog with version info, download progress bar, "稍后" / "下载并安装" buttons
+  - Android config: `REQUEST_INSTALL_PACKAGES` permission, FileProvider `apk_downloads` path, version bump to 0.6.0 (versionCode 6)
+  - Toolbar declutter: density toggle + sidebar/bottom toggles hidden on mobile, only right-panel button shown, `justify-content: space-between`
+
 ## [2026-06-27] fix | Mobile Toolbar Declutter (v37)
 - **Updated** `wiki/desktop-app.md` — Mobile toolbar was overcrowded: title + status dot + density toggle (3 buttons) + 3 workspace toggles (sidebar/bottom/right) = 8 elements in 48px height. Fixed: (1) Density toggle hidden entirely on mobile (`toolbar-density-mobile` → `display: none`); (2) WorkspaceToggles component: sidebar toggle and bottom terminal toggle hidden on mobile (`isElectron` gated), only right panel toggle shown; (3) Toolbar uses `justify-content: space-between` — title on left, right-panel toggle on right; (4) Removed duplicate `.workspace-toggles` CSS block.
 

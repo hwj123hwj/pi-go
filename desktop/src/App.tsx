@@ -11,6 +11,7 @@ import { useT } from './i18n/useT';
 import { applyTheme } from './theme';
 import { GlobalMusicBar } from './components/GlobalMusicBar';
 import { ServerConnect } from './components/ServerConnect';
+import { MobileUpdateDialog } from './components/MobileUpdateDialog';
 import { isElectron, isRemotePlatform, getStoredServerUrl } from './platform';
 
 export function App() {
@@ -199,6 +200,7 @@ export function App() {
         )}
         <UpdateBanner />
         <GlobalMusicBar />
+        <MobileUpdateDialog />
       </div>
     </ErrorBoundary>
   );
