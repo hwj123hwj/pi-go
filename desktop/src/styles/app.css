@@ -5424,7 +5424,14 @@ body.resizing .resizer {
     line-height: 1.5;
   }
   .prompt-config {
-    display: none !important;
+    display: flex !important;
+    margin-bottom: 6px;
+  }
+  .prompt-config .chip {
+    font-size: 12px;
+  }
+  .prompt-config .chip select {
+    max-width: 200px;
   }
   .btn-send {
     width: 36px !important;

@@ -43,22 +43,20 @@ export function PromptBar({ view }: { view: SessionView }) {
   return (
     <div className="promptbar">
       <div className="promptbar-inner">
-        {/* Model selector — hidden on mobile to save space */}
-        {isElectron && (
-          <div className="prompt-config">
-            <span className="chip">
-              <Icon name="cpu" size={14} />
-              <select value={meta.model ?? ''} onChange={(e) => void setModel(meta.id, e.target.value)}>
-                {!meta.model && <option value="">{t('prompt.defaultModel')}</option>}
-                {models.map((m) => (
-                  <option key={m.modelId} value={m.modelId}>
-                    {m.name}
-                  </option>
-                ))}
-              </select>
-            </span>
-          </div>
-        )}
+        {/* Model selector */}
+        <div className="prompt-config">
+          <span className="chip">
+            <Icon name="cpu" size={14} />
+            <select value={meta.model ?? ''} onChange={(e) => void setModel(meta.id, e.target.value)}>
+              {!meta.model && <option value="">{t('prompt.defaultModel')}</option>}
+              {models.map((m) => (
+                <option key={m.modelId} value={m.modelId}>
+                  {m.name}
+                </option>
+              ))}
+            </select>
+          </span>
+        </div>
 
         <div className="prompt-input-wrap" style={{ position: 'relative' }}>
           <textarea

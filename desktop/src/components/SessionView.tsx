@@ -211,8 +211,7 @@ function EmptyState() {
               </div>
               )}
 
-              {/* Model selector — desktop only on mobile (server uses default) */}
-              {isElectron && (
+              {/* Model selector */}
               <span className="chip">
                 <Icon name="cpu" size={14} />
                 <select value={model} onChange={(e) => setModel(e.target.value)}>
@@ -224,7 +223,6 @@ function EmptyState() {
                   ))}
                 </select>
               </span>
-              )}
 
               <span className="grow" />
 
