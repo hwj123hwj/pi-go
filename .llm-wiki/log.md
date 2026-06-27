@@ -2,6 +2,9 @@
 
 > Chronological record of wiki operations.
 
+## [2026-06-27] fix | Mobile Toolbar Declutter (v37)
+- **Updated** `wiki/desktop-app.md` — Mobile toolbar was overcrowded: title + status dot + density toggle (3 buttons) + 3 workspace toggles (sidebar/bottom/right) = 8 elements in 48px height. Fixed: (1) Density toggle hidden entirely on mobile (`toolbar-density-mobile` → `display: none`); (2) WorkspaceToggles component: sidebar toggle and bottom terminal toggle hidden on mobile (`isElectron` gated), only right panel toggle shown; (3) Toolbar uses `justify-content: space-between` — title on left, right-panel toggle on right; (4) Removed duplicate `.workspace-toggles` CSS block.
+
 ## [2026-06-27] fix | Mobile Code Review Round 4 — Bug Fixes (v36)
 - **Updated** `wiki/desktop-app.md` — Code review round 4 found and fixed 2 bugs:
   1. **`.rsidebar-content` overflow conflict** — Desktop definition sets `overflow: hidden` (line 494), mobile sets `overflow-y: auto` (line 5227). Without `!important`, the desktop `overflow: hidden` could prevent scrolling inside the right sidebar on mobile (e.g. long file content, KB articles). Fixed: `overflow-y: auto !important` on mobile.

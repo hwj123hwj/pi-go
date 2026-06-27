@@ -7,6 +7,7 @@
 import { useStore } from '../../store';
 import { Icon } from '../Icon';
 import { useT } from '../../i18n/useT';
+import { isElectron } from '../../platform';
 
 export function WorkspaceToggles() {
   const workspace = useStore((s) => s.workspace);
@@ -17,22 +18,28 @@ export function WorkspaceToggles() {
 
   return (
     <div className="ws-toggles">
-      <button
-        className={`ws-toggle ${workspace.sidebarOpen ? 'active' : ''}`}
-        title={workspace.sidebarOpen ? t('sidebar.collapse') : t('sidebar.expand')}
-        aria-pressed={workspace.sidebarOpen}
-        onClick={toggleSidebar}
-      >
-        <Icon name="panel" size={16} />
-      </button>
-      <button
-        className={`ws-toggle ${workspace.bottomOpen ? 'active' : ''}`}
-        title={t('workspace.toggleBottom')}
-        aria-pressed={workspace.bottomOpen}
-        onClick={toggleBottom}
-      >
-        <Icon name="panel-bottom" size={16} />
-      </button>
+      {/* Sidebar toggle: hidden on mobile (use hamburger button instead) */}
+      {isElectron && (
+        <button
+          className={`ws-toggle ${workspace.sidebarOpen ? 'active' : ''}`}
+          title={workspace.sidebarOpen ? t('sidebar.collapse') : t('sidebar.expand')}
+          aria-pressed={workspace.sidebarOpen}
+          onClick={toggleSidebar}
+        >
+          <Icon name="panel" size={16} />
+        </button>
+      )}
+      {/* Bottom terminal toggle: hidden on mobile */}
+      {isElectron && (
+        <button
+          className={`ws-toggle ${workspace.bottomOpen ? 'active' : ''}`}
+          title={t('workspace.toggleBottom')}
+          aria-pressed={workspace.bottomOpen}
+          onClick={toggleBottom}
+        >
+          <Icon name="panel-bottom" size={16} />
+        </button>
+      )}
       <button
         className={`ws-toggle ${workspace.rightOpen ? 'active' : ''}`}
         title={t('workspace.toggleRight')}

@@ -5139,11 +5139,12 @@ body.resizing .resizer {
     padding-top: env(safe-area-inset-top);
     height: calc(48px + env(safe-area-inset-top));
     min-height: 48px;
-    gap: 6px;
+    gap: 8px;
+    justify-content: space-between;
   }
   .toolbar-title {
     font-size: 15px;
-    max-width: 140px;
+    max-width: 50vw;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -5154,27 +5155,30 @@ body.resizing .resizer {
   .toolbar-density {
     display: none !important;
   }
+  /* On mobile, density toggle: hide entirely to declutter the toolbar */
   .toolbar-density-mobile {
-    display: flex;
-    gap: 0;
-    flex-wrap: nowrap;
-    margin-left: auto;
-  }
-  .toolbar-density-mobile button {
-    min-width: 28px;
-    min-height: 28px;
-    font-size: 10px;
-    padding: 2px 6px;
-    border-radius: 6px;
+    display: none !important;
   }
   /* Hide status text on mobile — keep only the dot */
   .toolbar-status {
     font-size: 0;
     gap: 0;
+    flex-shrink: 0;
   }
   .toolbar-status .status-dot {
     width: 8px;
     height: 8px;
+  }
+  /* Workspace toggles on mobile: right-align, larger touch target */
+  .ws-toggles {
+    margin-left: auto;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+  .ws-toggle {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
   }
 
   /* Right sidebar (rsidebar) becomes full-screen overlay on mobile */
@@ -5383,19 +5387,10 @@ body.resizing .resizer {
 
   /* Toolbar: simplified for mobile (overrides from earlier block) */
   .toolbar-title {
-    max-width: 180px;
+    max-width: 50vw;
   }
 
-  /* Workspace toggles: show as bottom toolbar items */
-  .workspace-toggles {
-    flex-wrap: nowrap;
-    gap: 2px;
-  }
-  .workspace-toggles .icon-btn,
-  .workspace-toggles button {
-    min-width: 36px;
-    min-height: 36px;
-  }
+  /* Workspace toggles handled by earlier block */
 
   /* Hide features not available on mobile */
   .sidebar-reveal-zone,
