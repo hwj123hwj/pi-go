@@ -21,7 +21,9 @@
         "INTERNET"
       ]
     },
-    "plugins": [],
+    "plugins": [
+      "expo-asset"
+    ],
     "experiments": {
       "reactCompiler": true
     }

@@ -13,10 +13,14 @@ import {
   View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet,
   SafeAreaView, ActivityIndicator, Platform,
 } from 'react-native';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 const SafeArea = SafeAreaView as any;
 import { useStore } from '../store';
 import type { ChatItem } from '../types/ChatItem';
+import type { RootStackParamList } from '../navigation/AppNavigator';
+
+type ChatScreenProps = NativeStackScreenProps<RootStackParamList, 'Chat'>;
 
 // ─── Memoized message components (prevents cascading re-renders) ──────
 
@@ -61,13 +65,9 @@ const ErrorMessage = memo(({ text }: { text: string }) => (
 
 // ─── Chat Screen ──────────────────────────────────────────────────────
 
-export function ChatScreen({
-  sessionId,
-  onBack,
-}: {
-  sessionId: string;
-  onBack: () => void;
-}) {
+export function ChatScreen({ route, navigation }: ChatScreenProps) {
+  const { sessionId } = route.params;
+  const onBack = navigation.goBack;
   const view = useStore(useCallback((s) => s.sessions[sessionId], [sessionId]));
   const sendPrompt = useStore(useCallback((s) => s.sendPrompt, []));
   const cancel = useStore(useCallback((s) => s.cancel, []));

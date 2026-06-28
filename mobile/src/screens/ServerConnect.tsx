@@ -10,10 +10,14 @@ import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   ActivityIndicator, KeyboardAvoidingView, Platform,
 } from 'react-native';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useStore } from '../store';
 import { loadStoredServerUrl, setStoredServerUrl, setBaseUrl } from '../api/server-url';
+import type { RootStackParamList } from '../navigation/AppNavigator';
 
-export function ServerConnect({ onConnected }: { onConnected: () => void }) {
+type ServerConnectProps = NativeStackScreenProps<RootStackParamList, 'Connect'>;
+
+export function ServerConnect({ navigation }: ServerConnectProps) {
   const [url, setUrl] = useState('');
   const [testing, setTesting] = useState(false);
   const [error, setError] = useState('');
@@ -47,7 +51,9 @@ export function ServerConnect({ onConnected }: { onConnected: () => void }) {
       // Save and proceed
       setBaseUrl(trimmed);
       await setStoredServerUrl(trimmed);
-      onConnected();
+      // Initialize store then navigate to session list
+      void useStore.getState().init();
+      navigation.replace('List');
     } catch (err) {
       setError('无法连接服务器: ' + (err instanceof Error ? err.message : '未知错误'));
     } finally {

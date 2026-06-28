@@ -10,11 +10,16 @@
     "ios": "expo run:ios"
   },
   "dependencies": {
+    "@react-navigation/native": "^7.3.4",
+    "@react-navigation/native-stack": "^7.17.6",
     "expo": "~52.0.0",
+    "expo-asset": "~11.0.5",
     "expo-secure-store": "~13.0.0",
     "expo-status-bar": "~2.0.0",
     "react": "18.3.1",
+    "react-compiler-runtime": "^19.0.0-beta-af1b7da-20250417",
     "react-native": "0.76.7",
+    "react-native-screens": "~4.4.0",
     "zustand": "^5.0.0"
   },
   "devDependencies": {

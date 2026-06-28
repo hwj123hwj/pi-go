@@ -12,10 +12,14 @@ import {
   View, Text, FlatList, TouchableOpacity, StyleSheet,
   RefreshControl, SafeAreaView, Modal, Pressable,
 } from 'react-native';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 const SafeArea = SafeAreaView as any;
 import { useStore } from '../store';
 import type { SessionView } from '../types/SessionView';
+import type { RootStackParamList } from '../navigation/AppNavigator';
+
+type SessionListProps = NativeStackScreenProps<RootStackParamList, 'List'>;
 
 // ─── Memoized card component ──────────────────────────────────────────
 
@@ -40,7 +44,10 @@ const SessionCard = memo(({ view, onPress }: { view: SessionView; onPress: (id: 
 
 // ─── Screen ───────────────────────────────────────────────────────────
 
-export function SessionList({ onOpenSession }: { onOpenSession: (id: string) => void }) {
+export function SessionList({ navigation }: SessionListProps) {
+  const onOpenSession = useCallback((id: string) => {
+    navigation.navigate('Chat', { sessionId: id });
+  }, [navigation]);
   const sessions = useStore(useCallback((s) => s.sessions, []));
   const order = useStore(useCallback((s) => s.order, []));
   const createSession = useStore(useCallback((s) => s.createSession, []));

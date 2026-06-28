@@ -98,7 +98,8 @@ mobile/
 
 ### Pending Optimizations
 - **expo-av CMake error**: `ReactAndroid` target not found with new architecture. Needs investigation — possibly requires `newArchEnabled=true` alignment or expo-audio migration
-- **react-native-screens**: Currently using manual state-based screen switching. Should migrate to `@react-navigation/native-stack` for native screen stack
+
+### Round 4 — Bundle Analysis, 16KB Alignment, Native Navigation (CRITICAL/HIGH)
 
 ### Round 3 — Concurrent React, Error Boundaries, React Compiler (HIGH/MEDIUM)
 
@@ -131,7 +132,40 @@ mobile/
 - `babel.config.js`: added `['react-compiler', { target: '18' }]` plugin
 - `app.json`: added `"experiments": { "reactCompiler": true }`
 - `babel-plugin-react-compiler@beta` installed as devDependency
-- **Effect**: Compiler automatically memoizes components/hooks → existing `memo()`/`useCallback` become belt-and-suspenders. New code no longer needs manual memoization.
+
+#### 15. Bundle Analysis (bundle-analyze-js) — CRITICAL
+- Generated production Hermes bytecode: **859KB** (`.hbc`), 529 modules
+- Top modules: ReactNativeRenderer (312KB), ReactFabric (304KB), ScrollView (70KB)
+- **All polyfills are RN core** (buffer, whatwg-url, whatwg-fetch, regenerator) — no unnecessary web polyfills
+- **Verdict**: Bundle is clean — 100% RN core code, no bloat from third-party libs
+- `expo-asset` installed (was missing for metro config)
+
+#### 16. 16KB Page Size Alignment (native-android-16kb-alignment) — CRITICAL
+- `zipalign -c -P 16 -v 4` verification: **All 52 `.so` files OK**
+- Includes libhermes.so, libc++_shared.so, libexpo-modules-core.so, etc.
+- Created `scripts/check-16kb-alignment.sh` — CI-ready verification script
+- Run after every release build: `./scripts/check-16kb-alignment.sh path/to/app.apk`
+
+#### 17. Native Navigation Stack (react-native-screens) — HIGH
+- Installed `react-native-screens` + `@react-navigation/native-stack`
+- Migrated from manual `useState<Screen>` switching to `createNativeStackNavigator`
+- `src/navigation/AppNavigator.tsx`: NavigationContainer + native stack
+- Screens use `NativeStackScreenProps` (type-safe route params)
+- `freezeOnBlur: true` — off-screen screens frozen in native → lower memory
+- `animation: 'slide_from_right'` — native slide transitions
+- `ServerConnect.navigation.replace('List')` — replaces stack (no back to connect)
+- Hardware back button now works natively
+
+#### 18. Polyfill Audit (native-sdks-over-polyfills) — HIGH
+- Audited all 21 polyfill modules in production bundle
+- **Result**: All polyfills are RN core infrastructure, not app-installed
+- `buffer` (48.9KB) — required by RN for binary operations
+- `whatwg-url` (64KB) — RN's built-in URL polyfill, not removable
+- `whatwg-fetch` (19.4KB) — RN's built-in fetch implementation
+- `regenerator-runtime` (24.6KB) — async/await support, bundled by Babel
+- `event-target-shim` (22.9KB) — RN's event system core
+- **No app-level polyfills found** — no Intl/crypto-js/extra polyfills to remove
+
 
 ## Build Configuration
 

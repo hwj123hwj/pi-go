@@ -3,66 +3,33 @@
  *
  * RN Best Practices applied:
  * - js-atomic-state: Fine-grained Zustand selectors (no broad re-renders)
- * - useCallback for event handlers to keep child renders stable
- * - ErrorBoundary wrapping each screen to prevent white-screen crashes
- *
- * Screen flow:
- *   ServerConnect → SessionList → ChatScreen
+ * - ErrorBoundary wrapping navigation to prevent white-screen crashes
+ * - react-native-screens: Native navigation stack (native-screen-stack)
+ * - React Compiler: Automatic memoization (babel-plugin-react-compiler)
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
 import { useStore } from './src/store';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
-import { ServerConnect } from './src/screens/ServerConnect';
-import { SessionList } from './src/screens/SessionList';
-import { ChatScreen } from './src/screens/ChatScreen';
-
-type Screen = 'connect' | 'list' | 'chat';
+import { AppNavigator } from './src/navigation/AppNavigator';
 
 export default function App() {
   const init = useStore((s) => s.init);
   const ready = useStore((s) => s.ready);
   const serverReady = useStore((s) => s.serverReady);
-  const [screen, setScreen] = useState<Screen>('connect');
-  const [chatSessionId, setChatSessionId] = useState<string | null>(null);
+  const [initialRoute, setInitialRoute] = useState<'Connect' | 'List'>('Connect');
 
   useEffect(() => {
     (async () => {
       await init();
       const { serverReady: sr } = useStore.getState();
-      if (sr) setScreen('list');
+      setInitialRoute(sr ? 'List' : 'Connect');
     })();
   }, []);
 
-  const handleConnected = useCallback(() => {
-    void init();
-    setScreen('list');
-  }, [init]);
-
-  const handleOpenSession = useCallback((id: string) => {
-    setChatSessionId(id);
-    setScreen('chat');
-  }, []);
-
-  const handleBack = useCallback(() => {
-    setChatSessionId(null);
-    setScreen('list');
-  }, []);
-
-  if (screen === 'connect' && !serverReady) {
-    return (
-      <>
-        <StatusBar style="light" />
-        <ErrorBoundary onReset={() => setScreen('connect')}>
-          <ServerConnect onConnected={handleConnected} />
-        </ErrorBoundary>
-      </>
-    );
-  }
-
-  if (!ready) {
+  if (!ready && serverReady) {
     return (
       <>
         <StatusBar style="light" />
@@ -74,22 +41,11 @@ export default function App() {
     );
   }
 
-  if (screen === 'chat' && chatSessionId) {
-    return (
-      <>
-        <StatusBar style="light" />
-        <ErrorBoundary onReset={handleBack}>
-          <ChatScreen sessionId={chatSessionId} onBack={handleBack} />
-        </ErrorBoundary>
-      </>
-    );
-  }
-
   return (
     <>
       <StatusBar style="light" />
-      <ErrorBoundary onReset={() => setScreen('connect')}>
-        <SessionList onOpenSession={handleOpenSession} />
+      <ErrorBoundary onReset={() => setInitialRoute('Connect')}>
+        <AppNavigator initialRoute={initialRoute} />
       </ErrorBoundary>
     </>
   );
