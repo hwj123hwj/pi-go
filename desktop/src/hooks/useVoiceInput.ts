@@ -5,13 +5,14 @@ import { getBaseUrl } from '../store';
 /**
  * useVoiceInput — Microphone recording + ASR transcription hook.
  *
- * Records audio via MediaRecorder API, then uploads the blob to the server's
- * /asr/transcribe endpoint which forwards it to SiliconFlow's TeleSpeechASR.
+ * Two strategies depending on platform:
  *
- * On Android (Capacitor), the WebRTC getUserMedia API often fails silently for
- * RECORD_AUDIO permission. We bridge this with a native MicrophonePermission
- * plugin that triggers the Android runtime permission dialog before calling
- * getUserMedia.
+ * - **Android (Capacitor)**: Uses a native MediaRecorder plugin
+ *   (NativeRecorderPlugin.java) to bypass WebView getUserMedia limitations.
+ *   The native recorder captures AAC audio → base64 → JS converts to Blob →
+ *   upload to /asr/transcribe.
+ *
+ * - **Desktop/Browser**: Uses standard MediaRecorder + getUserMedia API.
  */
 
 type VoiceInputOptions = {
@@ -25,90 +26,153 @@ export function useVoiceInput({ onText }: VoiceInputOptions) {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
 
-  const ensurePermission = async (): Promise<boolean> => {
-    if (Capacitor.isNativePlatform()) {
-      try {
-        const plugins = Capacitor as unknown as Record<string, {
-          request: () => Promise<{ granted: boolean }>;
-        }>;
-        const mic = plugins.MicrophonePermission;
-        if (mic?.request) {
-          const result = await mic.request();
-          if (!result.granted) {
-            setError('麦克风权限被拒绝');
-            return false;
-          }
-        }
-      } catch {
-        // plugin not available, fall through to getUserMedia
+  // ─── Android Native Recording ───────────────────────────────────────
+
+  const startNativeRecording = async (): Promise<boolean> => {
+    const plugins = Capacitor as unknown as Record<string, {
+      requestPermission: () => Promise<{ granted: boolean }>;
+      startRecording: () => Promise<void>;
+      stopRecording: () => Promise<{ base64: string; mimeType: string; duration: number }>;
+    }>;
+    const rec = plugins.NativeRecorder;
+    if (!rec) return false;
+
+    // Request permission
+    try {
+      const perm = await rec.requestPermission();
+      if (!perm.granted) {
+        setError('麦克风权限被拒绝');
+        return false;
       }
+    } catch {
+      return false;
     }
+
+    // Start recording
+    await rec.startRecording();
     return true;
   };
 
-  const startRecording = useCallback(async () => {
-    setError('');
-    const ok = await ensurePermission();
-    if (!ok) return;
+  const stopNativeRecording = async (): Promise<void> => {
+    const plugins = Capacitor as unknown as Record<string, {
+      stopRecording: () => Promise<{ base64: string; mimeType: string; duration: number }>;
+    }>;
+    const rec = plugins.NativeRecorder;
+    if (!rec) return;
 
+    const result = await rec.stopRecording();
+    // Convert base64 to Blob
+    const byteChars = atob(result.base64);
+    const byteNumbers = new Array(byteChars.length);
+    for (let i = 0; i < byteChars.length; i++) {
+      byteNumbers[i] = byteChars.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const blob = new Blob([byteArray], { type: result.mimeType });
+
+    // Upload for transcription
+    setTranscribing(true);
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-        ? 'audio/webm;codecs=opus'
-        : MediaRecorder.isTypeSupported('audio/webm')
-          ? 'audio/webm'
-          : '';
+      const formData = new FormData();
+      formData.append('file', blob, 'voice.m4a');
 
-      const mr = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
-      chunksRef.current = [];
+      const res = await fetch(`${getBaseUrl()}/asr/transcribe`, {
+        method: 'POST',
+        body: formData,
+      });
 
-      mr.ondataavailable = (e) => {
-        if (e.data.size > 0) chunksRef.current.push(e.data);
-      };
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `Server error ${res.status}`);
+      }
 
-      mr.onstop = async () => {
-        stream.getTracks().forEach((t) => t.stop());
+      const data = await res.json();
+      if (data.text) {
+        onText(data.text);
+      } else {
+        setError('未能识别语音内容');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '语音识别失败');
+    } finally {
+      setTranscribing(false);
+    }
+  };
 
-        const blob = new Blob(chunksRef.current, {
-          type: mimeType || 'audio/webm',
+  // ─── Browser Recording (getUserMedia) ───────────────────────────────
+
+  const startBrowserRecording = async (): Promise<void> => {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+      ? 'audio/webm;codecs=opus'
+      : MediaRecorder.isTypeSupported('audio/webm')
+        ? 'audio/webm'
+        : '';
+
+    const mr = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+    chunksRef.current = [];
+
+    mr.ondataavailable = (e) => {
+      if (e.data.size > 0) chunksRef.current.push(e.data);
+    };
+
+    mr.onstop = async () => {
+      stream.getTracks().forEach((t) => t.stop());
+      const blob = new Blob(chunksRef.current, { type: mimeType || 'audio/webm' });
+      if (blob.size < 100) {
+        setError('录音太短，请重试');
+        return;
+      }
+
+      setTranscribing(true);
+      try {
+        const formData = new FormData();
+        const ext = mimeType.includes('webm') ? 'webm' : 'wav';
+        formData.append('file', blob, `voice.${ext}`);
+
+        const res = await fetch(`${getBaseUrl()}/asr/transcribe`, {
+          method: 'POST',
+          body: formData,
         });
 
-        if (blob.size < 100) {
-          setError('录音太短，请重试');
-          return;
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error || `Server error ${res.status}`);
         }
 
-        setTranscribing(true);
-        try {
-          const formData = new FormData();
-          const ext = mimeType.includes('webm') ? 'webm' : mimeType.includes('ogg') ? 'ogg' : 'wav';
-          formData.append('file', blob, `voice.${ext}`);
-
-          const res = await fetch(`${getBaseUrl()}/asr/transcribe`, {
-            method: 'POST',
-            body: formData,
-          });
-
-          if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
-            throw new Error(err.error || `Server error ${res.status}`);
-          }
-
-          const data = await res.json();
-          if (data.text) {
-            onText(data.text);
-          } else {
-            setError('未能识别语音内容');
-          }
-        } catch (err) {
-          setError(err instanceof Error ? err.message : '语音识别失败');
-        } finally {
-          setTranscribing(false);
+        const data = await res.json();
+        if (data.text) {
+          onText(data.text);
+        } else {
+          setError('未能识别语音内容');
         }
-      };
+      } catch (err) {
+        setError(err instanceof Error ? err.message : '语音识别失败');
+      } finally {
+        setTranscribing(false);
+      }
+    };
 
-      mr.start();
-      mediaRecorderRef.current = mr;
+    mr.start();
+    mediaRecorderRef.current = mr;
+  };
+
+  // ─── Unified toggle ─────────────────────────────────────────────────
+
+  const startRecording = useCallback(async () => {
+    setError('');
+    try {
+      if (Capacitor.isNativePlatform()) {
+        // Android: use native recorder
+        const started = await startNativeRecording();
+        if (!started) {
+          // Fallback: try browser path
+          await startBrowserRecording();
+        }
+      } else {
+        // Desktop/browser
+        await startBrowserRecording();
+      }
       setRecording(true);
     } catch (err) {
       if (err instanceof DOMException && err.name === 'NotAllowedError') {
@@ -117,19 +181,30 @@ export function useVoiceInput({ onText }: VoiceInputOptions) {
         setError('无法访问麦克风: ' + (err instanceof Error ? err.message : '未知错误'));
       }
     }
-  }, [onText]);
+  }, []);
 
-  const stopRecording = useCallback(() => {
-    const mr = mediaRecorderRef.current;
-    if (mr && mr.state !== 'inactive') {
-      mr.stop();
-    }
+  const stopRecording = useCallback(async () => {
     setRecording(false);
+    try {
+      if (Capacitor.isNativePlatform() && !mediaRecorderRef.current) {
+        // Native recording
+        await stopNativeRecording();
+      } else if (mediaRecorderRef.current) {
+        // Browser recording
+        const mr = mediaRecorderRef.current;
+        if (mr.state !== 'inactive') {
+          mr.stop();
+        }
+        mediaRecorderRef.current = null;
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '录音停止失败');
+    }
   }, []);
 
   const toggle = useCallback(() => {
     if (recording) {
-      stopRecording();
+      void stopRecording();
     } else {
       void startRecording();
     }
