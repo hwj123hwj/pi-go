@@ -190,6 +190,30 @@ After code review of commits b515893e..b07e3714 (Rounds 1-4), found and fixed 5 
 - **Problem**: `store.destroy()` method was created in Round 2 for WS cleanup, but no component ever called it. App backgrounding/unmount left WS connections and listeners open.
 - **Fix**: Added `destroy()` call in `App.tsx` cleanup `useEffect`. Also added `set({ ready: false, connected: false })` to destroy for clean state reset.
 
+### Round 6 — Second Bugfix Audit (CRITICAL/HIGH)
+
+Code review of commit 40671910 (Round 5 fixes) found and fixed 5 new bugs:
+
+#### BUG-6 (CRITICAL): destroy() in useEffect cleanup kills WS in React Strict Mode
+- **Problem**: Round 5 added `destroy()` to `App.tsx` root `useEffect` cleanup. In React Strict Mode (enabled by React Compiler), effects run mount→unmount→mount. The cleanup `destroy()` killed the WebSocket on the first unmount, and `initPromiseRef` prevented re-init on re-mount → app permanently disconnected.
+- **Fix**: Removed `destroy()` from root component cleanup. Root component should never unmount. `destroy()` is now for explicit user-initiated disconnect only.
+
+#### BUG-7 (CRITICAL): init() has no try/catch → REST/WS failures hang forever
+- **Problem**: If REST `/sessions` or `/models` endpoints failed, `init()` threw an uncaught error. `ready` never became `true`, so app showed loading spinner forever with no recovery path.
+- **Fix**: Wrapped `loadStoredServerUrl()`, `wsService.connect()`, and `refreshSessions()` in individual try/catch blocks. Failures are logged but don't block `ready: true`.
+
+#### BUG-8 (MEDIUM): sendPrompt creates empty assistant placeholder bubble
+- **Problem**: `sendPrompt` pushed both a `userItem` and an empty `assistantItem` (text: '') to the transcript. If a `tool_start` event arrived before any `text_delta`, the empty assistant bubble would remain as an orphan bubble showing nothing (or a spinner forever if the response was tool-only).
+- **Fix**: Removed the empty `assistantItem` from `sendPrompt`. The `event:text_delta` handler already creates a fresh assistant bubble when the first delta arrives. For tool-only responses, no orphan bubble is left behind.
+
+#### BUG-9 (MEDIUM): ErrorBoundary reset doesn't work — initialRouteName ignored
+- **Problem**: When `ErrorBoundary.handleReset` called `setInitialRoute('Connect')`, the `AppNavigator` already existed and `initialRouteName` is only read on first mount. Changing it post-mount had no effect — the navigator kept showing the crashed state.
+- **Fix**: Added `navKey` state in `App.tsx`. ErrorBoundary reset now increments `navKey`, forcing `AppNavigator` to fully remount with the new initial route.
+
+#### BUG-10 (LOW): initPromiseRef rejection unhandled
+- **Problem**: If `init()` threw (before BUG-7 fix), the promise stored in `initPromiseRef` was rejected with no `.catch()`, causing "unhandled promise rejection" warnings.
+- **Fix**: Wrapped `init()` call in try/catch inside the async IIFE. Also fixed at source by BUG-7's try/catch additions.
+
 
 ## Build Configuration
 

@@ -61,14 +61,21 @@ export const useStore = create<StoreState>((set, get) => ({
   activeSessionId: undefined,
   models: [],
 
-  // ── BUGFIX: init() now returns boolean + guards properly ───────────
+  // ── BUGFIX: init() now returns boolean + guards properly + try/catch ──
   // Previously: set initialized=true BEFORE checking URL, so a second
   // call from ServerConnect would silently no-op, leaving WS disconnected.
+  // Also: no try/catch → REST/WS failures left app stuck on loading screen.
   init: async () => {
     if (initialized) return true;
 
     // Load stored server URL
-    const stored = await loadStoredServerUrl();
+    let stored: string | null;
+    try {
+      stored = await loadStoredServerUrl();
+    } catch {
+      stored = null;
+    }
+
     if (stored) {
       setBaseUrl(stored);
     } else {
@@ -81,7 +88,12 @@ export const useStore = create<StoreState>((set, get) => ({
     set({ serverReady: true });
 
     // Connect WebSocket
-    wsService.connect(getBaseUrl());
+    try {
+      wsService.connect(getBaseUrl());
+    } catch (err) {
+      console.error('WS connect failed:', err);
+      // Non-fatal — backoff will retry. Continue with REST.
+    }
 
     // ── js-memory-leaks: Store unsubscribe functions for cleanup ──
     // Clean up any previous listeners (e.g. re-init after destroy)
@@ -112,8 +124,10 @@ export const useStore = create<StoreState>((set, get) => ({
         const transcript = [...v.transcript];
         const last = transcript[transcript.length - 1];
         if (last && last.kind === 'assistant') {
+          // ── BUGFIX C: Merge into existing assistant bubble ──
           transcript[transcript.length - 1] = { ...last, text: last.text + delta };
         } else {
+          // ── BUGFIX C: Create a fresh assistant bubble only if needed ──
           transcript.push({ kind: 'assistant', id: newId(), text: delta });
         }
         return { ...v, transcript, meta: { ...v.meta, status: 'thinking' } };
@@ -182,8 +196,12 @@ export const useStore = create<StoreState>((set, get) => ({
       // models are optional
     }
 
-    // Load existing sessions
-    await get().refreshSessions();
+    // ── BUGFIX B: Load sessions with try/catch so failures don't hang ──
+    try {
+      await get().refreshSessions();
+    } catch (err) {
+      console.error('Session load failed:', err);
+    }
     set({ ready: true });
     return true;
   },
@@ -301,10 +319,9 @@ export const useStore = create<StoreState>((set, get) => ({
 
   sendPrompt: async (id, text) => {
     const userItem: ChatItem = { kind: 'user', id: newId(), text };
-    const assistantItem: ChatItem = { kind: 'assistant', id: newId(), text: '' };
     updateView(set, id, (v) => ({
       ...v,
-      transcript: [...v.transcript, userItem, assistantItem],
+      transcript: [...v.transcript, userItem],
       meta: { ...v.meta, status: 'thinking' },
     }));
     wsService.send({ type: 'prompt', session_id: id, prompt: text });

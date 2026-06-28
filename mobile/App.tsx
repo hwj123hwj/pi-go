@@ -19,24 +19,38 @@ export default function App() {
   const init = useStore((s) => s.init);
   const ready = useStore((s) => s.ready);
   const serverReady = useStore((s) => s.serverReady);
-  const destroy = useStore((s) => s.destroy);
   const [initialRoute, setInitialRoute] = useState<'Connect' | 'List'>('Connect');
 
-  // ── BUGFIX: Track init promise to avoid double-init race ──
+  // ── BUGFIX: Track init promise + catch rejections to avoid unhandled rejection ──
   const initPromiseRef = useRef<Promise<void> | null>(null);
+  // ── BUGFIX: Key to force navigator remount on ErrorBoundary reset ──
+  const [navKey, setNavKey] = useState(0);
 
   useEffect(() => {
     if (!initPromiseRef.current) {
       initPromiseRef.current = (async () => {
-        const ok = await init();
-        if (ok) setInitialRoute('List');
+        try {
+          // ── BUGFIX B: init() now has internal try/catch, but guard anyway ──
+          const ok = await init();
+          if (ok) setInitialRoute('List');
+        } catch (err) {
+          console.error('App init failed:', err);
+          setInitialRoute('Connect');
+        }
       })();
     }
-    return () => {
-      // ── BUGFIX: Clean up WS listeners on unmount (js-memory-leaks) ──
-      destroy();
-    };
+    // ── BUGFIX A: Do NOT call destroy() in root component cleanup.
+    // The root <App> should never unmount. In React Strict Mode (dev),
+    // effects mount→unmount→mount, so destroy() would kill WS and
+    // initPromiseRef would prevent re-init on re-mount.
+    // Instead, destroy() is for explicit user-initiated disconnect only.
   }, []);
+
+  // ── BUGFIX D: ErrorBoundary reset now increments navKey to remount navigator ──
+  const handleErrorReset = () => {
+    setNavKey((k) => k + 1);
+    setInitialRoute('Connect');
+  };
 
   if (!ready && serverReady) {
     return (
@@ -53,8 +67,8 @@ export default function App() {
   return (
     <>
       <StatusBar style="light" />
-      <ErrorBoundary onReset={() => setInitialRoute('Connect')}>
-        <AppNavigator initialRoute={initialRoute} />
+      <ErrorBoundary onReset={handleErrorReset}>
+        <AppNavigator key={navKey} initialRoute={initialRoute} />
       </ErrorBoundary>
     </>
   );
