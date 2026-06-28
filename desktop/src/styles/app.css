@@ -5374,7 +5374,7 @@ body.resizing .resizer {
     z-index: 200;
     border-left: none !important;
     box-shadow: var(--shadow-lg);
-    flex-direction: column-reverse !important; /* rail at bottom, content on top */
+    flex-direction: column !important; /* content on top, rail at bottom */
   }
 
   /* Right sidebar rail: horizontal bottom bar on mobile */
@@ -5385,23 +5385,30 @@ body.resizing .resizer {
     border-right: none !important;
     border-bottom: none !important;
     border-top: 1px solid var(--border) !important;
-    padding: 4px 8px !important;
-    padding-bottom: env(safe-area-inset-bottom) !important;
+    padding: 6px 4px !important;
+    padding-bottom: calc(6px + env(safe-area-inset-bottom)) !important;
     justify-content: space-around;
     overflow-x: auto;
+    flex-shrink: 0;
+    background: var(--bg-elev);
   }
   .rsidebar-rail .rail-item {
     flex-direction: column;
-    gap: 2px;
-    padding: 6px 4px;
-    min-width: 44px;
-    min-height: 44px;
+    gap: 3px;
+    padding: 8px 6px;
+    min-width: 48px;
+    min-height: 52px;
     justify-content: center;
     flex-shrink: 0;
+    border-radius: 10px;
+  }
+  .rsidebar-rail .rail-item.active {
+    background: var(--accent-weak);
+    color: var(--accent);
   }
   .rsidebar-rail .rail-label {
     display: block !important;
-    font-size: 9px;
+    font-size: 10px;
     text-align: center;
     flex: none;
   }
@@ -5419,6 +5426,14 @@ body.resizing .resizer {
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch;
     padding-top: calc(env(safe-area-inset-top) + 56px);
+  }
+
+  /* Launcher mode (no panel selected): show hint + push rail to bottom */
+  .rsidebar.launcher {
+    justify-content: flex-end;
+  }
+  .rsidebar.launcher .rsidebar-rail {
+    width: 100% !important;
   }
 
   /* Mobile close button — floating back arrow in top-left of panel */
