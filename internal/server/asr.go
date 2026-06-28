@@ -14,6 +14,13 @@ import (
 	"github.com/hwj123hwj/pi-go/internal/config"
 )
 
+func truncateResp(b []byte, max int) []byte {
+	if len(b) <= max {
+		return b
+	}
+	return b[:max]
+}
+
 // ASRHandler proxies audio files to SiliconFlow's speech-to-text API.
 // This avoids exposing the API key to the frontend.
 type ASRHandler struct {
@@ -103,7 +110,21 @@ func (h *ASRHandler) transcribe(w http.ResponseWriter, r *http.Request) {
 		slog.Error("ASR upstream returned error",
 			"status", resp.StatusCode,
 			"body", string(respBody))
-		writeError(w, resp.StatusCode, "speech-to-text service error")
+
+		// Parse SiliconFlow error message
+		var sfErr struct {
+			Message string `json:"message"`
+			Error   string `json:"error"`
+		}
+		errDetail := "speech-to-text service error"
+		if json.Unmarshal(respBody, &sfErr) == nil {
+			if sfErr.Message != "" {
+				errDetail = sfErr.Message
+			} else if sfErr.Error != "" {
+				errDetail = sfErr.Error
+			}
+		}
+		writeError(w, resp.StatusCode, errDetail)
 		return
 	}
 
@@ -126,6 +147,12 @@ func (h *ASRHandler) transcribe(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+
+	slog.Info("ASR result",
+		"text_len", len(result.Text),
+		"audio_mime", header.Header.Get("Content-Type"),
+		"audio_size", header.Size,
+		"resp_body_preview", string(truncateResp(respBody, 200)))
 
 	result.Text = strings.TrimSpace(result.Text)
 

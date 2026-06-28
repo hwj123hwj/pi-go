@@ -114,24 +114,44 @@ export function useVoiceInput({ onText }: VoiceInputOptions) {
       const formData = new FormData();
       formData.append('file', blob, filename);
 
-      const res = await fetch(`${getBaseUrl()}/asr/transcribe`, {
+      const url = `${getBaseUrl()}/asr/transcribe`;
+      console.log('[VoiceInput] Uploading to:', url, 'blob size:', blob.size, 'type:', blob.type);
+
+      const res = await fetch(url, {
         method: 'POST',
         body: formData,
       });
 
+      console.log('[VoiceInput] Response status:', res.status, res.statusText);
+
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || `Server error ${res.status}`);
+        const errText = await res.text().catch(() => 'unknown');
+        console.error('[VoiceInput] Server error:', res.status, errText);
+        let errMsg = `Server error ${res.status}`;
+        try {
+          const errJson = JSON.parse(errText);
+          errMsg = errJson.error || errMsg;
+        } catch { /* not JSON */ }
+        throw new Error(errMsg);
       }
 
       const data = await res.json();
+      console.log('[VoiceInput] ASR result:', JSON.stringify(data));
+
       if (data.text) {
         onText(data.text);
       } else {
-        setError('未能识别语音内容');
+        setError('未能识别语音内容，请重试');
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : '语音识别失败');
+      console.error('[VoiceInput] Upload failed:', err);
+      const msg = err instanceof Error ? err.message : '语音识别失败';
+      // If it's a network error, show a helpful message
+      if (msg.includes('Failed to fetch') || msg.includes('NetworkError')) {
+        setError('网络连接失败，请检查服务器地址是否正确');
+      } else {
+        setError(msg);
+      }
     } finally {
       setTranscribing(false);
     }

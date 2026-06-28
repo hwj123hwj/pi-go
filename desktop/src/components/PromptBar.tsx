@@ -35,7 +35,7 @@ export function PromptBar({ view }: { view: SessionView }) {
     });
   };
 
-  const { recording, toggle: toggleVoice, transcribing, error: voiceError } = useVoiceInput({
+  const { recording, toggle: toggleVoice, transcribing, error: voiceError, setError: setVoiceError } = useVoiceInput({
     onText: appendText,
   });
 
@@ -107,7 +107,13 @@ export function PromptBar({ view }: { view: SessionView }) {
             )}
           </button>
           {voiceError && (
-            <span className="voice-error-toast">{voiceError}</span>
+            <div
+              className="voice-error-toast"
+              onClick={() => setVoiceError('')}
+              style={{ cursor: 'pointer', maxWidth: '90vw', textAlign: 'center' }}
+            >
+              ⚠️ {voiceError} (点击关闭)
+            </div>
           )}
           {busy ? (
             <button className="btn-stop" onClick={() => void cancel(meta.id)}>
