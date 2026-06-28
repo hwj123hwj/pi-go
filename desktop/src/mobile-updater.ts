@@ -5,14 +5,9 @@
  * 1. Check GitHub Releases for latest version
  * 2. Compare semver with current app version
  * 3. Download APK natively (with progress events) and trigger system installer
- *
- * Requires:
- * - android.permission.REQUEST_INSTALL_PACKAGES in AndroidManifest.xml
- * - FileProvider configured with apk_downloads path
- * - ApkUpdaterPlugin.java registered in MainActivity
  */
 
-import { Capacitor } from '@capacitor/core';
+import { registerPlugin } from '@capacitor/core';
 import type { MobileUpdateInfo } from './types';
 
 const REPO = 'hwj123hwj/pi-go';
@@ -24,14 +19,16 @@ interface ApkUpdaterPlugin {
   addListener(eventName: string, listener: (data: { percent: number }) => void): Promise<{ remove: () => void }>;
 }
 
-const ApkUpdater = (Capacitor as any).registerPlugin('ApkUpdater') as ApkUpdaterPlugin;
+// ✅ Use registerPlugin from @capacitor/core (not Capacitor.registerPlugin)
+const ApkUpdater = registerPlugin<ApkUpdaterPlugin>('ApkUpdater');
 
 /** Get current app version (from native). */
 export async function getAppVersion(): Promise<string> {
   try {
     const { version } = await ApkUpdater.getAppVersion();
     return version;
-  } catch {
+  } catch (err) {
+    console.error('[mobile-updater] getAppVersion failed:', err);
     return '0.0.0';
   }
 }
@@ -56,13 +53,18 @@ function isNewer(latest: string, current: string): boolean {
 export async function checkMobileUpdate(): Promise<MobileUpdateInfo | null> {
   try {
     const res = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`);
-    if (!res.ok) return null;
+    if (!res.ok) {
+      console.error('[mobile-updater] GitHub API returned', res.status);
+      return null;
+    }
 
     const release = await res.json();
     if (!release.tag_name) return null;
 
     const latestVersion = release.tag_name.replace(/^v/, '');
     const currentVersion = await getAppVersion();
+
+    console.log(`[mobile-updater] current=${currentVersion}, latest=${latestVersion}`);
 
     if (!isNewer(latestVersion, currentVersion)) {
       return null;
@@ -95,7 +97,6 @@ export async function downloadAndInstallApk(
   downloadUrl: string,
   onProgress?: (percent: number) => void,
 ): Promise<void> {
-  // Listen for native progress events
   let progressListener: { remove: () => void } | null = null;
   try {
     if (ApkUpdater?.addListener) {
@@ -115,4 +116,9 @@ export async function downloadAndInstallApk(
   } finally {
     progressListener?.remove();
   }
+}
+
+/** Direct download URL for manual fallback. */
+export function getManualDownloadUrl(): string {
+  return `https://github.com/${REPO}/releases/latest`;
 }

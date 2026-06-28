@@ -315,17 +315,20 @@ export function Sidebar() {
             className="icon-btn sidebar-check-update"
             title="检查更新"
             onClick={async () => {
+              const btn = document.querySelector('.sidebar-check-update') as HTMLButtonElement;
+              if (btn) { btn.textContent = '⋯'; btn.disabled = true; }
               try {
+                const ver = await getAppVersion();
                 const info = await checkMobileUpdate();
                 if (info) {
                   window.dispatchEvent(new CustomEvent('pi-go-show-update', { detail: info }));
                 } else {
-                  const ver = await getAppVersion();
-                  alert(`已是最新版本 (v${ver})`);
+                  alert(`当前版本 v${ver}\nGitHub 最新版检查完毕，可能已是最新或网络受限。\n如需手动更新，请用浏览器访问:\ngithub.com/hwj123hwj/pi-go/releases`);
                 }
-              } catch {
-                alert('检查更新失败，请稍后重试');
+              } catch (e) {
+                alert('检查更新失败: ' + (e instanceof Error ? e.message : '未知错误') + '\n请用浏览器访问 github.com/hwj123hwj/pi-go/releases');
               }
+              if (btn) { btn.textContent = '↻'; btn.disabled = false; }
             }}
           >
             <Icon name="refresh" size={15} />
