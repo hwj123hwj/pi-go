@@ -1,4 +1,5 @@
 import { useRef, useState, useCallback } from 'react';
+import { Capacitor } from '@capacitor/core';
 import { getBaseUrl } from '../store';
 
 /**
@@ -7,10 +8,10 @@ import { getBaseUrl } from '../store';
  * Records audio via MediaRecorder API, then uploads the blob to the server's
  * /asr/transcribe endpoint which forwards it to SiliconFlow's TeleSpeechASR.
  *
- * Usage:
- *   const { recording, toggle, transcribing, error } = useVoiceInput({
- *     onText: (text) => appendText(text),
- *   });
+ * On Android (Capacitor), the WebRTC getUserMedia API often fails silently for
+ * RECORD_AUDIO permission. We bridge this with a native MicrophonePermission
+ * plugin that triggers the Android runtime permission dialog before calling
+ * getUserMedia.
  */
 
 type VoiceInputOptions = {
@@ -24,8 +25,43 @@ export function useVoiceInput({ onText }: VoiceInputOptions) {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
 
+  const ensurePermission = async (): Promise<boolean> => {
+    if (Capacitor.isNativePlatform()) {
+      try {
+        // Call our native MicrophonePermission plugin via Capacitor's proxy
+        const plugins = Capacitor as unknown as Record<string, {
+          request: () => Promise<{ granted: boolean }>;
+        }>;
+        const mic = plugins.MicrophonePermission;
+        if (mic?.request) {
+          const result = await mic.request();
+          if (result.granted) return true;
+          setError('麦克风权限被拒绝');
+          return false;
+        }
+      } catch {
+        // plugin not available, fall through to getUserMedia
+      }
+    }
+
+    // Browser/web: check Permissions API
+    try {
+      const perm = await navigator.permissions?.query({ name: 'microphone' as PermissionName });
+      if (perm && perm.state === 'denied') {
+        setError('麦克风权限被拒绝，请在浏览器设置中允许');
+        return false;
+      }
+    } catch {
+      // permissions API not available
+    }
+    return true;
+  };
+
   const startRecording = useCallback(async () => {
     setError('');
+    const ok = await ensurePermission();
+    if (!ok) return;
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
@@ -42,7 +78,6 @@ export function useVoiceInput({ onText }: VoiceInputOptions) {
       };
 
       mr.onstop = async () => {
-        // Stop all tracks to release the microphone
         stream.getTracks().forEach((t) => t.stop());
 
         const blob = new Blob(chunksRef.current, {
@@ -54,15 +89,10 @@ export function useVoiceInput({ onText }: VoiceInputOptions) {
           return;
         }
 
-        // Upload to server for transcription
         setTranscribing(true);
         try {
           const formData = new FormData();
-          const ext = mimeType.includes('webm')
-            ? 'webm'
-            : mimeType.includes('ogg')
-              ? 'ogg'
-              : 'wav';
+          const ext = mimeType.includes('webm') ? 'webm' : mimeType.includes('ogg') ? 'ogg' : 'wav';
           formData.append('file', blob, `voice.${ext}`);
 
           const res = await fetch(`${getBaseUrl()}/asr/transcribe`, {
