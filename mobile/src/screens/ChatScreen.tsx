@@ -8,7 +8,7 @@
  * - js-uncontrolled-components: TextInput with ref for voice append (avoids re-render on programmatic update)
  */
 
-import React, { useState, useRef, useCallback, useEffect, memo } from 'react';
+import React, { useState, useRef, useCallback, useEffect, useDeferredValue, memo } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet,
   SafeAreaView, ActivityIndicator, Platform,
@@ -76,10 +76,19 @@ export function ChatScreen({
 
   const [text, setText] = useState('');
   const flatRef = useRef<FlatList>(null);
+  // ── js-uncontrolled-components: ref for TextInput to read value without re-render ──
+  const inputRef = useRef<TextInput>(null);
+  const textRef = useRef('');
 
   const busy = view?.meta.status === 'thinking' || view?.meta.status === 'starting';
   const transcript = view?.transcript ?? [];
-  const transcriptLen = transcript.length;
+
+  // ── js-concurrent-react: Defer transcript rendering during streaming ──
+  // The raw transcript updates on every text_delta (high frequency).
+  // deferredTranscript lets React prioritize input/scroll over list re-render.
+  const deferredTranscript = useDeferredValue(transcript);
+  const deferredBusy = useDeferredValue(busy);
+  const transcriptLen = deferredTranscript.length;
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
@@ -89,11 +98,15 @@ export function ChatScreen({
   }, [transcriptLen]);
 
   const submit = useCallback(async () => {
-    const trimmed = text.trim();
+    const trimmed = textRef.current.trim();
     if (!trimmed || busy) return;
+    textRef.current = '';
     setText('');
+    inputRef.current?.setNativeProps({ text: '' });
     await sendPrompt(sessionId, trimmed);
-  }, [text, busy, sessionId, sendPrompt]);
+  }, [busy, sessionId, sendPrompt]);
+
+  // ── renderItem uses deferredBusy/deferredTranscript for non-blocking render ──
 
   // ─── renderItem: stable callback with React.memo children ──────────
   const renderItem = useCallback(({ item }: { item: ChatItem }) => {
@@ -101,7 +114,7 @@ export function ChatScreen({
       case 'user':
         return <UserBubble text={item.text} />;
       case 'assistant':
-        return <AssistantMessage text={item.text} busy={busy} />;
+        return <AssistantMessage text={item.text} busy={deferredBusy} />;
       case 'tool':
         return <ToolMessage title={item.title || ''} status={item.status} text={item.text} />;
       case 'thought':
@@ -111,7 +124,7 @@ export function ChatScreen({
       default:
         return null;
     }
-  }, [busy]);
+  }, [deferredBusy]);
 
   const keyExtractor = useCallback((item: ChatItem) => item.id, []);
 
@@ -127,7 +140,7 @@ export function ChatScreen({
   const currentModel = view?.meta.model ?? '';
 
   return (
-    <SafeArea style={styles.container} edges={['bottom']}>
+    <SafeArea style={styles.container} edges={['bottom']} collapsable={false}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={onBack} style={styles.backBtn}>
@@ -165,9 +178,10 @@ export function ChatScreen({
       </View>
 
       {/* Messages — optimized FlatList */}
+      {/* ── native-view-flattening: prevent parent view flattening issues ── */}
       <FlatList
         ref={flatRef}
-        data={transcript}
+        data={deferredTranscript}
         keyExtractor={keyExtractor}
         renderItem={renderItem}
         getItemLayout={getItemLayout}
@@ -181,12 +195,14 @@ export function ChatScreen({
 
       {/* Input bar */}
       <View style={styles.inputBar}>
+        {/* ── js-uncontrolled-components: uncontrolled TextInput via ref ── */}
         <TextInput
+          ref={inputRef}
           style={styles.input}
           placeholder="输入消息..."
           placeholderTextColor="#807d74"
-          value={text}
-          onChangeText={setText}
+          defaultValue=""
+          onChangeText={(t) => { textRef.current = t; setText(t); }}
           multiline
           maxLength={8000}
         />

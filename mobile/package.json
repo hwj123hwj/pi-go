@@ -18,9 +18,10 @@
     "zustand": "^5.0.0"
   },
   "devDependencies": {
+    "@babel/core": "^7.24.0",
     "@types/react": "~18.3.0",
-    "typescript": "^5.3.0",
-    "@babel/core": "^7.24.0"
+    "babel-plugin-react-compiler": "^19.0.0-beta-af1b7da-20250417",
+    "typescript": "^5.3.0"
   },
   "private": true
 }

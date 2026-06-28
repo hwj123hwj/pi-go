@@ -4,6 +4,7 @@
  * RN Best Practices applied:
  * - js-atomic-state: Fine-grained Zustand selectors (no broad re-renders)
  * - useCallback for event handlers to keep child renders stable
+ * - ErrorBoundary wrapping each screen to prevent white-screen crashes
  *
  * Screen flow:
  *   ServerConnect → SessionList → ChatScreen
@@ -13,6 +14,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
 import { useStore } from './src/store';
+import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { ServerConnect } from './src/screens/ServerConnect';
 import { SessionList } from './src/screens/SessionList';
 import { ChatScreen } from './src/screens/ChatScreen';
@@ -53,7 +55,9 @@ export default function App() {
     return (
       <>
         <StatusBar style="light" />
-        <ServerConnect onConnected={handleConnected} />
+        <ErrorBoundary onReset={() => setScreen('connect')}>
+          <ServerConnect onConnected={handleConnected} />
+        </ErrorBoundary>
       </>
     );
   }
@@ -74,7 +78,9 @@ export default function App() {
     return (
       <>
         <StatusBar style="light" />
-        <ChatScreen sessionId={chatSessionId} onBack={handleBack} />
+        <ErrorBoundary onReset={handleBack}>
+          <ChatScreen sessionId={chatSessionId} onBack={handleBack} />
+        </ErrorBoundary>
       </>
     );
   }
@@ -82,7 +88,9 @@ export default function App() {
   return (
     <>
       <StatusBar style="light" />
-      <SessionList onOpenSession={handleOpenSession} />
+      <ErrorBoundary onReset={() => setScreen('connect')}>
+        <SessionList onOpenSession={handleOpenSession} />
+      </ErrorBoundary>
     </>
   );
 }

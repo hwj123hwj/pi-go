@@ -21,6 +21,9 @@
         "INTERNET"
       ]
     },
-    "plugins": []
+    "plugins": [],
+    "experiments": {
+      "reactCompiler": true
+    }
   }
 }

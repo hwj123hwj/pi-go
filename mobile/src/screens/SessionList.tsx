@@ -69,7 +69,7 @@ export function SessionList({ onOpenSession }: { onOpenSession: (id: string) => 
   const keyExtractor = useCallback((item: SessionView) => item.meta.id, []);
 
   return (
-    <SafeArea style={styles.container} edges={['top']}>
+    <SafeArea style={styles.container} edges={['top']} collapsable={false}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Pi-Go</Text>
         <TouchableOpacity onPress={() => setShowNewMenu(true)} style={styles.newBtn}>

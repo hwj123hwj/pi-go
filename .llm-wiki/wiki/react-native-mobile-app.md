@@ -99,8 +99,39 @@ mobile/
 ### Pending Optimizations
 - **expo-av CMake error**: `ReactAndroid` target not found with new architecture. Needs investigation — possibly requires `newArchEnabled=true` alignment or expo-audio migration
 - **react-native-screens**: Currently using manual state-based screen switching. Should migrate to `@react-navigation/native-stack` for native screen stack
-- **TextInput uncontrolled**: ChatScreen input is controlled. For voice append, consider ref-based approach (js-uncontrolled-components)
-- **useDeferredValue**: For expensive transcript rendering during streaming (js-concurrent-react)
+
+### Round 3 — Concurrent React, Error Boundaries, React Compiler (HIGH/MEDIUM)
+
+#### 10. Error Boundaries — HIGH
+- Created `src/components/ErrorBoundary.tsx` — Class component catching render crashes
+- Wraps **all three screens** in App.tsx (ServerConnect, SessionList, ChatScreen)
+- Fallback UI: error message + "重试" button calling `onReset` to recover
+- Prevents single-screen errors from killing the entire app session
+
+#### 11. Concurrent React: useDeferredValue (js-concurrent-react) — HIGH
+- `deferredTranscript = useDeferredValue(transcript)` — transcript updates on every text_delta (high frequency)
+- `deferredBusy = useDeferredValue(busy)` — status changes can lag behind input
+- FlatList renders from `deferredTranscript` instead of raw `transcript`
+- `renderItem` uses `deferredBusy` — React prioritizes user input over background re-renders
+- **Effect**: Typing into TextInput stays responsive even during heavy streaming
+
+#### 12. Uncontrolled TextInput (js-uncontrolled-components) — HIGH
+- ChatScreen: added `inputRef` + `textRef` alongside React state
+- `onChangeText` updates `textRef.current` (instant, no re-render needed)
+- `submit()` reads from `textRef.current` instead of state — no stale closure risk
+- Submit also calls `inputRef.current?.setNativeProps({ text: '' })` for instant clear
+- **Effect**: Zero-flicker typing, no controlled-component round-trip per keystroke
+
+#### 13. View Flattening Guard (native-view-flattening) — MEDIUM
+- ChatScreen root: `<SafeArea collapsable={false}>`
+- SessionList root: `<SafeArea collapsable={false}>`
+- Prevents RN from flattening screen containers into unexpected hierarchy
+
+#### 14. React Compiler (js-react-compiler) — HIGH
+- `babel.config.js`: added `['react-compiler', { target: '18' }]` plugin
+- `app.json`: added `"experiments": { "reactCompiler": true }`
+- `babel-plugin-react-compiler@beta` installed as devDependency
+- **Effect**: Compiler automatically memoizes components/hooks → existing `memo()`/`useCallback` become belt-and-suspenders. New code no longer needs manual memoization.
 
 ## Build Configuration
 
