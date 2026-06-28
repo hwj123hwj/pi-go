@@ -41,6 +41,8 @@
 - [[source-project-root-v36]] — Code review round 4: fix rsidebar-content overflow conflict (hidden vs auto), CodeBlock clipboard unhandled rejection (2026-06-27)
 - [[source-project-root-v37]] — Mobile toolbar declutter: hide density toggle, hide sidebar+bottom toggles, keep only right-panel toggle, justify-content space-between layout (2026-06-27)
 - [[source-project-root-v38]] — In-app self-update: custom ApkUpdaterPlugin (native APK download + install intent), MobileUpdateDialog UI, version 0.6.0 release (2026-06-27)
+- [[source-project-root-v39]] — Re-ingest v39: manual check-update button, model selector restored, music bar transform fix, version management lesson (2026-06-28)
+- [[source-project-root-v40]] — Voice input (ASR): TeleSpeechASR via SiliconFlow, MediaRecorder API, server proxy, /asr/transcribe endpoint (2026-06-28)
 
 ## Entities
 - [[agent-core]] — Agent state machine and execution engine
@@ -55,10 +57,10 @@
 - [[tool-lifecycle-hooks]] — 9-step execution flow, Before/After hooks, confirmation gate, session observer hooks
 - [[extension-system]] — Plugin-style tools/commands/hooks
 - [[skill-system]] — Markdown skill loading from `.claude/skills/`
-- [[desktop-app]] — Electron + React GUI client (global music player, workspace layout, KB panel, profile panel v25, path clicking, v10 race condition fixes)
+- [[desktop-app]] — Electron + React GUI client (global music player, workspace layout, KB panel, profile panel v25, path clicking, v10 race condition fixes, mobile self-update v38, version management v39, voice input/ASR v40)
 - [[feishu-integration]] — Lark/Feishu bot bridge
-- [[server-websocket]] — HTTP REST + SSE + WebSocket server (protocol, file endpoints, KB endpoints, profile endpoints v25, gateway models)
-- [[config-system]] — Environment-driven configuration (PI_GO_* env priority, LoadDotEnv no-override, provider required v7, KB embedding config v19)
+- [[server-websocket]] — HTTP REST + SSE + WebSocket server (protocol, file endpoints, KB endpoints, profile endpoints v25, gateway models, ASR endpoint v40)
+- [[config-system]] — Environment-driven configuration (PI_GO_* env priority, LoadDotEnv no-override, provider required v7, KB embedding config v19, ASR config v40)
 - [[coding-application]] — Coding agent (primary application layer)
 - [[tui-presenter]] — Terminal UI rendering system
 - [[external-tools]] — HTTP callback tool registration
@@ -81,6 +83,9 @@
 - [[kb-vector-search]] — Hybrid keyword + vector retrieval (SiliconFlow bge-m3, local JSON vector store) (NEW v19)
 - [[session-memory-extraction]] — Async LLM-based user fact extraction after each turn (OpenViking ExtractLoop adaptation) (NEW v20)
 - [[tool-output-synopsis]] — After-hook that replaces large tool outputs with deterministic structural synopsis (NEW v21)
+- [[asr-voice-input]] — Speech-to-text pipeline: MediaRecorder → server proxy → SiliconFlow TeleSpeechASR (NEW v40)
+
+- [[react-native-mobile-app]] — Mobile client rebuilt from Capacitor to React Native + Expo (RN best practices: Hermes mmap, R8 shrinking, React.memo, FlatList optimization, Zustand atomic selectors) (NEW v41)
 
 ## Synthesis
 <!-- Cross-cutting analysis pages will be listed here -->

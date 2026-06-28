@@ -2,6 +2,21 @@
 
 > Chronological record of wiki operations.
 
+## [2026-06-28] ingest | Voice Input / ASR Feature (v40)
+- **Created** `wiki/source-project-root-v40.md` — Source summary: full-stack ASR pipeline (backend proxy, frontend hook, config fields, Android permission)
+- **Created** `wiki/asr-voice-input.md` — New concept page: architecture diagram, design decisions (server proxy, API key reuse, codec selection, toggle interaction), file list
+- **Updated** `wiki/desktop-app.md` — Added Voice Input / ASR (v40) section: PromptBar 🎤 button, useVoiceInput hook, desktop + mobile sizing, RECORD_AUDIO permission. Updated tags (+asr, +voice-input)
+- **Updated** `wiki/server-websocket.md` — Added `POST /asr/transcribe` to REST API table, added `/asr/*` to route hierarchy, updated tags (+asr), updated related (+asr-voice-input)
+- **Updated** `wiki/config-system.md` — Added ASR config fields (ASRAPIKey, ASRModel, ASRBaseURL) to struct and env var docs, added related link
+- **Updated** `index.md` — Added source-project-root-v40, asr-voice-input; updated desktop-app, server-websocket, config-system descriptions
+- **Contradictions**: None. New feature, no existing content contradicted.
+
+## [2026-06-28] ingest | Mobile Self-Update Polish + Version Management (v39)
+- **Created** `wiki/source-project-root-v39.md` — Source summary covering: manual check-update button in sidebar footer, model selector restored on mobile (removed isElectron guard), music bar transform fix, version bump to 0.7.0
+- **Updated** `wiki/desktop-app.md` — Added 5 new sections: Mobile Self-Update System (v38), Manual Check-Update Button (v39), Version Management for Self-Update (v39), Model Selector Restored on Mobile (v39), Global Music Bar Transform Fix (v39), Sidebar Footer Check-Update Button CSS (v39). Updated date to 2026-06-28, added tags (mobile, capacitor, self-update, version-management)
+- **Updated** `index.md` — Added source-project-root-v39 entry, updated desktop-app description
+- **Contradictions flagged**: (1) Model selector was documented as "Hidden (saves vertical space)" in v27 table — now restored, documented in v39 section. (2) Music bar mobile layout described as working in v27 — transform bug existed since v27, fixed in v39.
+
 ## [2026-06-27] feat | Mobile Self-Update + v0.6.0 Release (v38)
 - **Updated** `wiki/desktop-app.md` — Major feature: in-app self-update for Android:
   - Custom Capacitor plugin `ApkUpdaterPlugin.java`: native APK download (with progress events via `notifyListeners`) + FileProvider URI + `ACTION_VIEW` install intent

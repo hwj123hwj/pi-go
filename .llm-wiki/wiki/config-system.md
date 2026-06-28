@@ -63,6 +63,11 @@ type Config struct {
     KBEmbeddingBaseURL string // PI_GO_KB_EMBEDDING_BASE_URL
     KBEmbeddingModel   string // PI_GO_KB_EMBEDDING_MODEL (default: bge-m3)
 
+    // ASR (speech-to-text)
+    ASRAPIKey  string // ASR_API_KEY (falls back to SILICONFLOW_API_KEY)
+    ASRModel   string // ASR_MODEL (default: TeleAI/TeleSpeechASR)
+    ASRBaseURL string // ASR_BASE_URL (default: https://api.siliconflow.cn)
+
     // UI
     HistoryFile string // PI_GO_HISTORY_FILE
 
@@ -116,6 +121,11 @@ This prevents `.env` empty fields from zeroing out shell-set keys.
 
 ### User Profile (v17+)
 - Profile is automatically stored at `{DataDir}/user_profile.json`
+
+### ASR / Voice Input (v40+)
+- `ASR_API_KEY` — SiliconFlow API key for speech-to-text (falls back to `SILICONFLOW_API_KEY`)
+- `ASR_MODEL` — ASR model name (default: `TeleAI/TeleSpeechASR`)
+- `ASR_BASE_URL` — ASR API base URL (default: `https://api.siliconflow.cn`)
 - No config needed — agents auto-record facts via [[session-memory-extraction]]
 
 ## Integration
@@ -131,4 +141,5 @@ Config is loaded in `cmd/pi-agent/main.go` via `godotenv.Load()` + env var parsi
 - [[llm-provider-system]] — Provider selection driven by Config
 - [[operations-abstract]] — ExecutionMode selects local vs SSH
 - [[kb-vector-search]] — KB embedding config fields
+- [[asr-voice-input]] — ASR config fields
 - [[unified-profile]] — Profile stored in DataDir

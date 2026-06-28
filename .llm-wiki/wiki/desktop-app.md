@@ -1,7 +1,7 @@
 ---
 type: entity
-date: 2026-06-27
-tags: [desktop, electron, react, frontend, gui, workspace, global-music-player, profile-panel]
+date: 2026-06-28
+tags: [desktop, electron, react, frontend, gui, workspace, global-music-player, profile-panel, mobile, capacitor, self-update, version-management, asr, voice-input]
 related: [[server-websocket]], [[config-system]], [[agent-guidance-system]], [[unified-profile]]
 ---
 
@@ -585,4 +585,104 @@ The stop button (shown when agent is thinking) was originally a pill with
 text + icon. On mobile it is now a **36px circular icon-only button** to
 match the send button's size and visual rhythm. The text label is removed
 (`font-size: 0`).
+
+### Mobile Self-Update System (v38)
+
+In-app self-update for Android APKs. Custom Capacitor plugin
+`ApkUpdaterPlugin.java` handles native APK download + install via Android
+`ACTION_VIEW` intent with `FileProvider`. TypeScript wrapper
+`mobile-updater.ts` provides `checkMobileUpdate()`, `getAppVersion()`, and
+`downloadAndInstallApk()`.
+
+**Flow**:
+1. On launch (3s delay), `MobileUpdateDialog` auto-checks GitHub Releases
+2. `checkMobileUpdate()`: GET `/releases/latest` → extract tag → strip `v` →
+   semver compare with `getAppVersion()`
+3. If `latest > current`: show dialog with version info + download progress bar
+4. User clicks "下载并安装" → `downloadAndInstallApk()` → native download →
+   `ACTION_VIEW` install intent
+
+**Android config**: `REQUEST_INSTALL_PACKAGES` permission,
+`FileProvider` `apk_downloads` path, `versionCode`/`versionName` in
+`build.gradle`.
+
+### Manual Check-Update Button (v39)
+
+The auto-check was silent and gave no user-visible feedback. Added a `↻`
+refresh icon button in the **Sidebar footer** (mobile/Capacitor only):
+
+- Clicking calls `checkMobileUpdate()`:
+  - **Update available** → dispatches `window.dispatchEvent(new
+    CustomEvent('pi-go-show-update', { detail: info }))` →
+    `MobileUpdateDialog` shows
+  - **Already latest** → `alert("已是最新版本 v${ver}")`
+  - **Error** → `alert("检查更新失败，请稍后重试")`
+- Button shows `⋯` during check, then back to `↻`
+- Communication via custom events decouples trigger from UI without shared state
+
+### Version Management for Self-Update (v39)
+
+**Critical lesson**: GitHub release tag version must be **greater than** the
+installed APK version for `checkMobileUpdate()` to return non-null.
+Uploading a new APK to an existing release tag (e.g., v0.6.0) does **not**
+trigger an update because `isNewer("0.6.0", "0.6.0") === false`.
+
+**Rule**: Every APK upload must bump both `versionCode` (integer, must
+increment) and `versionName` (semver display string), and create a new
+GitHub Release with matching tag.
+
+| Version | versionCode | versionName | GitHub Tag |
+|---------|-------------|-------------|------------|
+| v0.6.0 | 6 | 0.6.0 | v0.6.0 |
+| v0.7.0 | 7 | 0.7.0 | v0.7.0 |
+
+### Model Selector Restored on Mobile (v39)
+
+The model selector `<select>` was previously hidden on mobile via
+`{isElectron && ...}` guards in `PromptBar.tsx` and `SessionView.tsx`, plus
+`.prompt-config { display: none !important }` in CSS.
+
+**Fix** (3 files):
+1. `PromptBar.tsx` — removed `isElectron` guard
+2. `SessionView.tsx` — removed `isElectron` guard
+3. `app.css` — `.prompt-config { display: flex !important }` with compact
+   sizing (12px font, max-width 200px select)
+
+### Global Music Bar Transform Fix (v39)
+
+**Bug**: Desktop `.global-music-bar` uses `transform: translateX(-50%)` for
+bottom-center capsule positioning. Mobile override set `left: 0; right: 0;
+width: 100%` but left the `transform` intact, causing the entire bar to be
+shifted half its width to the left (partially off-screen).
+
+**Fix**: Added `transform: none !important` to the mobile CSS override.
+
+### Sidebar Footer Check-Update Button CSS (v39)
+
+The sidebar footer (`sidebar-foot`) gained a mobile-only `↻` refresh button
+(`Capacitor.isNativePlatform()` gated). Desktop users never see it. The
+button uses `Icon name="refresh"` and inline event handler with DOM query
+for state changes.
+
+### Voice Input / ASR (v40)
+
+Added a **🎤 microphone button** in the PromptBar next to the send button for
+speech-to-text input. Uses the SiliconFlow `TeleAI/TeleSpeechASR` model via
+a server-side proxy endpoint.
+
+**UI Flow**:
+1. Click 🎤 → mic permission prompt → recording starts (button: red pulse)
+2. Click again → recording stops → spinner (transcribing)
+3. Transcription text appended to textarea → cursor at end → ready to edit/send
+4. Errors show as a toast above the button
+
+**Hook**: `useVoiceInput.ts` — reusable React hook encapsulating:
+- `MediaRecorder` lifecycle (codec detection: `audio/webm;codecs=opus` preferred)
+- Blob assembly + FormData upload to `POST /asr/transcribe`
+- States: `recording`, `transcribing`, `error`
+
+**Desktop + Mobile**: Button is 32px on desktop, 36px circular on mobile (HIG
+touch target). `RECORD_AUDIO` permission added to AndroidManifest.xml.
+
+See [[asr-voice-input]] for full pipeline architecture.
 

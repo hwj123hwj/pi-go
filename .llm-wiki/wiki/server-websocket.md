@@ -1,8 +1,8 @@
 ---
 type: entity
 date: 2026-06-27
-tags: [server, http, api, websocket, sse, rest, cors, file-endpoints, gateway, profile-api]
-related: [[desktop-app]], [[feishu-integration]], [[web-embed]], [[runtime-application-interface]], [[session-manager]], [[unified-profile]]
+tags: [server, http, api, websocket, sse, rest, cors, file-endpoints, gateway, profile-api, asr]
+related: [[desktop-app]], [[feishu-integration]], [[web-embed]], [[runtime-application-interface]], [[session-manager]], [[unified-profile]], [[asr-voice-input]]
 ---
 
 # Server & WebSocket
@@ -62,6 +62,7 @@ AgentSession
 | `GET` | `/kb/read?path=` | Read KB entry content |
 | `GET` | `/profile` | User profile: all categories + facts + summary (v25) |
 | `DELETE` | `/profile` | Delete a specific profile fact by category+key (v25) |
+| `POST` | `/asr/transcribe` | Speech-to-text: upload audio file → transcription (v40) |
 
 ## CreateSession Request
 
@@ -183,6 +184,7 @@ corsMiddleware → recoveryMiddleware → loggingMiddleware → handler
 GET /ws          → WebSocket handler (no middleware)
 /health, /chat, /sessions/*, /models, /tools, /applications → REST middleware chain
 /profile → REST middleware chain (v25)
+/asr/* → REST middleware chain (v40)
 /*               → Web UI static files ([[web-embed]])
 /music/*         → Extra routes (music audio proxy, if set)
 ```
