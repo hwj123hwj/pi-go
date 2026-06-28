@@ -63,6 +63,11 @@ type Config struct {
 	KBEmbeddingAPIKey string // API key for embedding provider (e.g. SiliconFlow)
 	KBEmbeddingModel  string // embedding model name (e.g. BAAI/bge-m3)
 	KBEmbeddingBaseURL string // embedding API base URL
+
+	// ASR (speech-to-text)
+	ASRAPIKey  string // API key for SiliconFlow ASR
+	ASRModel   string // ASR model name (default: TeleAI/TeleSpeechASR)
+	ASRBaseURL string // ASR API base URL (default: https://api.siliconflow.cn)
 }
 
 func Default() Config {
@@ -229,6 +234,23 @@ func (c *Config) LoadFromEnv() {
 	}
 	if v := os.Getenv("SILICONFLOW_BASE_URL"); v != "" {
 		c.KBEmbeddingBaseURL = v
+	}
+
+	// ASR (speech-to-text) — reuse SiliconFlow API key by default
+	if v := os.Getenv("ASR_API_KEY"); v != "" {
+		c.ASRAPIKey = v
+	} else if v := os.Getenv("SILICONFLOW_API_KEY"); v != "" {
+		c.ASRAPIKey = v // reuse SiliconFlow key
+	}
+	if v := os.Getenv("ASR_MODEL"); v != "" {
+		c.ASRModel = v
+	} else {
+		c.ASRModel = "TeleAI/TeleSpeechASR" // default
+	}
+	if v := os.Getenv("ASR_BASE_URL"); v != "" {
+		c.ASRBaseURL = v
+	} else {
+		c.ASRBaseURL = "https://api.siliconflow.cn"
 	}
 }
 

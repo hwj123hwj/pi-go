@@ -3302,6 +3302,62 @@ body.resizing .resizer {
   opacity: 0.35;
   cursor: default;
 }
+
+/* Voice input button */
+.btn-voice {
+  border: 1px solid var(--border);
+  background: var(--bg-raised);
+  color: var(--text-dim);
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  display: grid;
+  place-items: center;
+  flex: none;
+  transition: all 0.15s;
+}
+.btn-voice:hover:not(:disabled) {
+  border-color: var(--accent-border);
+  color: var(--accent);
+  background: var(--accent-weak);
+}
+.btn-voice:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.btn-voice.recording {
+  border-color: var(--red);
+  background: var(--red-weak);
+  color: var(--red);
+  animation: pulse-recording 1.2s ease-in-out infinite;
+}
+@keyframes pulse-recording {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(226, 119, 110, 0.4); }
+  50% { box-shadow: 0 0 0 6px rgba(226, 119, 110, 0); }
+}
+.spinner-xs {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--text-faint);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+  display: inline-block;
+}
+.voice-error-toast {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--red);
+  color: white;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  white-space: nowrap;
+  margin-bottom: 4px;
+  animation: fade-in 0.2s;
+}
 .btn-stop {
   display: inline-flex;
   align-items: center;
@@ -5434,6 +5490,12 @@ body.resizing .resizer {
     max-width: 200px;
   }
   .btn-send {
+    width: 36px !important;
+    height: 36px !important;
+    border-radius: 50% !important;
+    flex-shrink: 0;
+  }
+  .btn-voice {
     width: 36px !important;
     height: 36px !important;
     border-radius: 50% !important;

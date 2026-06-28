@@ -3,6 +3,7 @@ import { useStore, type SessionView } from '../store';
 import { Icon } from './Icon';
 import { useT } from '../i18n/useT';
 import { isElectron } from '../platform';
+import { useVoiceInput } from '../hooks/useVoiceInput';
 
 export function PromptBar({ view }: { view: SessionView }) {
   const sendPrompt = useStore((s) => s.sendPrompt);
@@ -17,6 +18,26 @@ export function PromptBar({ view }: { view: SessionView }) {
 
   const meta = view.meta;
   const busy = meta.status === 'thinking' || meta.status === 'starting';
+
+  const appendText = (newText: string) => {
+    setText((prev) => {
+      const needsSpace = prev && !prev.endsWith(' ') && !prev.endsWith('\n');
+      return prev + (needsSpace ? ' ' : '') + newText;
+    });
+    // Focus the textarea so user can immediately review/edit
+    taRef.current?.focus();
+    // Place cursor at end
+    requestAnimationFrame(() => {
+      const ta = taRef.current;
+      if (ta) {
+        ta.selectionStart = ta.selectionEnd = ta.value.length;
+      }
+    });
+  };
+
+  const { recording, toggle: toggleVoice, transcribing, error: voiceError } = useVoiceInput({
+    onText: appendText,
+  });
 
   useEffect(() => {
     const ta = taRef.current;
@@ -70,6 +91,24 @@ export function PromptBar({ view }: { view: SessionView }) {
             onCompositionStart={() => { isComposingRef.current = true; }}
             onCompositionEnd={() => { isComposingRef.current = false; }}
           />
+          {/* Voice input button */}
+          <button
+            className={`btn-voice ${recording ? 'recording' : ''}`}
+            disabled={transcribing || busy}
+            title={recording ? '点击停止录音' : transcribing ? '识别中...' : '语音输入'}
+            onClick={toggleVoice}
+          >
+            {transcribing ? (
+              <span className="spinner-xs" />
+            ) : recording ? (
+              <Icon name="stop" size={16} />
+            ) : (
+              <Icon name="mic" size={16} />
+            )}
+          </button>
+          {voiceError && (
+            <span className="voice-error-toast">{voiceError}</span>
+          )}
           {busy ? (
             <button className="btn-stop" onClick={() => void cancel(meta.id)}>
               <Icon name="stop" size={14} />

@@ -104,6 +104,9 @@ func (s *Server) Handler() http.Handler {
 	// User profile endpoints
 	s.registerProfileRoutes(restMux)
 
+	// ASR (speech-to-text) endpoint
+	NewASRHandler(s.app.Config()).Register(restMux)
+
 	var restHandler http.Handler = restMux
 	restHandler = corsMiddleware(restHandler)
 	restHandler = recoveryMiddleware(restHandler)
@@ -127,6 +130,7 @@ func (s *Server) Handler() http.Handler {
 	topMux.Handle("/workspace/", restHandler)
 	topMux.Handle("/kb/", restHandler)
 	topMux.Handle("/profile", restHandler)
+	topMux.Handle("/asr/", restHandler)
 
 	// Register web UI routes (serves embedded static files at /)
 	web.RegisterRoutes(topMux)
