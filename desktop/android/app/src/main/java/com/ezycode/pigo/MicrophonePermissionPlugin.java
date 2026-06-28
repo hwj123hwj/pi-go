@@ -1,50 +1,42 @@
 package com.ezycode.pigo;
 
 import android.Manifest;
-import android.content.pm.PackageManager;
-
-import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
+import android.webkit.PermissionRequest;
 
 import com.getcapacitor.JSObject;
+import com.getcapacitor.PermissionState;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
+import com.getcapacitor.annotation.Permission;
+import com.getcapacitor.annotation.PermissionCallback;
 
-@CapacitorPlugin(name = "MicrophonePermission")
+@CapacitorPlugin(
+    name = "MicrophonePermission",
+    permissions = {
+        @Permission(strings = { Manifest.permission.RECORD_AUDIO }, alias = MicrophonePermissionPlugin.ALIAS)
+    }
+)
 public class MicrophonePermissionPlugin extends Plugin {
 
-    private static final int REQUEST_CODE = 7010;
+    static final String ALIAS = "microphone";
 
     @PluginMethod
     public void request(PluginCall call) {
-        if (ContextCompat.checkSelfPermission(getContext(), Manifest.permission.RECORD_AUDIO)
-                == PackageManager.PERMISSION_GRANTED) {
+        if (getPermissionState(ALIAS) == PermissionState.GRANTED) {
             JSObject ret = new JSObject();
             ret.put("granted", true);
             call.resolve(ret);
         } else {
-            // Store call for async resolution
-            saveCall(call);
-            ActivityCompat.requestPermissions(getActivity(),
-                    new String[]{Manifest.permission.RECORD_AUDIO}, REQUEST_CODE);
+            requestPermissionForAlias(ALIAS, call, "permissionCallback");
         }
     }
 
-    @Override
-    public void handleRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
-        super.handleRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == REQUEST_CODE) {
-            PluginCall savedCall = getSavedCall();
-            if (savedCall == null) return;
-
-            JSObject ret = new JSObject();
-            boolean granted = grantResults.length > 0
-                    && grantResults[0] == PackageManager.PERMISSION_GRANTED;
-            ret.put("granted", granted);
-            savedCall.resolve(ret);
-            freeSavedCall();
-        }
+    @PermissionCallback
+    private void permissionCallback(PluginCall call) {
+        JSObject ret = new JSObject();
+        ret.put("granted", getPermissionState(ALIAS) == PermissionState.GRANTED);
+        call.resolve(ret);
     }
 }

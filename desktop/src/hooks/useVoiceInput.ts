@@ -28,31 +28,20 @@ export function useVoiceInput({ onText }: VoiceInputOptions) {
   const ensurePermission = async (): Promise<boolean> => {
     if (Capacitor.isNativePlatform()) {
       try {
-        // Call our native MicrophonePermission plugin via Capacitor's proxy
         const plugins = Capacitor as unknown as Record<string, {
           request: () => Promise<{ granted: boolean }>;
         }>;
         const mic = plugins.MicrophonePermission;
         if (mic?.request) {
           const result = await mic.request();
-          if (result.granted) return true;
-          setError('麦克风权限被拒绝');
-          return false;
+          if (!result.granted) {
+            setError('麦克风权限被拒绝');
+            return false;
+          }
         }
       } catch {
         // plugin not available, fall through to getUserMedia
       }
-    }
-
-    // Browser/web: check Permissions API
-    try {
-      const perm = await navigator.permissions?.query({ name: 'microphone' as PermissionName });
-      if (perm && perm.state === 'denied') {
-        setError('麦克风权限被拒绝，请在浏览器设置中允许');
-        return false;
-      }
-    } catch {
-      // permissions API not available
     }
     return true;
   };
