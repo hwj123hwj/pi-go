@@ -214,6 +214,27 @@ Code review of commit 40671910 (Round 5 fixes) found and fixed 5 new bugs:
 - **Problem**: If `init()` threw (before BUG-7 fix), the promise stored in `initPromiseRef` was rejected with no `.catch()`, causing "unhandled promise rejection" warnings.
 - **Fix**: Wrapped `init()` call in try/catch inside the async IIFE. Also fixed at source by BUG-7's try/catch additions.
 
+### Round 7 — Third Bugfix Audit: WebSocket Lifecycle (CRITICAL/HIGH)
+
+Code review of commit 3694d79c found and fixed 3 bugs in the WebSocket lifecycle:
+
+#### BUG-11 (CRITICAL): Server URL change → WS and REST target different servers
+- **Problem**: If the user disconnects from server A, enters server B's URL in ServerConnect, and calls `init()`:
+  1. `init()` hits the `if (initialized) return true` guard (from a previous successful init) and short-circuits.
+  2. WS stays connected to server A, while REST (using the newly-set baseUrl) hits server B.
+  3. Messages sent via WS go to the wrong server. Chat is broken.
+- **Fix**: ServerConnect now calls `destroy()` (which resets `initialized=false`) before `init()`. This ensures WS and REST both target the new server.
+
+#### BUG-12 (HIGH): ws.ts connect() doesn't close previous connection
+- **Problem**: `connect()` created a new WebSocket without closing the old one. If `connect()` was called twice (e.g. `destroy()` → `init()` cycle), the old WebSocket remained open in the background as a zombie, consuming memory and receiving messages with no handlers.
+- **Fix**: `connect()` now calls `doDisconnect()` internally if the URL has changed. `doDisconnect()` nullifies all event handlers before calling `close()` on the old socket, preventing stale callbacks from firing.
+
+#### BUG-13 (MEDIUM): disconnect() doesn't prevent stale onclose → reconnect
+- **Problem**: `disconnect()` called `ws.close()`, but the old `onclose` handler was still attached. `onclose` fired asynchronously, calling `scheduleReconnect()`, which created a new WebSocket even though the user explicitly disconnected.
+- **Fix**:
+  1. Added `connected` flag: `connect()` sets it true, `disconnect()` sets it false. `doConnect()` checks it before reconnecting.
+  2. Added `wsId` counter: each WebSocket gets a unique ID. All callbacks (`onopen`, `onclose`, `onmessage`) check `myWsId !== this.wsId` to detect if they belong to a stale instance, and bail out if so.
+
 
 ## Build Configuration
 

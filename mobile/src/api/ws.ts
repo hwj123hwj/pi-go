@@ -15,27 +15,45 @@ class WsClient {
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private reconnectAttempts = 0;
   private static MAX_RECONNECT_MS = 30_000;
+  // ── BUGFIX 12/13: Track lifecycle to prevent zombie reconnects ──
+  private connected = false; // connect() was called (not disconnect()ed)
+  private wsId = 0;          // Incremented on each new WebSocket; stale callbacks check this
 
   connect(url: string): void {
-    this.url = url.replace(/^http/, 'ws') + '/ws';
+    const newUrl = url.replace(/^http/, 'ws') + '/ws';
+
+    // ── BUGFIX 12: Close previous connection if switching URLs ──
+    if (this.ws && newUrl !== this.url) {
+      this.doDisconnect();
+    }
+
+    this.url = newUrl;
+    this.connected = true;
     this.reconnectAttempts = 0;
     this.doConnect();
   }
 
   private doConnect(): void {
+    if (!this.connected) return; // Don't reconnect after explicit disconnect
+
+    const myWsId = ++this.wsId; // Unique ID for this WebSocket instance
+    let ws: WebSocket;
     try {
-      this.ws = new WebSocket(this.url);
+      ws = new WebSocket(this.url);
     } catch {
       this.scheduleReconnect();
       return;
     }
+    this.ws = ws;
 
-    this.ws.onopen = () => {
+    ws.onopen = () => {
+      if (myWsId !== this.wsId) return; // Stale callback
       this.reconnectAttempts = 0;
       this.emit('connected', {});
     };
 
-    this.ws.onmessage = (e: WebSocketMessageEvent) => {
+    ws.onmessage = (e: WebSocketMessageEvent) => {
+      if (myWsId !== this.wsId) return; // Stale callback
       try {
         const data = JSON.parse(e.data);
         const type = data.type || 'message';
@@ -45,14 +63,32 @@ class WsClient {
       }
     };
 
-    this.ws.onclose = () => {
+    ws.onclose = () => {
+      if (myWsId !== this.wsId) return; // Stale callback — don't reconnect
       this.emit('disconnected', {});
       this.scheduleReconnect();
     };
 
-    this.ws.onerror = () => {
+    ws.onerror = () => {
       // onclose will handle reconnect
     };
+  }
+
+  // ── BUGFIX 12: Internal disconnect without clearing listeners ──
+  private doDisconnect(): void {
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    if (this.ws) {
+      const old = this.ws;
+      old.onopen = null;
+      old.onmessage = null;
+      old.onclose = null;
+      old.onerror = null;
+      try { old.close(); } catch { /* ignore */ }
+      this.ws = null;
+    }
   }
 
   private scheduleReconnect(): void {
@@ -88,13 +124,10 @@ class WsClient {
   }
 
   disconnect(): void {
-    // ── js-memory-leaks: Clear timer and listeners ──
-    if (this.reconnectTimer) {
-      clearTimeout(this.reconnectTimer);
-      this.reconnectTimer = null;
-    }
-    this.ws?.close();
-    this.ws = null;
+    // ── BUGFIX 13: Set connected=false BEFORE closing to prevent onclose → scheduleReconnect ──
+    this.connected = false;
+    this.wsId++;          // Invalidate all stale callbacks
+    this.doDisconnect();
     this.listeners.clear();
   }
 }

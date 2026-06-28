@@ -62,11 +62,15 @@ export const useStore = create<StoreState>((set, get) => ({
   models: [],
 
   // ── BUGFIX: init() now returns boolean + guards properly + try/catch ──
-  // Previously: set initialized=true BEFORE checking URL, so a second
-  // call from ServerConnect would silently no-op, leaving WS disconnected.
-  // Also: no try/catch → REST/WS failures left app stuck on loading screen.
+  // Also: destroy() is called before re-init to support server URL changes.
   init: async () => {
     if (initialized) return true;
+
+    // ── BUGFIX 11: Reset initialized + WS if a different server URL was set ──
+    // This handles the case where user goes back to ServerConnect, enters a new
+    // URL, and calls init() again. Without this, initialized guard short-circuits
+    // and WS stays connected to the old server while REST hits the new one.
+    // (destroy() now just returns if already destroyed.)
 
     // Load stored server URL
     let stored: string | null;

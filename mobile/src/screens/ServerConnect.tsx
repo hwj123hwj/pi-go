@@ -51,9 +51,10 @@ export function ServerConnect({ navigation }: ServerConnectProps) {
       // Save and proceed
       setBaseUrl(trimmed);
       await setStoredServerUrl(trimmed);
-      // ── BUGFIX: await init() before navigation — was fire-and-forget
-      // Previously: navigation.replace could fire before WS connected,
-      // causing the session list to show empty with no WS events.
+      // ── BUGFIX 11: Reset previous connection before re-init ──
+      // If the app was previously connected to a different server (or init
+      // partially failed), this ensures WS and REST target the new server.
+      useStore.getState().destroy();
       await useStore.getState().init();
       navigation.replace('List');
     } catch (err) {
