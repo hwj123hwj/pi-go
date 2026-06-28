@@ -51,8 +51,10 @@ export function ServerConnect({ navigation }: ServerConnectProps) {
       // Save and proceed
       setBaseUrl(trimmed);
       await setStoredServerUrl(trimmed);
-      // Initialize store then navigate to session list
-      void useStore.getState().init();
+      // ── BUGFIX: await init() before navigation — was fire-and-forget
+      // Previously: navigation.replace could fire before WS connected,
+      // causing the session list to show empty with no WS events.
+      await useStore.getState().init();
       navigation.replace('List');
     } catch (err) {
       setError('无法连接服务器: ' + (err instanceof Error ? err.message : '未知错误'));

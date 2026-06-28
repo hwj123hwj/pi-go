@@ -28,7 +28,7 @@ interface StoreState {
   models: ModelInfo[];
 
   // Actions
-  init: () => Promise<void>;
+  init: () => Promise<boolean>;
   refreshSessions: () => Promise<void>;
   setActive: (id: string) => Promise<void>;
   createSession: (opts?: { cwd?: string; application?: string; model?: string }) => Promise<string>;
@@ -61,25 +61,33 @@ export const useStore = create<StoreState>((set, get) => ({
   activeSessionId: undefined,
   models: [],
 
+  // ── BUGFIX: init() now returns boolean + guards properly ───────────
+  // Previously: set initialized=true BEFORE checking URL, so a second
+  // call from ServerConnect would silently no-op, leaving WS disconnected.
   init: async () => {
-    if (initialized) return;
-    initialized = true;
+    if (initialized) return true;
 
     // Load stored server URL
     const stored = await loadStoredServerUrl();
     if (stored) {
       setBaseUrl(stored);
     } else {
+      // No stored URL — caller should show ServerConnect screen
       set({ ready: false, serverReady: false });
-      return;
+      return false;
     }
 
+    initialized = true;
     set({ serverReady: true });
 
     // Connect WebSocket
     wsService.connect(getBaseUrl());
 
     // ── js-memory-leaks: Store unsubscribe functions for cleanup ──
+    // Clean up any previous listeners (e.g. re-init after destroy)
+    for (const unsub of wsUnsubs) {
+      try { unsub(); } catch { /* ignore */ }
+    }
     wsUnsubs = [];
 
     wsUnsubs.push(wsService.on('connected', () => set({ connected: true })));
@@ -110,7 +118,7 @@ export const useStore = create<StoreState>((set, get) => ({
         }
         return { ...v, transcript, meta: { ...v.meta, status: 'thinking' } };
       });
-    }))
+    }));
 
     wsUnsubs.push(wsService.on('event:tool_start', (data: any) => {
       const sid = data.session_id;
@@ -129,7 +137,7 @@ export const useStore = create<StoreState>((set, get) => ({
         ...v,
         transcript: [...v.transcript, item],
       }));
-    }))
+    }));
 
     wsUnsubs.push(wsService.on('event:tool_end', (data: any) => {
       const sid = data.session_id;
@@ -149,7 +157,7 @@ export const useStore = create<StoreState>((set, get) => ({
             : item
         ),
       }));
-    }))
+    }));
 
     wsUnsubs.push(wsService.on('event:error', (data: any) => {
       const sid = data.session_id;
@@ -160,7 +168,7 @@ export const useStore = create<StoreState>((set, get) => ({
         transcript: [...v.transcript, { kind: 'error', id: newId(), text: error }],
         meta: { ...v.meta, status: 'error' },
       }));
-    }))
+    }));
 
     // ── Fetch models ──
     try {
@@ -177,6 +185,7 @@ export const useStore = create<StoreState>((set, get) => ({
     // Load existing sessions
     await get().refreshSessions();
     set({ ready: true });
+    return true;
   },
 
   refreshSessions: async () => {
@@ -197,9 +206,10 @@ export const useStore = create<StoreState>((set, get) => ({
             createdAt: sess.created_at || 0,
             updatedAt: sess.last_active || 0,
           };
-          newSessions[sess.id] = existing ?? emptyView(meta);
           if (existing) {
             newSessions[sess.id] = { ...existing, meta: { ...existing.meta, ...meta } };
+          } else {
+            newSessions[sess.id] = emptyView(meta);
           }
         }
         return { sessions: newSessions, order: sessions.map((s) => s.id) };
@@ -209,6 +219,7 @@ export const useStore = create<StoreState>((set, get) => ({
     }
   },
 
+  // ── BUGFIX: setActive now called by ChatScreen on mount (was never called) ──
   setActive: async (id) => {
     set({ activeSessionId: id });
     const view = get().sessions[id];
@@ -321,6 +332,7 @@ export const useStore = create<StoreState>((set, get) => ({
     wsUnsubs = [];
     wsService.disconnect();
     initialized = false;
+    set({ ready: false, connected: false });
   },
 }));
 

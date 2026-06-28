@@ -80,6 +80,12 @@ export function ChatScreen({ route, navigation }: ChatScreenProps) {
   const inputRef = useRef<TextInput>(null);
   const textRef = useRef('');
 
+  // ── BUGFIX: Load transcript history on mount (setActive was never called) ──
+  const setActive = useStore(useCallback((s) => s.setActive, []));
+  useEffect(() => {
+    void setActive(sessionId);
+  }, [sessionId, setActive]);
+
   const busy = view?.meta.status === 'thinking' || view?.meta.status === 'starting';
   const transcript = view?.transcript ?? [];
 
@@ -128,14 +134,9 @@ export function ChatScreen({ route, navigation }: ChatScreenProps) {
 
   const keyExtractor = useCallback((item: ChatItem) => item.id, []);
 
-  const getItemLayout = useCallback(
-    (_: any, index: number) => ({
-      length: 60, // estimated item height
-      offset: 60 * index,
-      index,
-    }),
-    [],
-  );
+  // ── BUGFIX: Removed fixed getItemLayout (60px) — variable-height messages
+  // caused incorrect scroll offsets, blank gaps, and janky scrolling.
+  // FlatList now measures items natively for accurate positioning.
 
   const currentModel = view?.meta.model ?? '';
 
@@ -184,7 +185,6 @@ export function ChatScreen({ route, navigation }: ChatScreenProps) {
         data={deferredTranscript}
         keyExtractor={keyExtractor}
         renderItem={renderItem}
-        getItemLayout={getItemLayout}
         removeClippedSubviews={true}
         maxToRenderPerBatch={8}
         windowSize={12}

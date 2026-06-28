@@ -166,6 +166,30 @@ mobile/
 - `event-target-shim` (22.9KB) — RN's event system core
 - **No app-level polyfills found** — no Intl/crypto-js/extra polyfills to remove
 
+### Round 5 — Bugfix Audit (CRITICAL)
+
+After code review of commits b515893e..b07e3714 (Rounds 1-4), found and fixed 5 bugs introduced by optimizations:
+
+#### BUG-1 (CRITICAL): init() guard race condition
+- **Problem**: `initialized = true` was set at the TOP of `init()`, before checking if a server URL existed. When `App.tsx` called `init()` on startup (no URL stored → returned early), then `ServerConnect` called `init()` again after user entered URL, the second call was a silent no-op — WS never connected, sessions never loaded.
+- **Fix**: Moved `initialized = true` to AFTER URL validation + base URL set. `init()` now returns `Promise<boolean>` so callers know if it succeeded.
+
+#### BUG-2 (CRITICAL): setActive() never called after navigation migration
+- **Problem**: In Round 4, `ChatScreen` was migrated to `NativeStackScreenProps` but `setActive(sessionId)` — which loads the historical transcript from the REST API — was never wired up. Opening an existing session showed an empty chat.
+- **Fix**: Added `useEffect(() => { setActive(sessionId) }, [sessionId])` in ChatScreen.
+
+#### BUG-3 (MEDIUM): Fixed getItemLayout causing scroll jumps
+- **Problem**: `getItemLayout` used a hardcoded `length: 60` for all messages. Chat messages are variable-height (short text vs long code blocks). FlatList used this for scroll offset calculations → blank gaps, misaligned items, jumpy scrolling.
+- **Fix**: Removed `getItemLayout` entirely. FlatList now measures items natively for correct positioning. Trade-off: slightly slower first render, but visually correct.
+
+#### BUG-4 (LOW): ServerConnect fire-and-forget init()
+- **Problem**: `void useStore.getState().init()` was fire-and-forget, so `navigation.replace('List')` could execute before WS connected or sessions loaded.
+- **Fix**: Changed to `await useStore.getState().init()` before navigating.
+
+#### BUG-5 (LOW): destroy() never called
+- **Problem**: `store.destroy()` method was created in Round 2 for WS cleanup, but no component ever called it. App backgrounding/unmount left WS connections and listeners open.
+- **Fix**: Added `destroy()` call in `App.tsx` cleanup `useEffect`. Also added `set({ ready: false, connected: false })` to destroy for clean state reset.
+
 
 ## Build Configuration
 

@@ -8,7 +8,7 @@
  * - React Compiler: Automatic memoization (babel-plugin-react-compiler)
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
 import { useStore } from './src/store';
@@ -19,14 +19,23 @@ export default function App() {
   const init = useStore((s) => s.init);
   const ready = useStore((s) => s.ready);
   const serverReady = useStore((s) => s.serverReady);
+  const destroy = useStore((s) => s.destroy);
   const [initialRoute, setInitialRoute] = useState<'Connect' | 'List'>('Connect');
 
+  // ── BUGFIX: Track init promise to avoid double-init race ──
+  const initPromiseRef = useRef<Promise<void> | null>(null);
+
   useEffect(() => {
-    (async () => {
-      await init();
-      const { serverReady: sr } = useStore.getState();
-      setInitialRoute(sr ? 'List' : 'Connect');
-    })();
+    if (!initPromiseRef.current) {
+      initPromiseRef.current = (async () => {
+        const ok = await init();
+        if (ok) setInitialRoute('List');
+      })();
+    }
+    return () => {
+      // ── BUGFIX: Clean up WS listeners on unmount (js-memory-leaks) ──
+      destroy();
+    };
   }, []);
 
   if (!ready && serverReady) {
