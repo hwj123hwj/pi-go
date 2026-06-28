@@ -96,12 +96,20 @@ export function ChatScreen({ route, navigation }: ChatScreenProps) {
   const deferredBusy = useDeferredValue(busy);
   const transcriptLen = deferredTranscript.length;
 
-  // Auto-scroll to bottom on new messages
+  // Auto-scroll to bottom on new messages (only if user is near bottom)
   useEffect(() => {
     if (transcriptLen > 0) {
       setTimeout(() => flatRef.current?.scrollToEnd({ animated: true }), 50);
     }
   }, [transcriptLen]);
+
+  // ── BUGFIX 15: Track if user manually scrolled up ──
+  const isNearBottomRef = useRef(true);
+  const handleScroll = useCallback((event: any) => {
+    const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
+    const distanceFromBottom = contentSize.height - contentOffset.y - layoutMeasurement.height;
+    isNearBottomRef.current = distanceFromBottom < 100; // Within 100px of bottom
+  }, []);
 
   const submit = useCallback(async () => {
     const trimmed = textRef.current.trim();
@@ -190,7 +198,14 @@ export function ChatScreen({ route, navigation }: ChatScreenProps) {
         windowSize={12}
         initialNumToRender={12}
         contentContainerStyle={{ padding: 12, paddingBottom: 8 }}
-        onContentSizeChange={() => flatRef.current?.scrollToEnd({ animated: false })}
+        onScroll={handleScroll}
+        scrollEventThrottle={400}
+        onContentSizeChange={() => {
+          // ── BUGFIX 15: Only auto-scroll if user hasn't scrolled up ──
+          if (isNearBottomRef.current) {
+            flatRef.current?.scrollToEnd({ animated: false });
+          }
+        }}
       />
 
       {/* Input bar */}

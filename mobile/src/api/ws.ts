@@ -22,8 +22,8 @@ class WsClient {
   connect(url: string): void {
     const newUrl = url.replace(/^http/, 'ws') + '/ws';
 
-    // ── BUGFIX 12: Close previous connection if switching URLs ──
-    if (this.ws && newUrl !== this.url) {
+    // ── BUGFIX 12/16: Always close previous connection before creating new one ──
+    if (this.ws) {
       this.doDisconnect();
     }
 

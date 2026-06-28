@@ -353,7 +353,10 @@ export const useStore = create<StoreState>((set, get) => ({
     wsUnsubs = [];
     wsService.disconnect();
     initialized = false;
-    set({ ready: false, connected: false });
+    // ── BUGFIX 14: Reset ALL connection state, not just ready/connected ──
+    // Previously: serverReady stayed true, so App.tsx's loading screen
+    // (!ready && serverReady) would flash before ServerConnect appeared.
+    set({ ready: false, connected: false, serverReady: false });
   },
 }));
 

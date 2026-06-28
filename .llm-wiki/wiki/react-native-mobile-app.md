@@ -235,6 +235,22 @@ Code review of commit 3694d79c found and fixed 3 bugs in the WebSocket lifecycle
   1. Added `connected` flag: `connect()` sets it true, `disconnect()` sets it false. `doConnect()` checks it before reconnecting.
   2. Added `wsId` counter: each WebSocket gets a unique ID. All callbacks (`onopen`, `onclose`, `onmessage`) check `myWsId !== this.wsId` to detect if they belong to a stale instance, and bail out if so.
 
+### Round 8 — Fourth Bugfix Audit: State Reset & UX (MEDIUM/LOW)
+
+Code review of commit 86b82fc3 found and fixed 3 bugs:
+
+#### BUG-14 (MEDIUM): destroy() doesn't reset serverReady → loading screen interrupts reconnect
+- **Problem**: `destroy()` reset `ready: false` and `connected: false`, but left `serverReady: true`. In `App.tsx`, the loading screen condition `!ready && serverReady` would then be true, showing a loading spinner while `ServerConnect` was trying to let the user enter a new server URL.
+- **Fix**: Added `serverReady: false` to `destroy()`'s `set()` call. All connection state is now fully reset.
+
+#### BUG-15 (MEDIUM): onContentSizeChange forces scroll-to-bottom during streaming
+- **Problem**: `onContentSizeChange` on the FlatList called `scrollToEnd` on every content size change — which fires on every `text_delta` during streaming. If the user tried to scroll up to read earlier messages while the assistant was replying, they'd be instantly yanked back to the bottom.
+- **Fix**: Added `isNearBottomRef` tracking via `onScroll`. `onContentSizeChange` now only scrolls to bottom if the user is within 100px of the bottom. `scrollEventThrottle={400}` ensures smooth tracking without excessive events.
+
+#### BUG-16 (LOW): connect() with same URL doesn't close previous WebSocket
+- **Problem**: BUG-12 fix only closed the previous connection if the URL *changed*. If `connect()` was called with the same URL (e.g. after `destroy()` → `init()` to the same server), the old WebSocket might still be in a closing state and a new one would be created alongside it.
+- **Fix**: Changed condition from `newUrl !== this.url` to always call `doDisconnect()` if `this.ws` exists, regardless of URL.
+
 
 ## Build Configuration
 
