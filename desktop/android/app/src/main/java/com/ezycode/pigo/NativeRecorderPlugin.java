@@ -2,13 +2,10 @@ package com.ezycode.pigo;
 
 import android.Manifest;
 import android.content.Context;
-import android.content.pm.PackageManager;
 import android.media.MediaRecorder;
 import android.os.Build;
 import android.os.SystemClock;
 import android.util.Log;
-
-import androidx.core.content.ContextCompat;
 
 import com.getcapacitor.JSObject;
 import com.getcapacitor.PermissionState;
@@ -22,7 +19,6 @@ import com.getcapacitor.annotation.PermissionCallback;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.util.Base64;
 
 @CapacitorPlugin(
     name = "NativeRecorder",
@@ -38,46 +34,58 @@ public class NativeRecorderPlugin extends Plugin {
     private File outputFile = null;
     private long startTime = 0;
 
+    // ─── Permission ──────────────────────────────────────────────────
+    // NOTE: Method names are intentionally NOT "requestPermission"/"checkPermission"
+    // because those collide with Capacitor's base Plugin class.
+
     @PluginMethod
-    public void checkPermission(PluginCall call) {
+    public void hasPermission(PluginCall call) {
         JSObject ret = new JSObject();
         ret.put("granted", getPermissionState(ALIAS) == PermissionState.GRANTED);
         call.resolve(ret);
     }
 
     @PluginMethod
-    public void requestPermission(PluginCall call) {
+    public void askPermission(PluginCall call) {
         if (getPermissionState(ALIAS) == PermissionState.GRANTED) {
             JSObject ret = new JSObject();
             ret.put("granted", true);
             call.resolve(ret);
         } else {
-            requestPermissionForAlias(ALIAS, call, "permissionCallback");
+            requestPermissionForAlias(ALIAS, call, "onPermissionResult");
         }
     }
 
     @PermissionCallback
-    private void permissionCallback(PluginCall call) {
+    private void onPermissionResult(PluginCall call) {
         JSObject ret = new JSObject();
         ret.put("granted", getPermissionState(ALIAS) == PermissionState.GRANTED);
         call.resolve(ret);
     }
 
+    // ─── Recording ───────────────────────────────────────────────────
+
     @PluginMethod
-    public void startRecording(PluginCall call) {
-        // Check permission first
+    public void start(PluginCall call) {
+        Log.i(TAG, "start() called");
+
+        // Check permission
         if (getPermissionState(ALIAS) != PermissionState.GRANTED) {
-            call.reject("RECORD_AUDIO permission not granted");
+            Log.e(TAG, "No RECORD_AUDIO permission");
+            call.reject("PERMISSION_DENIED");
             return;
         }
 
         try {
             Context ctx = getContext();
-
-            // Create output file in cache dir
             File dir = new File(ctx.getCacheDir(), "recordings");
             if (!dir.exists()) dir.mkdirs();
             outputFile = new File(dir, "voice_" + System.currentTimeMillis() + ".m4a");
+
+            // Release any existing recorder
+            if (recorder != null) {
+                cleanupRecorder();
+            }
 
             recorder = new MediaRecorder(ctx);
             recorder.setAudioSource(MediaRecorder.AudioSource.MIC);
@@ -91,19 +99,21 @@ public class NativeRecorderPlugin extends Plugin {
             recorder.start();
             startTime = SystemClock.elapsedRealtime();
 
-            Log.i(TAG, "Recording started: " + outputFile.getAbsolutePath());
+            Log.i(TAG, "Recording started → " + outputFile.getAbsolutePath());
             call.resolve();
         } catch (Exception e) {
-            Log.e(TAG, "Failed to start recording", e);
+            Log.e(TAG, "start() failed", e);
             cleanupRecorder();
-            call.reject("Failed to start recording: " + e.getMessage());
+            call.reject("START_FAILED: " + e.getMessage());
         }
     }
 
     @PluginMethod
-    public void stopRecording(PluginCall call) {
+    public void stop(PluginCall call) {
+        Log.i(TAG, "stop() called");
+
         if (recorder == null) {
-            call.reject("Not recording");
+            call.reject("NOT_RECORDING");
             return;
         }
 
@@ -115,30 +125,29 @@ public class NativeRecorderPlugin extends Plugin {
             recorder = null;
             Log.i(TAG, "Recording stopped. Duration: " + duration + "ms");
         } catch (Exception e) {
-            Log.e(TAG, "Failed to stop recording", e);
+            Log.e(TAG, "stop() failed", e);
             cleanupRecorder();
-            call.reject("Failed to stop recording: " + e.getMessage());
+            call.reject("STOP_FAILED: " + e.getMessage());
             return;
         }
 
         if (outputFile == null || !outputFile.exists()) {
-            call.reject("Recording file not found");
+            call.reject("FILE_NOT_FOUND");
             return;
         }
 
-        // Too short?
         if (duration < 300) {
             outputFile.delete();
-            call.reject("Recording too short");
+            outputFile = null;
+            call.reject("TOO_SHORT");
             return;
         }
 
-        // Read file and return as base64
         try {
             byte[] data = readFileToBytes(outputFile);
             String base64;
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                base64 = Base64.getEncoder().encodeToString(data);
+                base64 = java.util.Base64.getEncoder().encodeToString(data);
             } else {
                 base64 = android.util.Base64.encodeToString(data, android.util.Base64.NO_WRAP);
             }
@@ -148,8 +157,9 @@ public class NativeRecorderPlugin extends Plugin {
             ret.put("mimeType", "audio/mp4");
             ret.put("duration", duration);
             call.resolve(ret);
+            Log.i(TAG, "Audio returned: " + data.length + " bytes, base64 len=" + base64.length());
         } catch (Exception e) {
-            call.reject("Failed to read recording: " + e.getMessage());
+            call.reject("READ_FAILED: " + e.getMessage());
         } finally {
             if (outputFile != null) {
                 outputFile.delete();
@@ -157,6 +167,8 @@ public class NativeRecorderPlugin extends Plugin {
             }
         }
     }
+
+    // ─── Helpers ─────────────────────────────────────────────────────
 
     private byte[] readFileToBytes(File file) throws IOException {
         byte[] bytes = new byte[(int) file.length()];
