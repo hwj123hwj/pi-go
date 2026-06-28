@@ -1,12 +1,9 @@
 /**
  * ws.ts — Lightweight WebSocket client for Pi-Go mobile
  *
- * The pi-go backend uses WebSocket for streaming chat events:
- * Client sends: { type: "prompt", session_id, prompt }
- * Server sends: { type: "event:text_delta", session_id, event: { text_delta } }
- *               { type: "event:tool_start", ... }
- *               { type: "event:tool_end", ... }
- *               { type: "status", session_id, streaming }
+ * RN Best Practices:
+ * - js-memory-leaks: reconnect timer cleaned up on disconnect
+ * - Exponential backoff (3s → 6s → 12s → max 30s) to avoid hammering
  */
 
 type WsListener = (data: any) => void;
@@ -16,9 +13,12 @@ class WsClient {
   private listeners = new Map<string, Set<WsListener>>();
   private url = '';
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private reconnectAttempts = 0;
+  private static MAX_RECONNECT_MS = 30_000;
 
   connect(url: string): void {
-    this.url = url.replace(/^http/, 'ws');
+    this.url = url.replace(/^http/, 'ws') + '/ws';
+    this.reconnectAttempts = 0;
     this.doConnect();
   }
 
@@ -31,6 +31,7 @@ class WsClient {
     }
 
     this.ws.onopen = () => {
+      this.reconnectAttempts = 0;
       this.emit('connected', {});
     };
 
@@ -56,10 +57,16 @@ class WsClient {
 
   private scheduleReconnect(): void {
     if (this.reconnectTimer) return;
+    // Exponential backoff: 3s → 6s → 12s → 24s → 30s cap
+    const delay = Math.min(
+      3000 * Math.pow(2, this.reconnectAttempts),
+      WsClient.MAX_RECONNECT_MS,
+    );
+    this.reconnectAttempts++;
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
       this.doConnect();
-    }, 3000);
+    }, delay);
   }
 
   send(msg: Record<string, unknown>): void {
@@ -71,7 +78,9 @@ class WsClient {
   on(type: string, listener: WsListener): () => void {
     if (!this.listeners.has(type)) this.listeners.set(type, new Set());
     this.listeners.get(type)!.add(listener);
-    return () => this.listeners.get(type)?.delete(listener);
+    return () => {
+      this.listeners.get(type)?.delete(listener);
+    };
   }
 
   private emit(type: string, data: any): void {
@@ -79,12 +88,14 @@ class WsClient {
   }
 
   disconnect(): void {
+    // ── js-memory-leaks: Clear timer and listeners ──
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
     this.ws?.close();
     this.ws = null;
+    this.listeners.clear();
   }
 }
 

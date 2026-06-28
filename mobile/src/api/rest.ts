@@ -1,38 +1,17 @@
 /**
- * api.ts — REST + WebSocket helpers for Pi-Go mobile
+ * rest.ts — REST API request helper for Pi-Go mobile
  *
- * All HTTP requests go through this module. Base URL is configured at runtime
- * from SecureStore (set by the ServerConnect screen).
+ * Split from api/index.ts to avoid barrel exports (bundle-barrel-exports).
  */
 
-import * as SecureStore from 'expo-secure-store';
-
-let baseUrl = '';
-
-const SERVER_URL_KEY = 'pigo_server_url';
-
-export async function loadStoredServerUrl(): Promise<string | null> {
-  return SecureStore.getItemAsync(SERVER_URL_KEY);
-}
-
-export async function setStoredServerUrl(url: string): Promise<void> {
-  await SecureStore.setItemAsync(SERVER_URL_KEY, url);
-}
-
-export function setBaseUrl(url: string): void {
-  baseUrl = url.replace(/\/$/, '');
-}
-
-export function getBaseUrl(): string {
-  return baseUrl;
-}
+import { getBaseUrl } from './server-url';
 
 export async function apiRequest<T>(
   method: string,
   path: string,
   body?: Record<string, unknown>,
 ): Promise<T> {
-  const res = await fetch(`${baseUrl}${path}`, {
+  const res = await fetch(`${getBaseUrl()}${path}`, {
     method,
     headers: body ? { 'Content-Type': 'application/json' } : undefined,
     body: body ? JSON.stringify(body) : undefined,
@@ -55,7 +34,7 @@ export async function uploadForASR(uri: string, mimeType: string): Promise<{ tex
     name: 'voice.m4a',
   } as unknown as Blob);
 
-  const res = await fetch(`${baseUrl}/asr/transcribe`, {
+  const res = await fetch(`${getBaseUrl()}/asr/transcribe`, {
     method: 'POST',
     body: formData,
   });

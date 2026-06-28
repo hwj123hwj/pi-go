@@ -43,37 +43,64 @@ mobile/
 
 ## RN Best Practices Applied (react-native-best-practices skill)
 
-### 1. Hermes mmap (bundle-hermes-mmap) — CRITICAL
+### Round 1 — Core Performance (CRITICAL/HIGH)
+
+#### 1. Hermes mmap (bundle-hermes-mmap) — CRITICAL
 - `expo.useLegacyPackaging=false` in gradle.properties
 - Keeps .so files uncompressed → mmap'd at runtime → faster TTI
 
-### 2. R8 Code Shrinking (bundle-r8-android) — CRITICAL
+#### 2. R8 Code Shrinking (bundle-r8-android) — CRITICAL
 - `android.enableProguardInReleaseBuilds=true`
 - `android.enableShrinkResourcesInReleaseBuilds=true`
 - Only affects release builds, shrinks APK significantly
 
-### 3. React.memo + useCallback (js-profile-react) — CRITICAL
+#### 3. React.memo + useCallback (js-profile-react) — CRITICAL
 - All message components (UserBubble, AssistantMessage, ToolMessage, etc.) wrapped in `React.memo`
 - `renderItem` wrapped in `useCallback` with proper deps
 - `keyExtractor` as stable `useCallback`
 - Prevents cascading re-renders during streaming text_delta
 
-### 4. FlatList Optimization (js-lists-flatlist-flashlist) — CRITICAL
+#### 4. FlatList Optimization (js-lists-flatlist-flashlist) — CRITICAL
 - `removeClippedSubviews={true}` — unmount off-screen items
 - `maxToRenderPerBatch={8}` (chat), `6` (session list)
 - `windowSize={12}` (chat), `10` (session list)
 - `initialNumToRender={12}` / `{10}`
 - `getItemLayout` provided for fixed-height estimation (chat)
 
-### 5. Zustand Atomic Selectors (js-atomic-state) — HIGH
+#### 5. Zustand Atomic Selectors (js-atomic-state) — HIGH
 - Each store field subscribed independently: `useStore(s => s.sessions)`, `useStore(s => s.sendPrompt)`
 - No broad `useStore(s => s)` that triggers re-render on any state change
 - `useCallback` wrappers around selector functions for referential stability
 
-### 6. Pending Optimizations
+### Round 2 — Bundle & Memory (CRITICAL/MEDIUM)
+
+#### 6. Avoid Barrel Exports (bundle-barrel-exports) — CRITICAL
+- Split `api/index.ts` into `api/server-url.ts` + `api/rest.ts` (direct file imports)
+- Split `types/index.ts` into `types/ChatItem.ts` + `types/ModelInfo.ts` + `types/SessionView.ts`
+- All imports now reference specific files: `import { useStore } from '../store'` not `from '../store/index'`
+- Eliminates unnecessary module evaluation at startup
+
+#### 7. Tree Shaking (bundle-tree-shaking) — HIGH
+- `.env`: `EXPO_UNSTABLE_METRO_OPTIMIZE_GRAPH=1` + `EXPO_UNSTABLE_TREE_SHAKING=1` (Expo SDK 52+ experimental)
+- `metro.config.js`: `experimentalImportSupport: true` + `inlineRequires: true`
+- Removes unused exported code from dependencies in production builds
+
+#### 8. Memory Leak Prevention (js-memory-leaks) — MEDIUM
+- All WebSocket `.on()` return values stored in `wsUnsubs[]` array
+- `store.destroy()` method calls all unsub functions + `wsService.disconnect()`
+- WebSocket client: `disconnect()` clears reconnect timer + all listeners
+- Exponential backoff (3s → 6s → 12s → max 30s) prevents hammering on disconnect
+
+#### 9. WebSocket Reconnect Backoff — MEDIUM
+- Old: fixed 3s reconnect (could hammer server during outage)
+- New: exponential backoff with 30s cap and attempt counter
+- Resets to 0 on successful connection
+
+### Pending Optimizations
 - **expo-av CMake error**: `ReactAndroid` target not found with new architecture. Needs investigation — possibly requires `newArchEnabled=true` alignment or expo-audio migration
 - **react-native-screens**: Currently using manual state-based screen switching. Should migrate to `@react-navigation/native-stack` for native screen stack
-- **TextInput uncontrolled**: Voice input currently uses `setText()` which triggers controlled re-render. Could use ref-based append
+- **TextInput uncontrolled**: ChatScreen input is controlled. For voice append, consider ref-based approach (js-uncontrolled-components)
+- **useDeferredValue**: For expensive transcript rendering during streaming (js-concurrent-react)
 
 ## Build Configuration
 

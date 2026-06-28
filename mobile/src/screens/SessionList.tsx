@@ -15,7 +15,7 @@ import {
 
 const SafeArea = SafeAreaView as any;
 import { useStore } from '../store';
-import type { SessionView } from '../types';
+import type { SessionView } from '../types/SessionView';
 
 // ─── Memoized card component ──────────────────────────────────────────
 

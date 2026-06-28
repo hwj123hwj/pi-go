@@ -11,7 +11,7 @@ import {
   ActivityIndicator, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { useStore } from '../store';
-import { loadStoredServerUrl, setStoredServerUrl, setBaseUrl, getBaseUrl } from '../api';
+import { loadStoredServerUrl, setStoredServerUrl, setBaseUrl } from '../api/server-url';
 
 export function ServerConnect({ onConnected }: { onConnected: () => void }) {
   const [url, setUrl] = useState('');

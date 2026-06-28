@@ -16,7 +16,7 @@ import {
 
 const SafeArea = SafeAreaView as any;
 import { useStore } from '../store';
-import type { ChatItem } from '../types';
+import type { ChatItem } from '../types/ChatItem';
 
 // ─── Memoized message components (prevents cascading re-renders) ──────
 

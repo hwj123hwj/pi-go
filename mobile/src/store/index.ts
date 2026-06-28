@@ -2,14 +2,19 @@
  * store.ts — Zustand store for Pi-Go mobile
  *
  * Manages sessions, active chat transcript, WebSocket events, models.
- * Adapted from desktop/src/store.ts, stripped of desktop-only features
- * (workspace panels, diffs, file editing).
+ *
+ * RN Best Practices:
+ * - bundle-barrel-exports: All imports from specific files (no index re-exports)
+ * - js-memory-leaks: WS listener unsubs tracked for cleanup via destroy()
  */
 
 import { create } from 'zustand';
-import { apiRequest, setBaseUrl, getBaseUrl, loadStoredServerUrl } from '../api';
+import { apiRequest } from '../api/rest';
+import { setBaseUrl, getBaseUrl, loadStoredServerUrl } from '../api/server-url';
 import { wsService } from '../api/ws';
-import type { ChatItem, ModelInfo, SessionMeta, SessionView } from '../types';
+import type { ChatItem } from '../types/ChatItem';
+import type { ModelInfo } from '../types/ModelInfo';
+import type { SessionMeta, SessionView } from '../types/SessionView';
 
 interface StoreState {
   ready: boolean;
@@ -31,17 +36,16 @@ interface StoreState {
   sendPrompt: (id: string, text: string) => Promise<void>;
   cancel: (id: string) => Promise<void>;
   setModel: (id: string, modelId: string) => Promise<void>;
+  destroy: () => void;
 }
 
 let initialized = false;
 
+// ── js-memory-leaks: Track WS listeners for cleanup ──
+let wsUnsubs: Array<() => void> = [];
+
 function newId(): string {
   return Math.random().toString(36).slice(2, 10);
-}
-
-function deriveTitle(text: string): string {
-  const trimmed = text.trim().replace(/\n/g, ' ');
-  return trimmed.length > 40 ? trimmed.slice(0, 40) + '…' : trimmed;
 }
 
 function emptyView(meta: SessionMeta): SessionView {
@@ -75,12 +79,13 @@ export const useStore = create<StoreState>((set, get) => ({
     // Connect WebSocket
     wsService.connect(getBaseUrl());
 
-    wsService.on('connected', () => set({ connected: true }));
-    wsService.on('disconnected', () => set({ connected: false }));
+    // ── js-memory-leaks: Store unsubscribe functions for cleanup ──
+    wsUnsubs = [];
 
-    // ── WebSocket event handlers ──
+    wsUnsubs.push(wsService.on('connected', () => set({ connected: true })));
+    wsUnsubs.push(wsService.on('disconnected', () => set({ connected: false })));
 
-    wsService.on('type:status', (data: any) => {
+    wsUnsubs.push(wsService.on('type:status', (data: any) => {
       const sid = data.session_id;
       if (!sid) return;
       if (!data.streaming) {
@@ -89,9 +94,9 @@ export const useStore = create<StoreState>((set, get) => ({
           meta: { ...v.meta, status: 'idle' },
         }));
       }
-    });
+    }));
 
-    wsService.on('event:text_delta', (data: any) => {
+    wsUnsubs.push(wsService.on('event:text_delta', (data: any) => {
       const sid = data.session_id;
       const delta = data.event?.text_delta || '';
       if (!sid || !delta) return;
@@ -105,9 +110,9 @@ export const useStore = create<StoreState>((set, get) => ({
         }
         return { ...v, transcript, meta: { ...v.meta, status: 'thinking' } };
       });
-    });
+    }))
 
-    wsService.on('event:tool_start', (data: any) => {
+    wsUnsubs.push(wsService.on('event:tool_start', (data: any) => {
       const sid = data.session_id;
       if (!sid) return;
       const toolName = data.event?.tool_name || 'tool';
@@ -124,9 +129,9 @@ export const useStore = create<StoreState>((set, get) => ({
         ...v,
         transcript: [...v.transcript, item],
       }));
-    });
+    }))
 
-    wsService.on('event:tool_end', (data: any) => {
+    wsUnsubs.push(wsService.on('event:tool_end', (data: any) => {
       const sid = data.session_id;
       if (!sid) return;
       const toolCallId = data.event?.tool_call_id || '';
@@ -144,9 +149,9 @@ export const useStore = create<StoreState>((set, get) => ({
             : item
         ),
       }));
-    });
+    }))
 
-    wsService.on('event:error', (data: any) => {
+    wsUnsubs.push(wsService.on('event:error', (data: any) => {
       const sid = data.session_id;
       if (!sid) return;
       const error = data.event?.error || 'Unknown error';
@@ -155,9 +160,9 @@ export const useStore = create<StoreState>((set, get) => ({
         transcript: [...v.transcript, { kind: 'error', id: newId(), text: error }],
         meta: { ...v.meta, status: 'error' },
       }));
-    });
+    }))
 
-    // Fetch models
+    // ── Fetch models ──
     try {
       const rawModels = await apiRequest<any[]>('GET', '/models');
       const models: ModelInfo[] = (rawModels || []).map((m) => ({
@@ -306,6 +311,16 @@ export const useStore = create<StoreState>((set, get) => ({
     } catch (err) {
       console.error('Failed to switch model', err);
     }
+  },
+
+  destroy: () => {
+    // ── js-memory-leaks: Clean up all WS listeners ──
+    for (const unsub of wsUnsubs) {
+      try { unsub(); } catch { /* ignore */ }
+    }
+    wsUnsubs = [];
+    wsService.disconnect();
+    initialized = false;
   },
 }));
 
