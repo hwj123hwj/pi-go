@@ -128,10 +128,11 @@ mobile/
 - SessionList root: `<SafeArea collapsable={false}>`
 - Prevents RN from flattening screen containers into unexpected hierarchy
 
-#### 14. React Compiler (js-react-compiler) — HIGH
-- `babel.config.js`: added `['react-compiler', { target: '18' }]` plugin
-- `app.json`: added `"experiments": { "reactCompiler": true }`
-- `babel-plugin-react-compiler@beta` installed as devDependency
+#### 14. React Compiler (js-react-compiler) — ~~HIGH~~ **❌ REMOVED (闪退)**
+- `babel-plugin-react-compiler@19 beta` + `react-compiler-runtime@19` 需要 React 19
+- 项目使用 React 18.3.1 → **启动即闪退**
+- **已移除**: babel plugin、app.json experiments、npm packages
+- **替代**: 保留手动 `React.memo` + `useCallback` (R1优化)
 
 #### 15. Bundle Analysis (bundle-analyze-js) — CRITICAL
 - Generated production Hermes bytecode: **859KB** (`.hbc`), 529 modules
