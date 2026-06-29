@@ -4,11 +4,10 @@ module.exports = function (api) {
     presets: [
       ['babel-preset-expo', { jsxImportSource: false }],
     ],
+    // ── js-react-compiler REMOVED: react-compiler-runtime@19 beta
+    // requires React 19, but project uses React 18.3.1 → crash on launch.
+    // Manual React.memo + useCallback from R1 optimizations remain in place.
     plugins: [
-      // ── js-react-compiler (HIGH): Automatic memoization ──
-      // Eliminates need for manual memo/useMemo/useCallback in most cases.
-      // Requires React 18.3+ and React Native 0.76+ (both satisfied by Expo SDK 52).
-      ['react-compiler', { target: '18' }],
     ],
   };
 };
