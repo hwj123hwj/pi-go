@@ -30,6 +30,7 @@ export function ServerConnect({ navigation }: ServerConnectProps) {
   }, []);
 
   const handleConnect = async () => {
+    console.log('[ServerConnect] handleConnect called, url=', url);
     setError('');
     let trimmed = url.trim();
     if (!trimmed) {
@@ -41,24 +42,41 @@ export function ServerConnect({ navigation }: ServerConnectProps) {
       trimmed = 'http://' + trimmed;
     }
     trimmed = trimmed.replace(/\/$/, '');
+    console.log('[ServerConnect] normalized url=', trimmed);
 
     setTesting(true);
     try {
-      // Test connection
-      const res = await fetch(`${trimmed}/health`);
+      // Test connection with 10s timeout (AbortController)
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10_000);
+      console.log('[ServerConnect] fetching', `${trimmed}/health`);
+      const res = await fetch(`${trimmed}/health`, { signal: controller.signal });
+      clearTimeout(timeoutId);
+      console.log('[ServerConnect] health response status=', res.status);
       if (!res.ok) throw new Error(`Server responded ${res.status}`);
 
       // Save and proceed
       setBaseUrl(trimmed);
       await setStoredServerUrl(trimmed);
       // ── BUGFIX 11: Reset previous connection before re-init ──
-      // If the app was previously connected to a different server (or init
-      // partially failed), this ensures WS and REST target the new server.
       useStore.getState().destroy();
+      console.log('[ServerConnect] calling init()');
       await useStore.getState().init();
+      console.log('[ServerConnect] init() done, navigating to List');
       navigation.replace('List');
     } catch (err) {
-      setError('无法连接服务器: ' + (err instanceof Error ? err.message : '未知错误'));
+      console.error('[ServerConnect] connect failed:', err);
+      let msg: string;
+      if (err instanceof Error) {
+        if (err.name === 'AbortError') {
+          msg = '连接超时 (10秒无响应)';
+        } else {
+          msg = err.message;
+        }
+      } else {
+        msg = '未知错误';
+      }
+      setError('无法连接服务器: ' + msg);
     } finally {
       setTesting(false);
     }
