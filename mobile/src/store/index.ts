@@ -189,15 +189,18 @@ export const useStore = create<StoreState>((set, get) => ({
     }));
 
     // ── Fetch models ──
+    // NOTE: /models returns { models: [...], current: {...} }, NOT a bare array
     try {
-      const rawModels = await apiRequest<any[]>('GET', '/models');
-      const models: ModelInfo[] = (rawModels || []).map((m) => ({
+      const rawRes = await apiRequest<any>('GET', '/models');
+      const rawModels: any[] = Array.isArray(rawRes) ? rawRes : (rawRes?.models || []);
+      const models: ModelInfo[] = rawModels.map((m: any) => ({
         modelId: m.model_id || m.id,
         name: m.name || m.model_id || m.id,
       }));
       set({ models });
-    } catch {
-      // models are optional
+    } catch (err) {
+      console.warn('[init] Failed to load models:', err);
+      // models are optional — continue
     }
 
     // ── BUGFIX B: Load sessions with try/catch so failures don't hang ──

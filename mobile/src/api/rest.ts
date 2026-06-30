@@ -6,12 +6,28 @@
 
 import { getBaseUrl } from './server-url';
 
+/** fetch with timeout — prevents hangs on slow/blocked networks */
+async function fetchWithTimeout(
+  url: string,
+  options: RequestInit = {},
+  timeoutMs = 15_000,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { ...options, signal: controller.signal });
+    return res;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 export async function apiRequest<T>(
   method: string,
   path: string,
   body?: Record<string, unknown>,
 ): Promise<T> {
-  const res = await fetch(`${getBaseUrl()}${path}`, {
+  const res = await fetchWithTimeout(`${getBaseUrl()}${path}`, {
     method,
     headers: body ? { 'Content-Type': 'application/json' } : undefined,
     body: body ? JSON.stringify(body) : undefined,
@@ -34,10 +50,11 @@ export async function uploadForASR(uri: string, mimeType: string): Promise<{ tex
     name: 'voice.m4a',
   } as unknown as Blob);
 
-  const res = await fetch(`${getBaseUrl()}/asr/transcribe`, {
-    method: 'POST',
-    body: formData,
-  });
+  const res = await fetchWithTimeout(
+    `${getBaseUrl()}/asr/transcribe`,
+    { method: 'POST', body: formData },
+    30_000, // longer timeout for audio upload
+  );
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: 'ASR request failed' }));
