@@ -633,21 +633,25 @@ func relPath(workspace, path string) string {
 // IsConcurrencySafe implements agent.ConcurrencySafeChecker.
 // LSP tools are safe to run concurrently — the Manager serialises server
 // access internally with mutexes.
-func (t *LSPGotoDefinitionTool) IsConcurrencySafe(_ json.RawMessage) bool    { return true }
-func (t *LSPFindReferencesTool) IsConcurrencySafe(_ json.RawMessage) bool    { return true }
-func (t *LSPHoverTool) IsConcurrencySafe(_ json.RawMessage) bool             { return true }
-func (t *LSPDocumentSymbolsTool) IsConcurrencySafe(_ json.RawMessage) bool   { return true }
-func (t *LSPWorkspaceSymbolsTool) IsConcurrencySafe(_ json.RawMessage) bool  { return true }
+func (t *LSPGotoDefinitionTool) IsConcurrencySafe(_ json.RawMessage) bool     { return true }
+func (t *LSPFindReferencesTool) IsConcurrencySafe(_ json.RawMessage) bool     { return true }
+func (t *LSPHoverTool) IsConcurrencySafe(_ json.RawMessage) bool              { return true }
+func (t *LSPDocumentSymbolsTool) IsConcurrencySafe(_ json.RawMessage) bool    { return true }
+func (t *LSPWorkspaceSymbolsTool) IsConcurrencySafe(_ json.RawMessage) bool   { return true }
 func (t *LSPGotoImplementationTool) IsConcurrencySafe(_ json.RawMessage) bool { return true }
 
 // ─── Prompt info (system prompt snippet/guidelines) ───────────────────────────
 
-func (t *LSPGotoDefinitionTool) PromptSnippet() string    { return "Go to symbol definition via LSP" }
-func (t *LSPFindReferencesTool) PromptSnippet() string    { return "Find all references to a symbol via LSP" }
-func (t *LSPHoverTool) PromptSnippet() string             { return "Get hover/type info for a symbol via LSP" }
-func (t *LSPDocumentSymbolsTool) PromptSnippet() string   { return "List symbols in a document via LSP" }
-func (t *LSPWorkspaceSymbolsTool) PromptSnippet() string  { return "Search workspace symbols via LSP" }
-func (t *LSPGotoImplementationTool) PromptSnippet() string { return "Find implementations of an interface via LSP" }
+func (t *LSPGotoDefinitionTool) PromptSnippet() string { return "Go to symbol definition via LSP" }
+func (t *LSPFindReferencesTool) PromptSnippet() string {
+	return "Find all references to a symbol via LSP"
+}
+func (t *LSPHoverTool) PromptSnippet() string            { return "Get hover/type info for a symbol via LSP" }
+func (t *LSPDocumentSymbolsTool) PromptSnippet() string  { return "List symbols in a document via LSP" }
+func (t *LSPWorkspaceSymbolsTool) PromptSnippet() string { return "Search workspace symbols via LSP" }
+func (t *LSPGotoImplementationTool) PromptSnippet() string {
+	return "Find implementations of an interface via LSP"
+}
 
 func lspGuidelines() []string {
 	return []string{
@@ -657,11 +661,11 @@ func lspGuidelines() []string {
 	}
 }
 
-func (t *LSPGotoDefinitionTool) PromptGuidelines() []string    { return lspGuidelines() }
-func (t *LSPFindReferencesTool) PromptGuidelines() []string    { return lspGuidelines() }
-func (t *LSPHoverTool) PromptGuidelines() []string             { return lspGuidelines() }
-func (t *LSPDocumentSymbolsTool) PromptGuidelines() []string   { return lspGuidelines() }
-func (t *LSPWorkspaceSymbolsTool) PromptGuidelines() []string  { return lspGuidelines() }
+func (t *LSPGotoDefinitionTool) PromptGuidelines() []string     { return lspGuidelines() }
+func (t *LSPFindReferencesTool) PromptGuidelines() []string     { return lspGuidelines() }
+func (t *LSPHoverTool) PromptGuidelines() []string              { return lspGuidelines() }
+func (t *LSPDocumentSymbolsTool) PromptGuidelines() []string    { return lspGuidelines() }
+func (t *LSPWorkspaceSymbolsTool) PromptGuidelines() []string   { return lspGuidelines() }
 func (t *LSPGotoImplementationTool) PromptGuidelines() []string { return lspGuidelines() }
 
 // ─── Factory: NewLSPTools ─────────────────────────────────────────────────────

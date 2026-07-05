@@ -29,6 +29,15 @@
 - Hooks/Policy/MCP still need runtime wiring (island code)
 - ask_user still a stub
 - Feishu `BuiltinAppSecret` hardcoded in oauth.go (security note)
+
+## [2026-07-05] fix | Deep Audit Round 3 — batch tool wiring + cleanup
+
+**Scope**: Further verification of round 2 fixes found that `BuildToolsWithRegistry()` was never called by runtime — batch tool was STILL broken. Also cleaned up stale worktrees.
+
+1. **FIXED**: Replaced dead `BuildToolsWithRegistry()` with proper runtime wiring in `agent_session.go`: builds `toolListRegistry` map after `BuildTools()` and injects via `SetRegistry()` interface assertion.
+2. **REMOVED**: Dead `BuildToolsWithRegistry()` method + unused `basetools` import in `application.go`.
+3. **CLEANUP**: Removed 4 stale git worktrees (`b5cc53`, `hooks`, `lsp`, `mcp`) + their branches.
+4. **FORMATTED**: gofmt applied to all modified files.
 - **Created** `wiki/feishu-oauth.md` — Feishu OAuth flow (/feishu setup → browser → QR scan → callback → token exchange → save credentials), pre-registered app_id pattern, credential persistence (~/.pi-go/feishu-credentials.json), pi-feishu-bridge auto-load integration
 - **Updated** `index.md` — Added `[[feishu-oauth]]`
 - **Key files**: `internal/feishu/oauth.go`, `internal/feishu/credentials.go`, `internal/agents/coding/commands/feishu.go`, `cmd/pi-feishu-bridge/main.go`

@@ -58,7 +58,7 @@ Fixed → `~/.pi-go/lsp/`.
 
 ### 🔴 FIXED: batch Tool ToolRegistry Never Injected
 `BuildList` creates batch tool but never receives `ToolRegistry`, so batch tool always errors with "no tool registry".
-Fixed → Added `BuildToolsWithRegistry()` to `application.go` (runtime can call it when registry is available).
+Fixed → runtime `agent_session.go` now builds a `toolListRegistry` from the tool list after BuildTools() and injects it via `SetRegistry()` interface assertion. No dead code left.
 
 ### 🔴 FIXED: LSP Process Leak on Exit
 gopls process was started lazily via global singleton but never cleaned up on agent exit.

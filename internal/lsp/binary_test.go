@@ -153,15 +153,15 @@ func TestDefaultServersCount(t *testing.T) {
 func TestDefaultServers_AllIDs(t *testing.T) {
 	servers := DefaultServers()
 	expected := map[string]bool{
-		"gopls":                              true,
-		"typescript-language-server":         true,
-		"pyright":                            true,
-		"rust-analyzer":                      true,
-		"clangd":                             true,
-		"vscode-langservers-extracted":       true,
-		"yaml-language-server":               true,
-		"dockerfile-language-server-nodejs":  true,
-		"sql-language-server":                true,
+		"gopls":                             true,
+		"typescript-language-server":        true,
+		"pyright":                           true,
+		"rust-analyzer":                     true,
+		"clangd":                            true,
+		"vscode-langservers-extracted":      true,
+		"yaml-language-server":              true,
+		"dockerfile-language-server-nodejs": true,
+		"sql-language-server":               true,
 	}
 
 	for _, s := range servers {

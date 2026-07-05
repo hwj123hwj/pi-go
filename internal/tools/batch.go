@@ -46,6 +46,16 @@ func NewBatchTool(opts ...BatchOption) *BatchTool {
 	return t
 }
 
+// SetRegistry allows external callers to inject a ToolRegistry after construction.
+func (t *BatchTool) SetRegistry(r interface {
+	GetTool(string) (agent.Tool, bool)
+}) {
+	// Type-assert to our own ToolRegistry interface.
+	if reg, ok := r.(ToolRegistry); ok {
+		t.registry = reg
+	}
+}
+
 func (t *BatchTool) Name() string { return "batch" }
 
 func (t *BatchTool) Description() string {

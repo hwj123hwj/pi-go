@@ -304,6 +304,23 @@ func (s *AgentSession) buildAgent(ctx context.Context, registry *providers.Regis
 	// Build tools via Application interface
 	toolList := s.application.BuildTools(s.toolBuildOptions(cwd))
 
+	// Wire the batch tool with a tool registry so it can look up and
+	// execute sibling tools. The registry is a simple map built from
+	// the tool list itself (no external dependency needed).
+	toolReg := &toolListRegistry{tools: make(map[string]agent.Tool, len(toolList))}
+	for _, t := range toolList {
+		toolReg.tools[t.Name()] = t
+	}
+	for _, t := range toolList {
+		if setter, ok := t.(interface {
+			SetRegistry(interface {
+				GetTool(string) (agent.Tool, bool)
+			})
+		}); ok {
+			setter.SetRegistry(toolReg)
+		}
+	}
+
 	// Determine model
 	modelID := cfg.AnthropicModel
 	providerName := cfg.Provider
@@ -449,4 +466,15 @@ func (s *AgentSession) toolBuildOptions(cwd string) ToolBuildOptions {
 		AllowedTools:   cfg.AllowedTools,
 		BlockedTools:   cfg.BlockedTools,
 	}
+}
+
+// toolListRegistry is a simple adapter that makes a map of tools
+// satisfy the ToolRegistry interface (used by batch tool).
+type toolListRegistry struct {
+	tools map[string]agent.Tool
+}
+
+func (r *toolListRegistry) GetTool(name string) (agent.Tool, bool) {
+	t, ok := r.tools[name]
+	return t, ok
 }

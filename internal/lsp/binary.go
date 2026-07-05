@@ -191,9 +191,9 @@ func GoInstaller(modulePath, binName string) InstallerFunc {
 
 // GitHubReleaseAsset represents an asset in a GitHub release.
 type GitHubReleaseAsset struct {
-	Name                 string `json:"name"`
-	BrowserDownloadURL   string `json:"browser_download_url"`
-	Size                 int64  `json:"size"`
+	Name               string `json:"name"`
+	BrowserDownloadURL string `json:"browser_download_url"`
+	Size               int64  `json:"size"`
 }
 
 // GitHubRelease represents a GitHub release.
