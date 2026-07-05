@@ -2,6 +2,11 @@
 
 > Chronological record of wiki operations.
 
+## [2026-07-05] ingest | Model Registry & Feishu Multi-Chat Fix
+- **Created** `wiki/model-registry-feishu-fix.md` — Model registry architecture (JSON config, 13 built-in models, provider-based filtering) + Feishu sender race fix (per-chat map replacing single shared field, session_id in tool callback)
+- **Updated** `index.md` — Added `[[model-registry-feishu-fix]]` to Concepts section
+- **Key files**: `internal/models/registry.go`, `internal/models/registry_test.go`, `internal/agents/coding/application.go`, `internal/feishu/handler.go`, `internal/feishu/tool.go`
+
 ## [2026-07-05] ingest | Loop Scheduler & Task Handoff (absorbed from hwjcode)
 - **Created** `wiki/loop-scheduler.md` — New concept page: /loop watchdog architecture (goroutine + time.Ticker, TriggerResolver pattern, per-session loops), TASK.md handoff design (document-as-context philosophy, auto-load in prompt builder, structured Markdown format)
 - **Updated** `index.md` — Added `[[loop-scheduler]]` to Concepts section

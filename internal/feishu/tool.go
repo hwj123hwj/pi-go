@@ -13,8 +13,9 @@ import (
 
 // ToolCallbackRequest mirrors agent.ToolCallbackRequest for the bridge side.
 type ToolCallbackRequest struct {
-	ToolName string          `json:"tool_name"`
-	Params   json.RawMessage `json:"params"`
+	ToolName  string          `json:"tool_name"`
+	Params    json.RawMessage `json:"params"`
+	SessionID string          `json:"session_id,omitempty"`
 }
 
 // ToolCallbackResponse mirrors agent.ToolCallbackResponse for the bridge side.
@@ -107,8 +108,13 @@ func (h *Handler) HandleToolCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get sender OpenID from stored context
-	senderOpenID := h.getSender(r.Context())
+	// Get sender OpenID from stored context.
+	// Use session_id as the chatKey to find the sender who triggered this tool call.
+	senderOpenID := h.getSender(r.Context(), req.SessionID)
+	if senderOpenID == "" {
+		// Fallback: try all senders (best effort for backward compat)
+		senderOpenID = h.getAnySender()
+	}
 
 	// Create group chat
 	chatID, err := h.client.CreateGroupChat(r.Context(), params.GroupName, "Pi Agent 项目协作群", []string{senderOpenID})

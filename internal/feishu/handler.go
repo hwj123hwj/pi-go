@@ -38,9 +38,10 @@ type Handler struct {
 	httpClient *http.Client
 	workspace  string // default workspace root for file path detection
 
-	// Sender context: stores last sender OpenID for tool callbacks.
-	lastSenderOpenID string
-	senderMu         sync.Mutex
+	// Sender context: per-chat sender OpenID for tool callbacks.
+	// Keyed by chatKey to avoid multi-chat race conditions.
+	senders   map[string]string
+	senderMu  sync.Mutex
 }
 
 // NewHandler creates a new message handler.
@@ -53,6 +54,7 @@ func NewHandler(piAgentURL, appID string, client *Client, workspace string) *Han
 		routesFile: defaultRoutesFile(),
 		httpClient: &http.Client{Timeout: 10 * time.Minute},
 		workspace:  workspace,
+		senders:    make(map[string]string),
 	}
 	h.loadRoutes()
 	return h
@@ -544,18 +546,32 @@ func (h *Handler) SetGateway(gw *Gateway) {
 	h.gateway = gw
 }
 
-// storeSender stores the last sender OpenID for tool callbacks.
-func (h *Handler) storeSender(_ string, senderOpenID string) {
+// storeSender stores the sender OpenID for a specific chat (for tool callbacks).
+// Keyed by chatKey to avoid multi-chat race conditions.
+func (h *Handler) storeSender(chatKey string, senderOpenID string) {
 	h.senderMu.Lock()
 	defer h.senderMu.Unlock()
-	h.lastSenderOpenID = senderOpenID
+	h.senders[chatKey] = senderOpenID
 }
 
-// getSender retrieves the last known sender OpenID for tool callbacks.
-func (h *Handler) getSender(_ context.Context) string {
+// getSender retrieves the sender OpenID for a specific chat.
+func (h *Handler) getSender(_ context.Context, chatKey string) string {
 	h.senderMu.Lock()
 	defer h.senderMu.Unlock()
-	return h.lastSenderOpenID
+	return h.senders[chatKey]
+}
+
+// getAnySender returns any known sender (best-effort fallback for tool callbacks
+// where we can't determine the chat context).
+func (h *Handler) getAnySender() string {
+	h.senderMu.Lock()
+	defer h.senderMu.Unlock()
+	for _, id := range h.senders {
+		if id != "" {
+			return id
+		}
+	}
+	return ""
 }
 
 func (h *Handler) getRoute(chatKey string) *ChatRoute {
