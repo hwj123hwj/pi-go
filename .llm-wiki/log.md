@@ -2,6 +2,11 @@
 
 > Chronological record of wiki operations.
 
+## [2026-07-05] ingest | Security Hardening (SSRF + API Auth + YAML Config + Version)
+- **Created** `wiki/security-hardening.md` — Four security/ops improvements: (1) SSRF protection on external tool callbacks (shared util/ssrf.go, AllowPrivate flag for trusted internal services); (2) Bearer token API auth middleware (PI_GO_API_KEY, /health exempt, backward compatible); (3) YAML config file support (--config flag, auto-detect pi-go.yaml, full field coverage); (4) --version flag + /health version endpoint (ldflags injection)
+- **Updated** `index.md` — Added `[[security-hardening]]`
+- **Key files**: `internal/util/ssrf.go`, `internal/agent/external_tool.go`, `internal/server/server.go`, `internal/config/config.go`, `internal/mode/serve.go`, `cmd/pi-agent/main.go`
+
 ## [2026-07-05] ingest | Web Search + Session Hardening + Undo System
 - **Created** `wiki/web-search-undo-session.md` — Three features: (1) web_search tool with dual engine (SearXNG JSON API + DuckDuckGo HTML fallback, SSRF protection, zero-config DDG); (2) session crash-safety (fsync after append, crypto/rand ID replacing time.Nano()); (3) undo/rollback with BackupManager (per-file snapshot stack, auto-snapshot in edit/write, /undo slash command)
 - **Updated** `index.md` — Added `[[web-search-undo-session]]`

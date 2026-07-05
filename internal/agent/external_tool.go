@@ -7,16 +7,18 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"time"
+
+	"github.com/hwj123hwj/pi-go/internal/util"
 )
 
 // ExternalToolDef holds the registration payload for an external tool.
 type ExternalToolDef struct {
-	Name        string         `json:"name"`
-	Description string         `json:"description"`
-	Parameters  map[string]any `json:"parameters"`
-	CallbackURL string         `json:"callback_url"`
+	Name           string         `json:"name"`
+	Description    string         `json:"description"`
+	Parameters     map[string]any `json:"parameters"`
+	CallbackURL    string         `json:"callback_url"`
+	AllowPrivate   bool           `json:"allow_private,omitempty"` // allow private/localhost callbacks (trusted internal services only)
 }
 
 // ToolCallbackRequest is sent to the callback URL when the tool is executed.
@@ -37,19 +39,14 @@ type ExternalTool struct {
 	httpClient *http.Client
 }
 
-// validateCallbackURL validates that the callback URL uses a safe scheme.
-// Only http and https are allowed. No IP or hostname restrictions —
-// this allows internal services (e.g. Feishu bridge) to register tools
-// without requiring special configuration.
-func validateCallbackURL(rawURL string) error {
-	u, err := url.Parse(rawURL)
-	if err != nil {
-		return fmt.Errorf("invalid URL: %w", err)
+// validateCallbackURL validates that the callback URL is safe from SSRF attacks.
+// By default, blocks private/internal addresses. If allowPrivate is true,
+// only checks scheme (for trusted internal services like the Feishu bridge).
+func validateCallbackURL(rawURL string, allowPrivate bool) error {
+	if allowPrivate {
+		return util.AllowPrivateCallbackURL(rawURL)
 	}
-	if u.Scheme != "http" && u.Scheme != "https" {
-		return fmt.Errorf("callback URL must use http or https scheme, got %q", u.Scheme)
-	}
-	return nil
+	return util.ValidateCallbackURL(rawURL)
 }
 
 // NewExternalTool creates an ExternalTool from a registration definition.
@@ -60,7 +57,7 @@ func NewExternalTool(def ExternalToolDef) (*ExternalTool, error) {
 	if def.CallbackURL == "" {
 		return nil, fmt.Errorf("callback URL is required")
 	}
-	if err := validateCallbackURL(def.CallbackURL); err != nil {
+	if err := validateCallbackURL(def.CallbackURL, def.AllowPrivate); err != nil {
 		return nil, err
 	}
 	return &ExternalTool{

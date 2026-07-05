@@ -27,8 +27,17 @@ import (
 	"github.com/hwj123hwj/pi-go/internal/slashcmd"
 )
 
+// version is the build version, injected via -ldflags during release builds.
+var version = "dev"
+
 func main() {
 	cfg := config.Default()
+
+	// Version flag (injectable via -ldflags "-X main.version=...")
+	versionFlag := flag.Bool("version", false, "Print version and exit")
+
+	// Config file flag (YAML, loaded before .env and env vars)
+	configFile := flag.String("config", "", "Path to YAML config file (e.g. pi-go.yaml)")
 
 	// Load .env files (ignore if missing)
 	// PI_GO_ENV_FILE allows custom .env path (e.g. for packaged desktop app)
@@ -38,9 +47,36 @@ func main() {
 	}
 	_ = config.LoadDotEnv(envFile)
 	_ = config.LoadDotEnv(envFile + ".local")
+
+	// Load YAML config first (lowest priority), then env vars override
+	if *configFile == "" {
+		// Auto-detect pi-go.yaml in CWD or ~/.pi-go/
+		if _, err := os.Stat("pi-go.yaml"); err == nil {
+			*configFile = "pi-go.yaml"
+		} else if home, err := os.UserHomeDir(); err == nil {
+			p := filepath.Join(home, ".pi-go", "config.yaml")
+			if _, err := os.Stat(p); err == nil {
+				*configFile = p
+			}
+		}
+	}
+	if *configFile != "" {
+		if err := cfg.LoadFromYAML(*configFile); err != nil {
+			slog.Warn("failed to load config file", "path", *configFile, "error", err)
+		} else {
+			slog.Info("loaded config file", "path", *configFile)
+		}
+	}
+
 	cfg.LoadFromEnv()
 
-	// Parse flags
+	// Handle --version
+	if *versionFlag {
+		fmt.Printf("pi-go %s\n", version)
+		return
+	}
+
+	// Parse remaining flags
 	modeFlag := flag.String("mode", "run", "run, chat, interactive, or serve")
 	listen := flag.String("listen", fmt.Sprintf("%s:%d", cfg.Host, cfg.Port), "HTTP listen address")
 	input := flag.String("prompt", "hello", "prompt for run mode")
@@ -67,6 +103,9 @@ func main() {
 	default:
 		// Keep default INFO level for other modes
 	}
+
+	// Propagate version to mode package
+	mode.SetVersion(version)
 
 	// Create music dependencies
 	neClient := netease.NewClient()

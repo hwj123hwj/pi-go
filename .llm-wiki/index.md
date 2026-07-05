@@ -89,6 +89,7 @@
 - [[loop-scheduler]] — /loop watchdog recurring loop (goroutine + time.Ticker) + TASK.md handoff context persistence (NEW, absorbed from hwjcode)
 - [[model-registry-feishu-fix]] — Config-driven model registry (JSON-configurable, 13 built-in models) + Feishu multi-chat sender race fix (NEW)
 - [[web-search-undo-session]] — Web search tool (SearXNG/DuckDuckGo), session crash-safe persistence (fsync + crypto/rand IDs), undo/rollback system with auto-snapshot (NEW)
+- [[security-hardening]] — SSRF protection on external tool callbacks, Bearer token API auth, YAML config file support, --version flag + /health version info (NEW)
 
 ## Synthesis
 <!-- Cross-cutting analysis pages will be listed here -->

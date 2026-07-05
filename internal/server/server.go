@@ -26,6 +26,14 @@ import (
 	"github.com/hwj123hwj/pi-go/internal/web"
 )
 
+// Version is the server build version. Set by main.go via SetVersion().
+var Version = "dev"
+
+// SetVersion updates the server's build version (called from main).
+func (s *Server) SetVersion(v string) {
+	Version = v
+}
+
 // Server provides HTTP REST + SSE endpoints for the agent.
 // It routes requests to AgentSessions via the App's SessionRegistry.
 type Server struct {
@@ -34,11 +42,58 @@ type Server struct {
 	externalTools []agent.ExternalToolDef
 	toolMu        sync.Mutex
 	extraRoutes   *http.ServeMux // optional extra routes (e.g. music audio proxy)
+	apiKey        string          // if non-empty, requires Bearer token auth on all endpoints
 }
 
 // SetExtraRoutes sets an additional ServeMux to be merged into the server's routes.
 func (s *Server) SetExtraRoutes(mux *http.ServeMux) {
 	s.extraRoutes = mux
+}
+
+// SetAPIKey enables Bearer token authentication on all REST endpoints.
+// If set, all requests must include "Authorization: Bearer <apiKey>" header.
+// The /health endpoint is always accessible without auth (for health checks).
+func (s *Server) SetAPIKey(key string) {
+	s.apiKey = key
+}
+
+// authMiddleware validates the Bearer token if an API key is configured.
+// If no API key is set, all requests pass through (backward compatible).
+func (s *Server) authMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Skip auth for health check endpoint (always open for monitoring)
+		if r.URL.Path == "/health" {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		// Skip auth if no API key configured (backward compatible)
+		if s.apiKey == "" {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		// Validate Bearer token
+		auth := r.Header.Get("Authorization")
+		if auth == "" {
+			http.Error(w, `{"error":"missing Authorization header"}`, http.StatusUnauthorized)
+			return
+		}
+
+		const bearerPrefix = "Bearer "
+		if !strings.HasPrefix(auth, bearerPrefix) {
+			http.Error(w, `{"error":"invalid Authorization header, expected Bearer token"}`, http.StatusUnauthorized)
+			return
+		}
+
+		token := strings.TrimPrefix(auth, bearerPrefix)
+		if token != s.apiKey {
+			http.Error(w, `{"error":"invalid API key"}`, http.StatusUnauthorized)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
 }
 
 // ChatRequest is the request body for chat endpoints.
@@ -135,6 +190,7 @@ func (s *Server) Handler() http.Handler {
 
 	var restHandler http.Handler = restMux
 	restHandler = corsMiddleware(restHandler)
+	restHandler = s.authMiddleware(restHandler) // auth check after CORS, before recovery
 	restHandler = recoveryMiddleware(restHandler)
 	restHandler = loggingMiddleware(restHandler)
 
@@ -179,7 +235,10 @@ func (s *Server) ListenAndServe(addr string) error {
 
 func (s *Server) health(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"status":  "ok",
+		"version": Version,
+	})
 }
 
 // ─── POST /chat ───────────────────────────────────────────────────────────────

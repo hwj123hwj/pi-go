@@ -33,8 +33,21 @@ func (m *ServeMode) SetExtraRoutes(mux *http.ServeMux) {
 // Run starts the HTTP server.
 func (m *ServeMode) Run(listenAddr string) error {
 	srv := server.New(m.app, m.slashCmds)
+	srv.SetVersion(Version)
 	if m.extraMux != nil {
 		srv.SetExtraRoutes(m.extraMux)
 	}
+	// Enable API key auth if configured
+	if m.app.Config().APIKey != "" {
+		srv.SetAPIKey(m.app.Config().APIKey)
+	}
 	return srv.ListenAndServe(listenAddr)
+}
+
+// Version is set by main via SetVersion.
+var Version = "dev"
+
+// SetVersion sets the build version.
+func SetVersion(v string) {
+	Version = v
 }
