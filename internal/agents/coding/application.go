@@ -6,6 +6,7 @@ import (
 	codingprompt "github.com/hwj123hwj/pi-go/internal/agents/coding/prompt"
 	codingtools "github.com/hwj123hwj/pi-go/internal/agents/coding/tools"
 	"github.com/hwj123hwj/pi-go/internal/config"
+	modelsreg "github.com/hwj123hwj/pi-go/internal/models"
 	"github.com/hwj123hwj/pi-go/internal/runtime"
 	"github.com/hwj123hwj/pi-go/internal/slashcmd"
 )
@@ -13,12 +14,17 @@ import (
 // CodingApplication implements runtime.Application for the coding-agent.
 // It is the concrete application that gets injected into the Platform layer.
 type CodingApplication struct {
-	Cfg config.Config
+	Cfg         config.Config
+	modelReg    *modelsreg.Registry
 }
 
 // NewCodingApplication creates a new CodingApplication with the given config.
 func NewCodingApplication(cfg config.Config) CodingApplication {
-	return CodingApplication{Cfg: cfg}
+	modelConfigPath := modelsreg.ResolveConfigPath(cfg.DataDir)
+	return CodingApplication{
+		Cfg:      cfg,
+		modelReg: modelsreg.NewDefaultRegistry(modelConfigPath),
+	}
 }
 
 // BuildTools assembles the coding-agent toolset based on the provided options.
@@ -64,14 +70,17 @@ func (CodingApplication) Profiles() []string {
 }
 
 // AvailableModels returns the list of models available for switching.
-func (CodingApplication) AvailableModels() []slashcmd.ModelInfo {
-	return []slashcmd.ModelInfo{
-		{Provider: "anthropic", ModelID: "claude-sonnet-4-6"},
-		{Provider: "anthropic", ModelID: "claude-sonnet-4-5"},
-		{Provider: "anthropic", ModelID: "claude-sonnet-4"},
-		{Provider: "openai", ModelID: "gpt-4o"},
-		{Provider: "openai", ModelID: "gpt-4o-mini"},
+// Uses the config-driven model registry, falling back to defaults.
+func (a CodingApplication) AvailableModels() []slashcmd.ModelInfo {
+	all := a.modelReg.List()
+	result := make([]slashcmd.ModelInfo, 0, len(all))
+	for _, m := range all {
+		result = append(result, slashcmd.ModelInfo{
+			Provider: m.Provider,
+			ModelID:  m.ID,
+		})
 	}
+	return result
 }
 
 // ToolNames returns the canonical coding-agent tool names.
