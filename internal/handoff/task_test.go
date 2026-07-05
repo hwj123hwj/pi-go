@@ -57,10 +57,10 @@ func TestSaveAndLoad(t *testing.T) {
 		t.Fatalf("Save failed: %v", err)
 	}
 
-	// Verify file exists
-	path := filepath.Join(tmpDir, TaskDir, TaskFileName)
+	// Verify file exists in .pi-go directory
+	path := filepath.Join(tmpDir, ".pi-go", TaskFileName)
 	if _, err := os.Stat(path); os.IsNotExist(err) {
-		t.Fatal("TASK.md was not created")
+		t.Fatal("TASK.md was not created in .pi-go directory")
 	}
 
 	// Load

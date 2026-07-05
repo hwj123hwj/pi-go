@@ -20,7 +20,7 @@ const (
 	// TaskFileName is the canonical task handoff file name.
 	TaskFileName = "TASK.md"
 	// TaskDir is the subdirectory inside the workspace for task files.
-	TaskDir = ".easycode"
+	TaskDir = ".pi-go"
 )
 
 // TaskState represents the current state of a task.
