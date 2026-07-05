@@ -91,6 +91,7 @@
 - [[web-search-undo-session]] — Web search tool (SearXNG/DuckDuckGo), session crash-safe persistence (fsync + crypto/rand IDs), undo/rollback system with auto-snapshot (NEW)
 - [[security-hardening]] — SSRF protection on external tool callbacks, Bearer token API auth, YAML config file support, --version flag + /health version info (NEW)
 - [[feishu-oauth]] — Feishu OAuth scan login (/feishu setup → QR code → auto-save credentials), modeled after hwjcode's approach (NEW)
+- [[hwjcode-absorption-batch]] — Parallel worktree absorption: 4 modules from hwjcode (~10,800 lines). Enhanced tools ✅ wired, LSP ✅ wired. Hooks/Policy/MCP ⚠️ island code (not integrated yet). ask_user ⚠️ stub. (NEW v42)
 
 ## Synthesis
 <!-- Cross-cutting analysis pages will be listed here -->

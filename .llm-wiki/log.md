@@ -3,6 +3,19 @@
 > Chronological record of wiki operations.
 
 ## [2026-07-05] ingest | Feishu OAuth Scan Login
+
+## [2026-07-05] review | hwjcode Absorption Batch Post-Merge Audit
+
+**Scope**: Reviewed 4 parallel worktree merges (enhanced tools, hooks, policy, MCP, LSP) totaling ~10,800 lines.
+
+**Findings**:
+1. **MAJOR**: Hooks (`internal/hooks/`), Policy (`internal/policy/`), MCP (`internal/mcp/`) are "island code" — compile and pass tests but never imported by runtime. Need wiring into agent_session.go / tools.go.
+2. **MAJOR**: `ask_user` tool Execute() is a stub — formats text but doesn't actually collect user input. Needs confirmation callback mechanism.
+3. **OK**: Security — all file-mutating tools use `IsPathSafe()` path validation, no traversal vectors.
+4. **OK**: Concurrency — proper mutex usage, race detector passes on all new packages.
+5. **OK**: Process lifecycle — LSP and MCP properly kill child processes on Close().
+
+**Wiki page**: [[hwjcode-absorption-batch]]
 - **Created** `wiki/feishu-oauth.md` — Feishu OAuth flow (/feishu setup → browser → QR scan → callback → token exchange → save credentials), pre-registered app_id pattern, credential persistence (~/.pi-go/feishu-credentials.json), pi-feishu-bridge auto-load integration
 - **Updated** `index.md` — Added `[[feishu-oauth]]`
 - **Key files**: `internal/feishu/oauth.go`, `internal/feishu/credentials.go`, `internal/agents/coding/commands/feishu.go`, `cmd/pi-feishu-bridge/main.go`
