@@ -503,13 +503,20 @@ func executeOneTool(ctx context.Context, a *Agent, call ai.ToolCall) ai.Message 
 	}
 
 	// 5. Run before hooks
-	for _, hook := range a.lifecycleHooks.Before {
-		callCtx, err = hook(ctx, callCtx)
-		if err != nil {
-			// Before hook blocked execution — emit end with error
-			a.emit(ctx, EventToolExecutionEnd{ToolCallID: call.ID, ToolName: call.Name, Result: err.Error(), IsError: true})
-			return ai.ToolResultMessage{ToolCallID: call.ID, Content: err.Error(), IsError: true}
+	if a.hookSystem != nil {
+		callCtx, err = a.hookSystem.RunBefore(ctx, a.lifecycleHooks.Before, callCtx)
+	} else {
+		for _, hook := range a.lifecycleHooks.Before {
+			callCtx, err = hook(ctx, callCtx)
+			if err != nil {
+				break
+			}
 		}
+	}
+	if err != nil {
+		// Before hook blocked execution — emit end with error
+		a.emit(ctx, EventToolExecutionEnd{ToolCallID: call.ID, ToolName: call.Name, Result: err.Error(), IsError: true})
+		return ai.ToolResultMessage{ToolCallID: call.ID, Content: err.Error(), IsError: true}
 	}
 	args = callCtx.Args
 
@@ -580,16 +587,23 @@ func executeOneTool(ctx context.Context, a *Agent, call ai.ToolCall) ai.Message 
 
 	// 8. Run after hooks
 	preHookResult := rawResult
-	for _, hook := range a.lifecycleHooks.After {
-		rawResult, err = hook(ctx, callCtx, rawResult)
-		if err != nil {
-			// After hook failed — treat as execution failure.
-			// Wrap with AfterHookError to preserve pre-hook result for debugging.
-			hookErr := NewAfterHookError(err, preHookResult)
-			errMsg := fmt.Sprintf("%s (original result: %s)", hookErr.Error(), preHookResult.Content)
-			a.emit(ctx, EventToolExecutionEnd{ToolCallID: call.ID, ToolName: call.Name, Result: errMsg, IsError: true})
-			return ai.ToolResultMessage{ToolCallID: call.ID, Content: errMsg, IsError: true}
+	if a.hookSystem != nil {
+		rawResult, err = a.hookSystem.RunAfter(ctx, a.lifecycleHooks.After, callCtx, rawResult)
+	} else {
+		for _, hook := range a.lifecycleHooks.After {
+			rawResult, err = hook(ctx, callCtx, rawResult)
+			if err != nil {
+				break
+			}
 		}
+	}
+	if err != nil {
+		// After hook failed — treat as execution failure.
+		// Wrap with AfterHookError to preserve pre-hook result for debugging.
+		hookErr := NewAfterHookError(err, preHookResult)
+		errMsg := fmt.Sprintf("%s (original result: %s)", hookErr.Error(), preHookResult.Content)
+		a.emit(ctx, EventToolExecutionEnd{ToolCallID: call.ID, ToolName: call.Name, Result: errMsg, IsError: true})
+		return ai.ToolResultMessage{ToolCallID: call.ID, Content: errMsg, IsError: true}
 	}
 
 	// 9. Emit end
