@@ -122,6 +122,23 @@ type LifecycleHooks struct {
 	PreCompress  []PreCompressHook
 }
 
+// HookSystemInterface defines the interface for the enhanced hook system.
+// This allows the agent to use the hook system without directly importing
+// the hooks package, avoiding circular dependencies.
+type HookSystemInterface interface {
+	// RunBefore runs all before-tool-call hooks (registered + existing lifecycle hooks)
+	// in priority order. Returns the (possibly modified) ToolCallContext or an error to block.
+	RunBefore(ctx context.Context, existing []BeforeToolCallHook, call ToolCallContext) (ToolCallContext, error)
+	// RunAfter runs all after-tool-call hooks.
+	RunAfter(ctx context.Context, existing []AfterToolCallHook, call ToolCallContext, result ToolResult) (ToolResult, error)
+	// RunSessionStart runs all session-start hooks (non-blocking).
+	RunSessionStart(ctx context.Context, existing []SessionStartHook, e SessionStartEvent)
+	// RunSessionEnd runs all session-end hooks (non-blocking).
+	RunSessionEnd(ctx context.Context, existing []SessionEndHook, e SessionEndEvent)
+	// RunPreCompress runs all pre-compress hooks (non-blocking).
+	RunPreCompress(ctx context.Context, existing []PreCompressHook, e PreCompressEvent)
+}
+
 // 观察型 hook 的统一执行模式：遍历调用，error 仅 slog.Warn 记录，不阻断主流程。
 // 三个函数分别对应三种 Event 类型（Go 具名 hook 类型不隐式转换，故不合并）。
 

@@ -34,6 +34,7 @@ type Options struct {
 	CompactionSettings compaction.Settings      // 上下文压缩设置
 	SummarizeFunc      compaction.SummarizeFunc // 可选：摘要生成函数
 	LifecycleHooks     LifecycleHooks           // 可选：工具执行生命周期钩子
+	HookSystem         HookSystemInterface      // 可选：增强型 Hook 系统（优先级排序、超时、policy 集成）
 	ConfirmFunc        ConfirmFunc              // 可选：危险工具执行前向用户确认（未注入则默认放行）
 	LoopDetectSettings LoopDetectSettings       // 循环检测设置（默认启用，连续相同 tool call 触发提醒）
 }
@@ -54,6 +55,7 @@ type Agent struct {
 	compactionSettings compaction.Settings
 	summarizeFunc      compaction.SummarizeFunc
 	lifecycleHooks     LifecycleHooks
+	hookSystem         HookSystemInterface      // 增强型 Hook 系统（可选）
 	confirmFunc        ConfirmFunc
 	loopDetectSettings LoopDetectSettings
 	loopDetect         loopDetector
@@ -91,6 +93,7 @@ func New(opts Options) *Agent {
 		compactionSettings: opts.CompactionSettings,
 		summarizeFunc:      opts.SummarizeFunc,
 		lifecycleHooks:     opts.LifecycleHooks,
+		hookSystem:         opts.HookSystem,
 		confirmFunc:        opts.ConfirmFunc,
 		loopDetectSettings: loopSettings,
 	}
@@ -180,7 +183,11 @@ func (a *Agent) Prompt(ctx context.Context, msg ai.Message) (ai.AssistantMessage
 	a.loopDetect.reset()
 
 	a.emit(ctx, EventAgentStart{})
-	runSessionStartHooks(ctx, a.lifecycleHooks.SessionStart, SessionStartEvent{Goal: a.goal})
+	if a.hookSystem != nil {
+		a.hookSystem.RunSessionStart(ctx, a.lifecycleHooks.SessionStart, SessionStartEvent{Goal: a.goal})
+	} else {
+		runSessionStartHooks(ctx, a.lifecycleHooks.SessionStart, SessionStartEvent{Goal: a.goal})
+	}
 	a.steeringQueue.Enqueue(msg)
 	assistant, err := RunLoop(ctx, a)
 	a.mu.Lock()
@@ -190,7 +197,11 @@ func (a *Agent) Prompt(ctx context.Context, msg ai.Message) (ai.AssistantMessage
 		a.state = StateIdle
 	}
 	a.mu.Unlock()
-	runSessionEndHooks(ctx, a.lifecycleHooks.SessionEnd, SessionEndEvent{Err: err})
+	if a.hookSystem != nil {
+		a.hookSystem.RunSessionEnd(ctx, a.lifecycleHooks.SessionEnd, SessionEndEvent{Err: err})
+	} else {
+		runSessionEndHooks(ctx, a.lifecycleHooks.SessionEnd, SessionEndEvent{Err: err})
+	}
 	a.emit(ctx, EventAgentEnd{Messages: []ai.Message{msg}})
 	return assistant, err
 }
@@ -260,7 +271,11 @@ func (a *Agent) PromptStream(ctx context.Context, msg ai.Message) (<-chan AgentS
 		}
 
 		a.emit(ctx, EventAgentStart{})
-		runSessionStartHooks(ctx, a.lifecycleHooks.SessionStart, SessionStartEvent{Goal: a.goal})
+		if a.hookSystem != nil {
+			a.hookSystem.RunSessionStart(ctx, a.lifecycleHooks.SessionStart, SessionStartEvent{Goal: a.goal})
+		} else {
+			runSessionStartHooks(ctx, a.lifecycleHooks.SessionStart, SessionStartEvent{Goal: a.goal})
+		}
 		a.steeringQueue.Enqueue(msg)
 
 		// PromptStream 的 stream consumer：转发 text delta 事件到 channel
@@ -301,7 +316,11 @@ func (a *Agent) PromptStream(ctx context.Context, msg ai.Message) (<-chan AgentS
 		a.mu.Lock()
 		a.state = StateIdle
 		a.mu.Unlock()
-		runSessionEndHooks(ctx, a.lifecycleHooks.SessionEnd, SessionEndEvent{Err: err})
+		if a.hookSystem != nil {
+			a.hookSystem.RunSessionEnd(ctx, a.lifecycleHooks.SessionEnd, SessionEndEvent{Err: err})
+		} else {
+			runSessionEndHooks(ctx, a.lifecycleHooks.SessionEnd, SessionEndEvent{Err: err})
+		}
 		a.emit(ctx, EventAgentEnd{})
 	}()
 
