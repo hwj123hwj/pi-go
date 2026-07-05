@@ -86,6 +86,7 @@
 - [[asr-voice-input]] — Speech-to-text pipeline: MediaRecorder → server proxy → SiliconFlow TeleSpeechASR (NEW v40)
 
 - [[react-native-mobile-app]] — Mobile client rebuilt from Capacitor to React Native + Expo (RN best practices: Hermes mmap, R8 shrinking, React.memo, FlatList optimization, Zustand atomic selectors) (NEW v41)
+- [[loop-scheduler]] — /loop watchdog recurring loop (goroutine + time.Ticker) + TASK.md handoff context persistence (NEW, absorbed from hwjcode)
 
 ## Synthesis
 <!-- Cross-cutting analysis pages will be listed here -->

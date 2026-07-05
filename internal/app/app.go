@@ -13,6 +13,7 @@ import (
 	"github.com/hwj123hwj/pi-go/internal/operations"
 	"github.com/hwj123hwj/pi-go/internal/profile"
 	"github.com/hwj123hwj/pi-go/internal/runtime"
+	"github.com/hwj123hwj/pi-go/internal/scheduler"
 	"github.com/hwj123hwj/pi-go/internal/sessionmgr"
 	"github.com/hwj123hwj/pi-go/internal/slashcmd"
 )
@@ -31,6 +32,7 @@ type App struct {
 	applications map[string]runtime.Application // named applications for per-session selection
 	extraTools   []agent.ExternalToolDef
 	profile      *profile.Store // unified user profile (shared across agents)
+	loopMgr      *scheduler.LoopManager
 }
 
 // AppOptions holds the options for creating a new App.
@@ -96,6 +98,7 @@ func New(opts AppOptions) (*App, error) {
 		application:  application,
 		applications: apps,
 		profile:      opts.Profile,
+		loopMgr:      scheduler.NewLoopManager(),
 	}, nil
 }
 
@@ -189,8 +192,16 @@ func (a *App) ExtRegistry() *extensions.Registry {
 	return a.extRegistry
 }
 
+// LoopManager returns the loop manager for recurring task scheduling.
+func (a *App) LoopManager() *scheduler.LoopManager {
+	return a.loopMgr
+}
+
 // Close cleans up all resources.
 func (a *App) Close() error {
+	if a.loopMgr != nil {
+		a.loopMgr.StopAll()
+	}
 	return a.sessionStore.CloseAll()
 }
 

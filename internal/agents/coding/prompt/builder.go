@@ -9,6 +9,7 @@ import (
 
 	"github.com/hwj123hwj/pi-go/internal/agent"
 	codingprofile "github.com/hwj123hwj/pi-go/internal/agents/coding/profile"
+	"github.com/hwj123hwj/pi-go/internal/handoff"
 	platformprompt "github.com/hwj123hwj/pi-go/internal/prompt"
 	"github.com/hwj123hwj/pi-go/internal/skill"
 )
@@ -103,6 +104,14 @@ func BuildSystemPrompt(opts Options) string {
 		b.WriteString("\n## Current Goal\n\n")
 		b.WriteString(opts.Goal)
 		b.WriteString("\n")
+	}
+
+	// Task handoff injection — if a TASK.md exists from a previous session,
+	// include it so the agent resumes where it left off.
+	if opts.CWD != "" {
+		if handoffPrompt := handoff.LoadAsPrompt(opts.CWD); handoffPrompt != "" {
+			b.WriteString(handoffPrompt)
+		}
 	}
 
 	// Profile-specific prompt additions

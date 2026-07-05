@@ -2,6 +2,11 @@
 
 > Chronological record of wiki operations.
 
+## [2026-07-05] ingest | Loop Scheduler & Task Handoff (absorbed from hwjcode)
+- **Created** `wiki/loop-scheduler.md` — New concept page: /loop watchdog architecture (goroutine + time.Ticker, TriggerResolver pattern, per-session loops), TASK.md handoff design (document-as-context philosophy, auto-load in prompt builder, structured Markdown format)
+- **Updated** `index.md` — Added `[[loop-scheduler]]` to Concepts section
+- **Key files**: `internal/scheduler/loop.go`, `internal/scheduler/duration.go`, `internal/handoff/task.go`, `internal/agents/coding/commands/loop.go`, `internal/agents/coding/commands/task.go`, `internal/agents/coding/prompt/builder.go` (auto-inject), `internal/server/server.go` (TriggerResolver wiring)
+
 ## [2026-06-28] ingest | Voice Input / ASR Feature (v40)
 - **Created** `wiki/source-project-root-v40.md` — Source summary: full-stack ASR pipeline (backend proxy, frontend hook, config fields, Android permission)
 - **Created** `wiki/asr-voice-input.md` — New concept page: architecture diagram, design decisions (server proxy, API key reuse, codec selection, toggle interaction), file list

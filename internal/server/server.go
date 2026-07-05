@@ -21,6 +21,7 @@ import (
 	"github.com/hwj123hwj/pi-go/internal/ai"
 	"github.com/hwj123hwj/pi-go/internal/app"
 	"github.com/hwj123hwj/pi-go/internal/runtime"
+	"github.com/hwj123hwj/pi-go/internal/scheduler"
 	"github.com/hwj123hwj/pi-go/internal/slashcmd"
 	"github.com/hwj123hwj/pi-go/internal/web"
 )
@@ -66,8 +67,33 @@ type ErrorResponse struct {
 }
 
 // New creates a new Server backed by the given App and slash command registry.
+// It also wires the LoopManager's trigger resolver so /loop can inject prompts.
 func New(application *app.App, slashCmds *slashcmd.Registry) *Server {
-	return &Server{app: application, slashCmds: slashCmds}
+	srv := &Server{app: application, slashCmds: slashCmds}
+
+	// Wire loop trigger: when a /loop fires, inject the prompt into the target session
+	if application.LoopManager() != nil {
+		application.LoopManager().SetTriggerResolver(func(sessionID string) scheduler.TriggerFunc {
+			return func(ctx context.Context, prompt string) error {
+				return srv.injectLoopPrompt(ctx, sessionID, prompt)
+			}
+		})
+	}
+
+	return srv
+}
+
+// injectLoopPrompt injects a prompt into a session as a background agent turn.
+// Used by the /loop scheduler to fire recurring prompts.
+func (s *Server) injectLoopPrompt(ctx context.Context, sessionID, prompt string) error {
+	sess, err := s.app.LoadSession(ctx, sessionID)
+	if err != nil {
+		return fmt.Errorf("load session for loop: %w", err)
+	}
+
+	// Fire a non-blocking prompt; we don't need the result, just want it to run.
+	_, err = sess.Prompt(ctx, prompt)
+	return err
 }
 
 // Handler returns the HTTP handler with all routes and middleware.

@@ -12,6 +12,7 @@ import (
 	"strconv"
 
 	"github.com/hwj123hwj/pi-go/internal/agents/coding"
+	"github.com/hwj123hwj/pi-go/internal/agents/coding/commands"
 	kbapp "github.com/hwj123hwj/pi-go/internal/agents/kb"
 	musicapp "github.com/hwj123hwj/pi-go/internal/agents/music"
 	"github.com/hwj123hwj/pi-go/internal/app"
@@ -22,6 +23,7 @@ import (
 	userprofile "github.com/hwj123hwj/pi-go/internal/profile"
 	"github.com/hwj123hwj/pi-go/internal/music/netease"
 	"github.com/hwj123hwj/pi-go/internal/runtime"
+	"github.com/hwj123hwj/pi-go/internal/scheduler"
 	"github.com/hwj123hwj/pi-go/internal/slashcmd"
 )
 
@@ -112,7 +114,7 @@ func main() {
 	case "interactive", "chat":
 		sess, err := application.LoadOrCreateSession(context.Background(), *sessionFlag)
 		must(err)
-		cmds := buildSlashRegistry()
+		cmds := buildSlashRegistry(application.LoopManager())
 		must(mode.NewInteractiveMode(sess, cmds, application).Run(context.Background()))
 
 	case "run":
@@ -123,7 +125,7 @@ func main() {
 		must(mode.NewPrintMode(sess).Run(ctx, *input))
 
 	case "serve":
-		cmds := buildSlashRegistry()
+		cmds := buildSlashRegistry(application.LoopManager())
 		// Music audio proxy routes
 		musicHandler := music.NewHandler(musicRouter, musicCache)
 		extraMux := http.NewServeMux()
@@ -143,9 +145,13 @@ func main() {
 }
 
 // buildSlashRegistry creates the slash command registry with built-in commands.
-func buildSlashRegistry() *slashcmd.Registry {
+func buildSlashRegistry(loopMgr *scheduler.LoopManager) *slashcmd.Registry {
 	registry := slashcmd.NewRegistry()
 	coding.RegisterCommands(registry)
+	if loopMgr != nil {
+		commands.RegisterLoopCommands(registry, loopMgr)
+	}
+	commands.RegisterTaskCommands(registry)
 	return registry
 }
 
