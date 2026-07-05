@@ -19,13 +19,14 @@ type ListOptions struct {
 	ExtensionTools     []agent.Tool
 	AllowedTools       []string
 	BlockedTools       []string
-	FileMutationQueue  *FileMutationQueue // 可选：per-file 写操作串行化
+	FileMutationQueue  *FileMutationQueue     // 可选：per-file 写操作串行化
 	BackupManager      *basetools.BackupManager // 可选：操作前自动快照
+	ToolRegistry       basetools.ToolRegistry  // 可选：batch 工具需要的 tool registry
 }
 
 // BaseToolNames returns the canonical coding-agent tool names before extension tools.
 func BaseToolNames(enableBash bool) []string {
-	names := []string{"read", "write", "edit", "grep", "find", "ls"}
+	names := []string{"read", "write", "edit", "grep", "find", "ls", "multiedit", "patch", "batch", "todo_write", "save_memory", "local_time", "delete_file", "read_many_files", "ask_user_question"}
 	if enableBash {
 		names = append([]string{"bash"}, names...)
 	}
@@ -92,6 +93,34 @@ func BuildList(opts ListOptions) []agent.Tool {
 			basetools.WithLsMaxOutputLen(opts.MaxOutputLen),
 			basetools.WithLsOperations(opts.FileOps),
 		),
+		// ── New enhanced tools ──
+		basetools.NewMultiEditTool(
+			basetools.WithMultiEditWorkspace(opts.Workspace),
+			basetools.WithMultiEditOperations(opts.FileOps),
+			basetools.WithMultiEditBackupManager(opts.BackupManager),
+		),
+		basetools.NewPatchTool(
+			basetools.WithPatchWorkspace(opts.Workspace),
+			basetools.WithPatchOperations(opts.FileOps),
+			basetools.WithPatchBackupManager(opts.BackupManager),
+		),
+		basetools.NewBatchTool(
+			basetools.WithBatchRegistry(opts.ToolRegistry),
+		),
+		basetools.NewTodoTool(),
+		basetools.NewMemoryTool(),
+		basetools.NewLocalTimeTool(),
+		basetools.NewDeleteFileTool(
+			basetools.WithDeleteFileWorkspace(opts.Workspace),
+			basetools.WithDeleteFileOperations(opts.FileOps),
+			basetools.WithDeleteFileBackupManager(opts.BackupManager),
+		),
+		basetools.NewReadManyFilesTool(
+			basetools.WithReadManyFilesWorkspace(opts.Workspace),
+			basetools.WithReadManyFilesMaxOutputLen(opts.MaxOutputLen),
+			basetools.WithReadManyFilesOperations(opts.FileOps),
+		),
+		basetools.NewAskUserTool(),
 	)
 
 	toolList = append(toolList, opts.ExtensionTools...)

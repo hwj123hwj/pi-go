@@ -136,6 +136,15 @@ func (a *Agent) ToolNames() []string {
 	return names
 }
 
+// GetTool returns a registered tool by name.
+// Returns the tool and true if found, nil and false otherwise.
+func (a *Agent) GetTool(name string) (Tool, bool) {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	tool, ok := a.tools[name]
+	return tool, ok
+}
+
 // Goal returns the current session goal, if any.
 func (a *Agent) Goal() string {
 	a.mu.RLock()
