@@ -25,6 +25,7 @@ import (
 	"github.com/hwj123hwj/pi-go/internal/runtime"
 	"github.com/hwj123hwj/pi-go/internal/scheduler"
 	"github.com/hwj123hwj/pi-go/internal/slashcmd"
+	"github.com/hwj123hwj/pi-go/internal/tools"
 )
 
 // version is the build version, injected via -ldflags during release builds.
@@ -148,6 +149,9 @@ func main() {
 		os.Exit(1)
 	}
 	defer application.Close()
+
+	// Ensure LSP processes are cleaned up on exit
+	defer tools.ResetLSPManager()
 
 	switch *modeFlag {
 	case "interactive", "chat":

@@ -16,6 +16,19 @@
 5. **OK**: Process lifecycle — LSP and MCP properly kill child processes on Close().
 
 **Wiki page**: [[hwjcode-absorption-batch]]
+
+## [2026-07-05] fix | Deep Audit Round 2 — 3 bugs fixed
+
+**Scope**: Deep dive into integration points after merge. Found and fixed 3 issues:
+
+1. **FIXED**: LSP cache dir namespace leak — was `~/.easycode-user/lsp/` (hwjcode copy-paste), corrected to `~/.pi-go/lsp/`.
+2. **FIXED**: batch tool `ToolRegistry` never injected — `BuildList` creates batch tool but `ListOptions.ToolRegistry` never set. Added `BuildToolsWithRegistry()` method.
+3. **FIXED**: LSP gopls process leak — started lazily via singleton but never cleaned up on agent exit. Added `defer tools.ResetLSPManager()` in main.go.
+
+**Remaining**:
+- Hooks/Policy/MCP still need runtime wiring (island code)
+- ask_user still a stub
+- Feishu `BuiltinAppSecret` hardcoded in oauth.go (security note)
 - **Created** `wiki/feishu-oauth.md` — Feishu OAuth flow (/feishu setup → browser → QR scan → callback → token exchange → save credentials), pre-registered app_id pattern, credential persistence (~/.pi-go/feishu-credentials.json), pi-feishu-bridge auto-load integration
 - **Updated** `index.md` — Added `[[feishu-oauth]]`
 - **Key files**: `internal/feishu/oauth.go`, `internal/feishu/credentials.go`, `internal/agents/coding/commands/feishu.go`, `cmd/pi-feishu-bridge/main.go`

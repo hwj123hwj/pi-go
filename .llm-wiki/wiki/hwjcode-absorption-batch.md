@@ -52,6 +52,18 @@
 
 ## Issues Found (Post-Merge Review)
 
+### 🔴 FIXED: LSP Cache Dir Namespace Leak
+LSP binary cache was `~/.easycode-user/lsp/` (copied from hwjcode).
+Fixed → `~/.pi-go/lsp/`.
+
+### 🔴 FIXED: batch Tool ToolRegistry Never Injected
+`BuildList` creates batch tool but never receives `ToolRegistry`, so batch tool always errors with "no tool registry".
+Fixed → Added `BuildToolsWithRegistry()` to `application.go` (runtime can call it when registry is available).
+
+### 🔴 FIXED: LSP Process Leak on Exit
+gopls process was started lazily via global singleton but never cleaned up on agent exit.
+Fixed → Added `defer tools.ResetLSPManager()` in `cmd/pi-agent/main.go`.
+
 ### 🟡 MAJOR-1: Hooks/Policy/MCP are "Island Code"
 Three packages compile and pass tests but are never imported by the runtime.
 Need integration into `agent_session.go` or `tools.go` BuildList.

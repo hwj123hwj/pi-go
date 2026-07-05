@@ -12,9 +12,9 @@ func TestLSPCacheDir(t *testing.T) {
 	if dir == "" {
 		t.Fatal("LSPCacheDir should not return empty")
 	}
-	// Should contain .easycode-user/lsp
-	if !contains(dir, ".easycode-user") {
-		t.Errorf("expected cache dir to contain '.easycode-user', got %s", dir)
+	// Should contain .pi-go/lsp
+	if !contains(dir, ".pi-go") {
+		t.Errorf("expected cache dir to contain '.pi-go', got %s", dir)
 	}
 }
 

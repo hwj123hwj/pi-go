@@ -6,6 +6,7 @@ import (
 	codingprofile "github.com/hwj123hwj/pi-go/internal/agents/coding/profile"
 	codingprompt "github.com/hwj123hwj/pi-go/internal/agents/coding/prompt"
 	codingtools "github.com/hwj123hwj/pi-go/internal/agents/coding/tools"
+	basetools "github.com/hwj123hwj/pi-go/internal/tools"
 	"github.com/hwj123hwj/pi-go/internal/config"
 	modelsreg "github.com/hwj123hwj/pi-go/internal/models"
 	"github.com/hwj123hwj/pi-go/internal/runtime"
@@ -46,6 +47,29 @@ func (a CodingApplication) BuildTools(opts runtime.ToolBuildOptions) []agent.Too
 		BlockedTools:       opts.BlockedTools,
 		FileMutationQueue:  mutationQueue,
 		BackupManager:      backupMgr,
+	})
+}
+
+// BuildToolsWithRegistry is like BuildTools but also wires the ToolRegistry
+// into tools that need it (e.g. batch tool).
+func (a CodingApplication) BuildToolsWithRegistry(opts runtime.ToolBuildOptions, registry basetools.ToolRegistry) []agent.Tool {
+	mutationQueue := codingtools.NewFileMutationQueue()
+	backupMgr := commands.GetUndoManager()
+	return codingtools.BuildList(codingtools.ListOptions{
+		Workspace:          opts.Workspace,
+		MaxOutputLen:       opts.MaxOutputLen,
+		EnableBash:         a.Cfg.EnableBash,
+		BashOps:            opts.BashOps,
+		EnableWeb:          a.Cfg.EnableWeb,
+		WebTimeoutSeconds:  a.Cfg.WebTimeoutSeconds,
+		EnableWebSearch:    a.Cfg.EnableWebSearch,
+		FileOps:            opts.FileOps,
+		ExtensionTools:     opts.ExtensionTools,
+		AllowedTools:       opts.AllowedTools,
+		BlockedTools:       opts.BlockedTools,
+		FileMutationQueue:  mutationQueue,
+		BackupManager:      backupMgr,
+		ToolRegistry:       registry,
 	})
 }
 

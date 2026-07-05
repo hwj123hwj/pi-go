@@ -23,7 +23,7 @@ import (
 // Manages automatic download and caching of language server binaries.
 // Ported from hwjcode's TypeScript BinaryManager.
 //
-// Cache location: ~/.easycode-user/lsp/<server-id>/
+// Cache location: ~/.pi-go/lsp/<server-id>/
 //
 // Three installer strategies:
 //   - NPM:    typescript-language-server, pyright, yaml, docker, etc.
@@ -36,7 +36,7 @@ func LSPCacheDir() string {
 	if err != nil {
 		home = "."
 	}
-	return filepath.Join(home, ".easycode-user", "lsp")
+	return filepath.Join(home, ".pi-go", "lsp")
 }
 
 // serverCacheDir returns the per-server cache directory, creating it if needed.
