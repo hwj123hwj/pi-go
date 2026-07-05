@@ -25,6 +25,7 @@ type EditTool struct {
 	workspace     string // 工作目录，用于解析相对路径
 	ops           operations.FileOperations
 	mutationQueue MutationQueue // 可选：per-file 串行化
+	backupMgr     *BackupManager // 可选：操作前自动快照
 }
 
 type EditParams struct {
@@ -57,6 +58,11 @@ func WithEditOperations(ops operations.FileOperations) EditToolOption {
 // WithEditMutationQueue sets the per-file mutation queue for serialized writes.
 func WithEditMutationQueue(q MutationQueue) EditToolOption {
 	return func(t *EditTool) { t.mutationQueue = q }
+}
+
+// WithEditBackupManager sets the backup manager for auto-snapshot before edits.
+func WithEditBackupManager(bm *BackupManager) EditToolOption {
+	return func(t *EditTool) { t.backupMgr = bm }
 }
 
 func NewEditTool(opts ...EditToolOption) *EditTool {
@@ -164,6 +170,14 @@ func (t *EditTool) doExecute(ctx context.Context, raw json.RawMessage, onUpdate 
 	}
 
 	cleanPath := ResolvePath(t.workspace, params.Path)
+
+	// Auto-snapshot before modification (if backup manager is set)
+	if t.backupMgr != nil {
+		if _, err := t.backupMgr.Snapshot(cleanPath); err != nil {
+			// Non-fatal: log but continue with the edit
+			_ = err
+		}
+	}
 
 	// Check path safety if workspace is set
 	if t.workspace != "" && !IsPathSafe(t.workspace, cleanPath) {

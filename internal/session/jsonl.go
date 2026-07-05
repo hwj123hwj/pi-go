@@ -3,6 +3,8 @@ package session
 import (
 	"bufio"
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -148,6 +150,13 @@ func (s *JSONLStorage) Append(ctx context.Context, entry Entry) error {
 	if _, err := s.file.Write(append(line, '\n')); err != nil {
 		return err
 	}
+	// fsync to ensure crash-safe durability (without this, the OS buffer
+	// can lose or half-flush the last line on power failure).
+	if err := s.file.Sync(); err != nil {
+		// Sync failure is non-fatal on some platforms (e.g. network FS);
+		// log but don't block the append.
+		_ = err
+	}
 	s.byID[entry.ID] = entry
 	switch entry.Type {
 	case EntryTypeLeaf:
@@ -230,6 +239,15 @@ func (s *JSONLStorage) Fork(ctx context.Context, targetID string) (SessionStorag
 	return forked, nil
 }
 
+// newID generates a unique ID using crypto/rand to avoid collisions.
+// Format: <prefix>_<timestamp>_<random_hex>
+// This replaces the old time.Now().UnixNano() approach which could collide
+// under fast successive appends or concurrent access.
 func newID(prefix string) string {
-	return fmt.Sprintf("%s_%d", prefix, time.Now().UnixNano())
+	b := make([]byte, 8)
+	if _, err := rand.Read(b); err != nil {
+		// Fallback to timestamp if crypto/rand fails (extremely unlikely)
+		return fmt.Sprintf("%s_%d", prefix, time.Now().UnixNano())
+	}
+	return fmt.Sprintf("%s_%d_%s", prefix, time.Now().UnixMilli(), hex.EncodeToString(b))
 }

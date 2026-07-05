@@ -2,6 +2,7 @@ package coding
 
 import (
 	"github.com/hwj123hwj/pi-go/internal/agent"
+	"github.com/hwj123hwj/pi-go/internal/agents/coding/commands"
 	codingprofile "github.com/hwj123hwj/pi-go/internal/agents/coding/profile"
 	codingprompt "github.com/hwj123hwj/pi-go/internal/agents/coding/prompt"
 	codingtools "github.com/hwj123hwj/pi-go/internal/agents/coding/tools"
@@ -30,18 +31,21 @@ func NewCodingApplication(cfg config.Config) CodingApplication {
 // BuildTools assembles the coding-agent toolset based on the provided options.
 func (a CodingApplication) BuildTools(opts runtime.ToolBuildOptions) []agent.Tool {
 	mutationQueue := codingtools.NewFileMutationQueue()
+	backupMgr := commands.GetUndoManager()
 	return codingtools.BuildList(codingtools.ListOptions{
-		Workspace:         opts.Workspace,
-		MaxOutputLen:      opts.MaxOutputLen,
-		EnableBash:        a.Cfg.EnableBash,
-		BashOps:           opts.BashOps,
-		EnableWeb:         a.Cfg.EnableWeb,
-		WebTimeoutSeconds: a.Cfg.WebTimeoutSeconds,
-		FileOps:           opts.FileOps,
-		ExtensionTools:    opts.ExtensionTools,
-		AllowedTools:      opts.AllowedTools,
-		BlockedTools:      opts.BlockedTools,
-		FileMutationQueue: mutationQueue,
+		Workspace:          opts.Workspace,
+		MaxOutputLen:       opts.MaxOutputLen,
+		EnableBash:         a.Cfg.EnableBash,
+		BashOps:            opts.BashOps,
+		EnableWeb:          a.Cfg.EnableWeb,
+		WebTimeoutSeconds:  a.Cfg.WebTimeoutSeconds,
+		EnableWebSearch:    a.Cfg.EnableWebSearch,
+		FileOps:            opts.FileOps,
+		ExtensionTools:     opts.ExtensionTools,
+		AllowedTools:       opts.AllowedTools,
+		BlockedTools:       opts.BlockedTools,
+		FileMutationQueue:  mutationQueue,
+		BackupManager:      backupMgr,
 	})
 }
 

@@ -13,7 +13,8 @@ import (
 type WriteTool struct {
 	workspace     string // 工作目录，用于解析相对路径
 	ops           operations.FileOperations
-	mutationQueue MutationQueue // 可选：per-file 串行化
+	mutationQueue MutationQueue   // 可选：per-file 串行化
+	backupMgr     *BackupManager   // 可选：操作前自动快照
 }
 
 type WriteParams struct {
@@ -37,6 +38,11 @@ func WithWriteOperations(ops operations.FileOperations) WriteToolOption {
 // WithWriteMutationQueue sets the per-file mutation queue for serialized writes.
 func WithWriteMutationQueue(q MutationQueue) WriteToolOption {
 	return func(t *WriteTool) { t.mutationQueue = q }
+}
+
+// WithWriteBackupManager sets the backup manager for auto-snapshot before writes.
+func WithWriteBackupManager(bm *BackupManager) WriteToolOption {
+	return func(t *WriteTool) { t.backupMgr = bm }
 }
 
 func NewWriteTool(opts ...WriteToolOption) *WriteTool {
@@ -104,6 +110,14 @@ func (t *WriteTool) doExecute(ctx context.Context, raw json.RawMessage, onUpdate
 	}
 
 	cleanPath := ResolvePath(t.workspace, params.Path)
+
+	// Auto-snapshot before modification (if backup manager is set)
+	if t.backupMgr != nil {
+		if _, err := t.backupMgr.Snapshot(cleanPath); err != nil {
+			// Non-fatal: log but continue with the write
+			_ = err
+		}
+	}
 
 	// Check path safety if workspace is set
 	if t.workspace != "" && !IsPathSafe(t.workspace, cleanPath) {

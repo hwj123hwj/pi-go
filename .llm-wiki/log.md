@@ -2,6 +2,11 @@
 
 > Chronological record of wiki operations.
 
+## [2026-07-05] ingest | Web Search + Session Hardening + Undo System
+- **Created** `wiki/web-search-undo-session.md` — Three features: (1) web_search tool with dual engine (SearXNG JSON API + DuckDuckGo HTML fallback, SSRF protection, zero-config DDG); (2) session crash-safety (fsync after append, crypto/rand ID replacing time.Nano()); (3) undo/rollback with BackupManager (per-file snapshot stack, auto-snapshot in edit/write, /undo slash command)
+- **Updated** `index.md` — Added `[[web-search-undo-session]]`
+- **Key files**: `internal/tools/web_search.go`, `internal/tools/backup.go`, `internal/session/jsonl.go`, `internal/agents/coding/commands/undo.go`, `internal/agents/coding/tools/tools.go`
+
 ## [2026-07-05] ingest | Model Registry & Feishu Multi-Chat Fix
 - **Created** `wiki/model-registry-feishu-fix.md` — Model registry architecture (JSON config, 13 built-in models, provider-based filtering) + Feishu sender race fix (per-chat map replacing single shared field, session_id in tool callback)
 - **Updated** `index.md` — Added `[[model-registry-feishu-fix]]` to Concepts section

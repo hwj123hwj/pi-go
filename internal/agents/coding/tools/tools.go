@@ -8,17 +8,19 @@ import (
 
 // ListOptions controls how the coding-agent toolset is assembled.
 type ListOptions struct {
-	Workspace         string
-	MaxOutputLen      int
-	EnableBash        bool
-	BashOps           operations.BashOperations
-	EnableWeb         bool
-	WebTimeoutSeconds int
-	FileOps           operations.FileOperations
-	ExtensionTools    []agent.Tool
-	AllowedTools      []string
-	BlockedTools      []string
-	FileMutationQueue *FileMutationQueue // 可选：per-file 写操作串行化
+	Workspace          string
+	MaxOutputLen       int
+	EnableBash         bool
+	BashOps            operations.BashOperations
+	EnableWeb          bool
+	WebTimeoutSeconds  int
+	EnableWebSearch    bool
+	FileOps            operations.FileOperations
+	ExtensionTools     []agent.Tool
+	AllowedTools       []string
+	BlockedTools       []string
+	FileMutationQueue  *FileMutationQueue // 可选：per-file 写操作串行化
+	BackupManager      *basetools.BackupManager // 可选：操作前自动快照
 }
 
 // BaseToolNames returns the canonical coding-agent tool names before extension tools.
@@ -28,6 +30,11 @@ func BaseToolNames(enableBash bool) []string {
 		names = append([]string{"bash"}, names...)
 	}
 	return names
+}
+
+// WebSearchToolNames returns the canonical web tool names.
+func WebSearchToolNames() []string {
+	return []string{"web_search"}
 }
 
 // BuildList assembles the concrete coding-agent toolset.
@@ -49,6 +56,10 @@ func BuildList(opts ListOptions) []agent.Tool {
 		))
 	}
 
+	if opts.EnableWebSearch {
+		toolList = append(toolList, basetools.NewWebSearchTool())
+	}
+
 	toolList = append(toolList,
 		basetools.NewReadTool(
 			basetools.WithReadWorkspace(opts.Workspace),
@@ -59,11 +70,13 @@ func BuildList(opts ListOptions) []agent.Tool {
 			basetools.WithWriteWorkspace(opts.Workspace),
 			basetools.WithWriteOperations(opts.FileOps),
 			basetools.WithWriteMutationQueue(opts.FileMutationQueue),
+			basetools.WithWriteBackupManager(opts.BackupManager),
 		),
 		basetools.NewEditTool(
 			basetools.WithEditWorkspace(opts.Workspace),
 			basetools.WithEditOperations(opts.FileOps),
 			basetools.WithEditMutationQueue(opts.FileMutationQueue),
+			basetools.WithEditBackupManager(opts.BackupManager),
 		),
 		basetools.NewGrepTool(
 			basetools.WithGrepWorkspace(opts.Workspace),

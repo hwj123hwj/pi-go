@@ -35,6 +35,7 @@ type Config struct {
 	BashTimeoutSeconds int
 	EnableWeb          bool
 	WebTimeoutSeconds  int
+	EnableWebSearch    bool
 
 	// Execution backend
 	ExecutionMode string // "local" (default) or "ssh"
@@ -93,6 +94,7 @@ func Default() Config {
 		BashTimeoutSeconds: 30,
 		EnableWeb:          false,
 		WebTimeoutSeconds:  30,
+		EnableWebSearch:    false,
 
 		MaxOutputLen: 30000,
 
@@ -143,6 +145,9 @@ func (c *Config) LoadFromEnv() {
 		if t, err := strconv.Atoi(v); err == nil {
 			c.WebTimeoutSeconds = t
 		}
+	}
+	if v := os.Getenv("PI_GO_ENABLE_WEB_SEARCH"); v != "" {
+		c.EnableWebSearch = strings.ToLower(v) == "true" || v == "1"
 	}
 
 	// Anthropic
