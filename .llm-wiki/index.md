@@ -90,6 +90,7 @@
 - [[model-registry-feishu-fix]] — Config-driven model registry (JSON-configurable, 13 built-in models) + Feishu multi-chat sender race fix (NEW)
 - [[web-search-undo-session]] — Web search tool (SearXNG/DuckDuckGo), session crash-safe persistence (fsync + crypto/rand IDs), undo/rollback system with auto-snapshot (NEW)
 - [[security-hardening]] — SSRF protection on external tool callbacks, Bearer token API auth, YAML config file support, --version flag + /health version info (NEW)
+- [[feishu-oauth]] — Feishu OAuth scan login (/feishu setup → QR code → auto-save credentials), modeled after hwjcode's approach (NEW)
 
 ## Synthesis
 <!-- Cross-cutting analysis pages will be listed here -->

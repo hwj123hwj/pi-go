@@ -5,12 +5,13 @@
 
 ## Overview
 
-Four security and operational improvements:
+Five security and operational improvements:
 
 1. **SSRF Protection on External Tool Callbacks** — blocks cloud metadata, private IPs
 2. **HTTP API Bearer Token Authentication** — configurable auth middleware
 3. **YAML Config File Support** — `pi-go.yaml` alternative to 30+ env vars
 4. **`--version` Flag & `/health` Version** — build traceability
+5. **Feishu OAuth Scan Login** — `/feishu setup` QR code login flow
 
 ---
 

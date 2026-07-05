@@ -2,6 +2,11 @@
 
 > Chronological record of wiki operations.
 
+## [2026-07-05] ingest | Feishu OAuth Scan Login
+- **Created** `wiki/feishu-oauth.md` — Feishu OAuth flow (/feishu setup → browser → QR scan → callback → token exchange → save credentials), pre-registered app_id pattern, credential persistence (~/.pi-go/feishu-credentials.json), pi-feishu-bridge auto-load integration
+- **Updated** `index.md` — Added `[[feishu-oauth]]`
+- **Key files**: `internal/feishu/oauth.go`, `internal/feishu/credentials.go`, `internal/agents/coding/commands/feishu.go`, `cmd/pi-feishu-bridge/main.go`
+
 ## [2026-07-05] ingest | Security Hardening (SSRF + API Auth + YAML Config + Version)
 - **Created** `wiki/security-hardening.md` — Four security/ops improvements: (1) SSRF protection on external tool callbacks (shared util/ssrf.go, AllowPrivate flag for trusted internal services); (2) Bearer token API auth middleware (PI_GO_API_KEY, /health exempt, backward compatible); (3) YAML config file support (--config flag, auto-detect pi-go.yaml, full field coverage); (4) --version flag + /health version endpoint (ldflags injection)
 - **Updated** `index.md` — Added `[[security-hardening]]`

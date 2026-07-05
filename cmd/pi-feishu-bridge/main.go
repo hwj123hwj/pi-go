@@ -18,13 +18,29 @@ func main() {
 
 	appID := os.Getenv("FEISHU_APP_ID")
 	appSecret := os.Getenv("FEISHU_APP_SECRET")
+
+	// Fallback: try loading from credentials file (saved by /feishu setup)
+	if appID == "" || appSecret == "" {
+		if creds, err := feishu.LoadCredentials(); err == nil && creds != nil {
+			if appID == "" {
+				appID = creds.AppID
+			}
+			if appSecret == "" {
+				appSecret = creds.AppSecret
+			}
+			slog.Info("loaded feishu credentials from file", "app_id", appID)
+		}
+	}
+
 	piAgentURL := os.Getenv("PI_AGENT_URL")
 	workspace := os.Getenv("PI_GO_WORKSPACE")
 	callbackURL := os.Getenv("BRIDGE_CALLBACK_URL")
 	callbackAddr := os.Getenv("BRIDGE_CALLBACK_ADDR")
 
 	if appID == "" || appSecret == "" {
-		slog.Error("FEISHU_APP_ID and FEISHU_APP_SECRET are required")
+		slog.Error("FEISHU_APP_ID and FEISHU_APP_SECRET are required.\n" +
+			"Run /feishu setup to configure via QR scan,\n" +
+			"or set FEISHU_APP_ID and FEISHU_APP_SECRET env vars.")
 		os.Exit(1)
 	}
 	if piAgentURL == "" {
