@@ -2,6 +2,23 @@
 
 > Chronological record of wiki operations.
 
+## [2026-07-05] merge | PR codex/feishu-worktree-controls
+
+**Scope**: Merged Feishu worktree project controls PR (+1,576 lines, 9 files).
+
+**New modules**:
+- `internal/worktree/` — Git worktree Manager (Create, Status, CommitAndRemove, Discard)
+- `internal/feishu/worktree_card.go` — Feishu card UI for worktree status
+- `/worktree` slash command (status / commit / discard)
+
+**Security review**: PASS
+- Git commands via `exec.CommandContext` (no shell injection)
+- Branch names sanitized via `slugify()` regex `[^a-z0-9._-]+`
+- Path traversal blocked via `filepath.Abs()` + `canonicalDir()`
+- Worktrees stored under `.pi-go/worktrees/`
+
+**Tests**: 82 tests pass, race-clean.
+
 ## [2026-07-05] ingest | Feishu OAuth Scan Login
 
 ## [2026-07-05] review | hwjcode Absorption Batch Post-Merge Audit
