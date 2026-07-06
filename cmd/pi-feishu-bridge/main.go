@@ -67,6 +67,7 @@ func main() {
 
 	gateway := feishu.NewGateway(appID, appSecret, client, msgHandler)
 	handler.SetGateway(gateway)
+	gateway.SetCardActionHandler(handler.HandleCardAction)
 
 	// Start tool callback HTTP server
 	if callbackURL != "" {
