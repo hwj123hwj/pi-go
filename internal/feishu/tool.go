@@ -7,7 +7,6 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
-	"os"
 	"time"
 )
 
@@ -39,6 +38,10 @@ func RegisterTool(piAgentURL, callbackURL string) error {
 				"group_name": map[string]any{
 					"type":        "string",
 					"description": "飞书群名称，例如 my-project 项目协作",
+				},
+				"task": map[string]any{
+					"type":        "string",
+					"description": "可选。写入 worktree 根目录 TASK.md 的任务目标或用户原始需求。",
 				},
 			},
 			"required": []string{"project_path", "group_name"},
@@ -81,6 +84,7 @@ func (h *Handler) HandleToolCallback(w http.ResponseWriter, r *http.Request) {
 	var params struct {
 		ProjectPath string `json:"project_path"`
 		GroupName   string `json:"group_name"`
+		Task        string `json:"task"`
 	}
 	if err := json.Unmarshal(req.Params, &params); err != nil {
 		writeToolError(w, http.StatusBadRequest, "invalid parameters")
@@ -91,18 +95,10 @@ func (h *Handler) HandleToolCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate path
-	info, err := os.Stat(params.ProjectPath)
+	route, workspaceNote, err := h.prepareProjectRoute(r.Context(), params.ProjectPath, params.GroupName, params.Task)
 	if err != nil {
 		writeToolResponse(w, ToolCallbackResponse{
-			Content: fmt.Sprintf("路径不存在: %v", err),
-			IsError: true,
-		})
-		return
-	}
-	if !info.IsDir() {
-		writeToolResponse(w, ToolCallbackResponse{
-			Content: fmt.Sprintf("路径不是目录: %s", params.ProjectPath),
+			Content: fmt.Sprintf("准备项目工作区失败: %v", err),
 			IsError: true,
 		})
 		return
@@ -127,18 +123,15 @@ func (h *Handler) HandleToolCallback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Bind route
-	h.setRoute(chatID, &ChatRoute{
-		ProjectRoot: params.ProjectPath,
-		ChatName:    params.GroupName,
-	})
+	h.setRoute(chatID, route)
 
 	// Send welcome message to the new group
-	welcome := fmt.Sprintf("👋 项目群已创建！\n📁 项目目录: `%s`\n\n请在本群中直接发送消息与 AI Agent 对话。", params.ProjectPath)
+	welcome := fmt.Sprintf("👋 项目群已创建！\n%s\n\n请在本群中直接发送消息与 AI Agent 对话。", formatProjectWorkspace(route, workspaceNote))
 	_, _ = h.client.SendMessage(r.Context(), chatID, welcome, "")
 
 	// Build result with permission link
 	permLink := fmt.Sprintf("https://open.feishu.cn/app/%s/auth?q=im%%3Amessage.group_msg&op_from=pi-go&token_type=tenant", h.appID)
-	result := fmt.Sprintf("✅ 项目群创建成功！\n📌 群名: %s\n📁 项目: %s\n🆔 Chat ID: %s", params.GroupName, params.ProjectPath, chatID)
+	result := fmt.Sprintf("✅ 项目群创建成功！\n📌 群名: %s\n%s\n🆔 Chat ID: %s", params.GroupName, formatProjectWorkspace(route, workspaceNote), chatID)
 	if h.appID != "" {
 		result += fmt.Sprintf("\n\n⚠️ 如群内消息需要 @ 机器人，请先开通免 @ 权限（只需开通一次，后续所有群自动生效）：\n%s", permLink)
 	}

@@ -14,6 +14,7 @@ import (
 	"time"
 
 	larkdispatcher "github.com/larksuite/oapi-sdk-go/v3/event/dispatcher"
+	"github.com/larksuite/oapi-sdk-go/v3/event/dispatcher/callback"
 	larkim "github.com/larksuite/oapi-sdk-go/v3/service/im/v1"
 	larkws "github.com/larksuite/oapi-sdk-go/v3/ws"
 )
@@ -31,12 +32,16 @@ type Message struct {
 // MessageHandler is called for each incoming message.
 type MessageHandler func(ctx context.Context, msg Message)
 
+// CardActionHandler is called for each incoming interactive card action.
+type CardActionHandler func(ctx context.Context, event *callback.CardActionTriggerEvent) (*callback.CardActionTriggerResponse, error)
+
 // Gateway manages a WebSocket long connection to Feishu event subscription.
 type Gateway struct {
-	appID     string
-	appSecret string
-	client    *Client // for API calls like image download
-	handler   MessageHandler
+	appID       string
+	appSecret   string
+	client      *Client // for API calls like image download
+	handler     MessageHandler
+	cardHandler CardActionHandler
 
 	// Dedup state
 	seen    map[string]struct{}
@@ -81,6 +86,11 @@ func (g *Gateway) Start(ctx context.Context) error {
 			g.handleEvent(ctx, event)
 			return nil
 		})
+	if g.cardHandler != nil {
+		dispatcher.OnP2CardActionTrigger(func(ctx context.Context, event *callback.CardActionTriggerEvent) (*callback.CardActionTriggerResponse, error) {
+			return g.cardHandler(ctx, event)
+		})
+	}
 
 	wsClient := larkws.NewClient(g.appID, g.appSecret,
 		larkws.WithEventHandler(dispatcher),
@@ -93,6 +103,11 @@ func (g *Gateway) Start(ctx context.Context) error {
 		slog.Error("feishu ws client stopped", "error", err)
 	}
 	return err
+}
+
+// SetCardActionHandler sets the interactive card action handler.
+func (g *Gateway) SetCardActionHandler(handler CardActionHandler) {
+	g.cardHandler = handler
 }
 
 // handleEvent processes a single incoming message event.
@@ -386,8 +401,8 @@ func (g *Gateway) handlePostMessage(ctx context.Context, msg *larkim.EventMessag
 
 	// Find the first locale block
 	var postBody struct {
-		Title   string            `json:"title"`
-		Content [][]postElement   `json:"content"`
+		Title   string          `json:"title"`
+		Content [][]postElement `json:"content"`
 	}
 
 	var parsed bool

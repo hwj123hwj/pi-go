@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -15,13 +16,21 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/hwj123hwj/pi-go/internal/worktree"
+	"github.com/larksuite/oapi-sdk-go/v3/event/dispatcher/callback"
 )
 
 // ChatRoute binds a Feishu chat to a local project and pi-agent session.
 type ChatRoute struct {
-	SessionID   string `json:"session_id"`
-	ProjectRoot string `json:"project_root,omitempty"`
-	ChatName    string `json:"chat_name,omitempty"`
+	SessionID         string `json:"session_id"`
+	ProjectRoot       string `json:"project_root,omitempty"`
+	SourceProjectRoot string `json:"source_project_root,omitempty"`
+	SourceRepoRoot    string `json:"source_repo_root,omitempty"`
+	WorktreeRoot      string `json:"worktree_root,omitempty"`
+	WorktreeBranch    string `json:"worktree_branch,omitempty"`
+	TaskPath          string `json:"task_path,omitempty"`
+	ChatName          string `json:"chat_name,omitempty"`
 }
 
 // Handler processes Feishu messages by calling the pi-agent HTTP API.
@@ -40,8 +49,8 @@ type Handler struct {
 
 	// Sender context: per-chat sender OpenID for tool callbacks.
 	// Keyed by chatKey to avoid multi-chat race conditions.
-	senders   map[string]string
-	senderMu  sync.Mutex
+	senders  map[string]string
+	senderMu sync.Mutex
 }
 
 // NewHandler creates a new message handler.
@@ -117,7 +126,7 @@ func (h *Handler) Handle(ctx context.Context, msg Message) {
 
 	// Slash command handling
 	if strings.HasPrefix(text, "/") {
-		reply := h.handleSlashCommand(ctx, chatKey, msg.SenderOpenID, msg.ChatType, text)
+		reply := h.handleSlashCommand(ctx, chatKey, msg.SenderOpenID, msg.ChatType, messageID, text)
 		if reply != "" {
 			_, _ = h.client.ReplyMessage(ctx, messageID, chatKey, reply)
 		}
@@ -130,7 +139,7 @@ func (h *Handler) Handle(ctx context.Context, msg Message) {
 
 // handleSlashCommand processes slash commands.
 // Known commands are handled locally; unknown ones are forwarded to pi-agent.
-func (h *Handler) handleSlashCommand(ctx context.Context, chatKey, senderOpenID, chatType, text string) string {
+func (h *Handler) handleSlashCommand(ctx context.Context, chatKey, senderOpenID, chatType, messageID, text string) string {
 	cmd := strings.Fields(text)[0]
 	switch cmd {
 	case "/new":
@@ -141,6 +150,8 @@ func (h *Handler) handleSlashCommand(ctx context.Context, chatKey, senderOpenID,
 		return h.cmdStatus(chatKey)
 	case "/project":
 		return h.cmdProject(ctx, chatKey, senderOpenID, chatType, text)
+	case "/worktree":
+		return h.handleWorktreeSlash(ctx, chatKey, messageID, text)
 	case "/help":
 		return h.cmdHelp()
 	default:
@@ -149,7 +160,7 @@ func (h *Handler) handleSlashCommand(ctx context.Context, chatKey, senderOpenID,
 }
 
 func (h *Handler) cmdNew(ctx context.Context, chatKey string) string {
-	sessionID, err := h.createSession(ctx)
+	sessionID, err := h.createSession(ctx, h.workspaceFor(chatKey))
 	if err != nil {
 		return fmt.Sprintf("❌ 创建新会话失败: %v", err)
 	}
@@ -204,6 +215,12 @@ func (h *Handler) cmdStatus(chatKey string) string {
 	if route.ProjectRoot != "" {
 		info += fmt.Sprintf("\n📁 项目目录: %s", route.ProjectRoot)
 	}
+	if route.WorktreeRoot != "" {
+		info += fmt.Sprintf("\n🌿 Worktree: %s\n🌱 分支: %s", route.WorktreeRoot, route.WorktreeBranch)
+	}
+	if route.TaskPath != "" {
+		info += fmt.Sprintf("\n📝 任务文件: %s", route.TaskPath)
+	}
 	return info
 }
 
@@ -214,6 +231,7 @@ func (h *Handler) cmdHelp() string {
   /compact   压缩对话历史（释放上下文窗口）
   /status    显示当前会话状态
   /project   项目管理（创建群 + 绑定项目目录）
+  /worktree  Worktree 管理（status / commit / discard）
   /help      显示此帮助
 
 💡 其他任何消息都会发送给 AI Agent 处理（支持工具调用）`
@@ -223,7 +241,7 @@ func (h *Handler) cmdProject(ctx context.Context, chatKey, senderOpenID, chatTyp
 	args := strings.Fields(text)
 	if len(args) < 2 {
 		return `📁 项目管理命令:
-  /project create <项目路径> <群名称>  — 创建项目群（仅限私聊）
+  /project create <项目路径> <群名称>  — 创建项目群，Git 项目会自动创建隔离 worktree（仅限私聊）
   /project list                       — 列出所有项目绑定`
 	}
 
@@ -250,14 +268,9 @@ func (h *Handler) cmdProjectCreate(ctx context.Context, chatKey, senderOpenID, c
 
 	projectPath := args[0]
 	groupName := strings.Join(args[1:], " ")
-
-	// Validate path exists
-	info, err := os.Stat(projectPath)
+	route, workspaceNote, err := h.prepareProjectRoute(ctx, projectPath, groupName, "")
 	if err != nil {
-		return fmt.Sprintf("❌ 路径不存在: %v", err)
-	}
-	if !info.IsDir() {
-		return fmt.Sprintf("❌ 路径不是目录: %s", projectPath)
+		return fmt.Sprintf("❌ 准备项目工作区失败: %v", err)
 	}
 
 	// Create group chat
@@ -267,16 +280,13 @@ func (h *Handler) cmdProjectCreate(ctx context.Context, chatKey, senderOpenID, c
 	}
 
 	// Bind route
-	h.setRoute(chatID, &ChatRoute{
-		ProjectRoot: projectPath,
-		ChatName:    groupName,
-	})
+	h.setRoute(chatID, route)
 
 	// Send welcome message to the new group
-	welcome := fmt.Sprintf("👋 项目群已创建！\n📁 项目目录: `%s`\n\n请在本群中直接发送消息与 AI Agent 对话。", projectPath)
+	welcome := fmt.Sprintf("👋 项目群已创建！\n%s\n\n请在本群中直接发送消息与 AI Agent 对话。", formatProjectWorkspace(route, workspaceNote))
 	_, _ = h.client.SendMessage(ctx, chatID, welcome, "")
 
-	return fmt.Sprintf("✅ 项目群创建成功！\n📌 群名: %s\n📁 项目: %s\n🆔 Chat ID: %s\n\n已在群中发送欢迎消息，请切换到新群开始使用。", groupName, projectPath, chatID)
+	return fmt.Sprintf("✅ 项目群创建成功！\n📌 群名: %s\n%s\n🆔 Chat ID: %s\n\n已在群中发送欢迎消息，请切换到新群开始使用。", groupName, formatProjectWorkspace(route, workspaceNote), chatID)
 }
 
 func (h *Handler) cmdProjectList() string {
@@ -294,9 +304,140 @@ func (h *Handler) cmdProjectList() string {
 		if name == "" {
 			name = chatKey
 		}
-		sb.WriteString(fmt.Sprintf("  📌 %s\n     📁 %s\n     🆔 %s\n\n", name, route.ProjectRoot, chatKey))
+		sb.WriteString(fmt.Sprintf("  📌 %s\n     📁 %s\n", name, route.ProjectRoot))
+		if route.WorktreeBranch != "" {
+			sb.WriteString(fmt.Sprintf("     🌱 %s\n", route.WorktreeBranch))
+		}
+		sb.WriteString(fmt.Sprintf("     🆔 %s\n\n", chatKey))
 	}
 	return sb.String()
+}
+
+func (h *Handler) handleWorktreeSlash(ctx context.Context, chatKey, messageID, text string) string {
+	reply := h.cmdWorktree(ctx, chatKey, text)
+	args := strings.Fields(text)
+	if len(args) >= 2 && args[1] == "status" && h.client != nil {
+		route := h.getRoute(chatKey)
+		if _, err := h.client.SendWorktreeCard(ctx, chatKey, messageID, BuildWorktreeCard(chatKey, route, reply)); err != nil {
+			slog.Warn("send worktree card failed, falling back to text", "error", err)
+			return reply
+		}
+		return ""
+	}
+	return reply
+}
+
+func (h *Handler) cmdWorktree(ctx context.Context, chatKey, text string) string {
+	args := strings.Fields(text)
+	if len(args) < 2 {
+		return `🌿 Worktree 命令:
+  /worktree status             — 查看当前隔离工作区状态
+  /worktree commit <提交信息>   — 提交改动并清理 worktree
+  /worktree discard            — 丢弃改动并删除 worktree 分支`
+	}
+
+	route := h.getRoute(chatKey)
+	if route == nil || route.WorktreeRoot == "" {
+		if route != nil && route.ProjectRoot != "" {
+			return fmt.Sprintf("⚠️ 当前聊天未绑定 worktree\n📁 工作区: %s", route.ProjectRoot)
+		}
+		return "⚠️ 当前聊天未绑定 worktree"
+	}
+
+	manager := worktree.NewManager()
+	switch args[1] {
+	case "status":
+		status, err := manager.Status(ctx, route.WorktreeRoot)
+		if err != nil {
+			return fmt.Sprintf("❌ 获取 worktree 状态失败: %v", err)
+		}
+		state := "干净"
+		if status.Dirty {
+			state = "有改动"
+		}
+		detail := status.Short
+		if detail == "" {
+			detail = "(无改动)"
+		}
+		return fmt.Sprintf("🌿 Worktree 状态: %s\n📁 工作区: %s\n🌱 分支: %s\n\n```text\n%s\n```", state, status.WorktreeRoot, status.Branch, detail)
+
+	case "commit":
+		if len(args) < 3 {
+			return "❌ 用法: /worktree commit <提交信息>"
+		}
+		message := strings.Join(args[2:], " ")
+		result, err := manager.CommitAndRemove(ctx, worktree.CommitOptions{
+			SourceRoot:   route.SourceRepoRoot,
+			WorktreeRoot: route.WorktreeRoot,
+			Message:      message,
+		})
+		if err != nil {
+			if errors.Is(err, worktree.ErrCleanWorktree) {
+				return "⚠️ Worktree 没有可提交改动"
+			}
+			return fmt.Sprintf("❌ 提交 worktree 失败: %v", err)
+		}
+		h.clearWorktreeRoute(chatKey, route)
+		return fmt.Sprintf("✅ Worktree 已提交并清理\n🌱 分支: %s\n🔖 Commit: %s\n📁 当前工作区已恢复到: %s", result.Branch, result.CommitHash, route.ProjectRoot)
+
+	case "discard":
+		result, err := manager.Discard(ctx, worktree.DiscardOptions{
+			SourceRoot:   route.SourceRepoRoot,
+			WorktreeRoot: route.WorktreeRoot,
+			Branch:       route.WorktreeBranch,
+		})
+		if err != nil {
+			return fmt.Sprintf("❌ 丢弃 worktree 失败: %v", err)
+		}
+		branch := route.WorktreeBranch
+		h.clearWorktreeRoute(chatKey, route)
+		if result.BranchDeleted {
+			return fmt.Sprintf("✅ Worktree 已丢弃并清理\n🌱 已删除分支: %s\n📁 当前工作区已恢复到: %s", branch, route.ProjectRoot)
+		}
+		return fmt.Sprintf("✅ Worktree 已丢弃并清理\n📁 当前工作区已恢复到: %s", route.ProjectRoot)
+
+	default:
+		return fmt.Sprintf("❌ 未知 worktree 子命令: %s\n可用: status, commit, discard", args[1])
+	}
+}
+
+// HandleCardAction handles interactive Feishu card button callbacks.
+func (h *Handler) HandleCardAction(ctx context.Context, event *callback.CardActionTriggerEvent) (*callback.CardActionTriggerResponse, error) {
+	if event == nil || event.Event == nil || event.Event.Action == nil {
+		return cardToast("error", "无效的卡片回调"), nil
+	}
+	value := event.Event.Action.Value
+	action := stringValue(value[worktreeCardActionKey])
+	chatKey := stringValue(value[worktreeCardChatKey])
+	if chatKey == "" && event.Event.Context != nil {
+		chatKey = event.Event.Context.OpenChatID
+	}
+	if chatKey == "" {
+		return cardToast("error", "无法识别当前会话"), nil
+	}
+
+	switch action {
+	case worktreeActionStatus:
+		reply := h.cmdWorktree(ctx, chatKey, "/worktree status")
+		return worktreeCardResponse(reply, h.getRoute(chatKey), chatKey, toastTypeForReply(reply)), nil
+
+	case worktreeActionCommit:
+		message := commitMessageFromCardAction(event.Event.Action)
+		if message == "" {
+			route := h.getRoute(chatKey)
+			reply := "⚠️ 请先在卡片里填写提交信息"
+			return worktreeCardResponse(reply, route, chatKey, "warning"), nil
+		}
+		reply := h.cmdWorktree(ctx, chatKey, "/worktree commit "+message)
+		return worktreeCardResponse(reply, h.getRoute(chatKey), chatKey, toastTypeForReply(reply)), nil
+
+	case worktreeActionDiscard:
+		reply := h.cmdWorktree(ctx, chatKey, "/worktree discard")
+		return worktreeCardResponse(reply, h.getRoute(chatKey), chatKey, toastTypeForReply(reply)), nil
+
+	default:
+		return cardToast("error", "未知的卡片操作"), nil
+	}
 }
 
 // handleAgentMessage sends a message to pi-agent and streams the response back.
@@ -305,7 +446,7 @@ func (h *Handler) handleAgentMessage(ctx context.Context, chatKey, messageID, te
 	// Get or create session
 	route := h.getRoute(chatKey)
 	if route == nil || route.SessionID == "" {
-		sessionID, err := h.createSession(ctx)
+		sessionID, err := h.createSession(ctx, h.workspaceFor(chatKey))
 		if err != nil {
 			slog.Error("create session failed", "error", err)
 			_, _ = h.client.ReplyMessage(ctx, messageID, chatKey, "❌ 服务暂不可用，请重试")
@@ -595,9 +736,22 @@ func (h *Handler) workspaceFor(chatKey string) string {
 	return h.workspace
 }
 
-func (h *Handler) createSession(ctx context.Context) (string, error) {
+func (h *Handler) clearWorktreeRoute(chatKey string, route *ChatRoute) {
+	if route.SourceProjectRoot != "" {
+		route.ProjectRoot = route.SourceProjectRoot
+	}
+	route.SessionID = ""
+	route.SourceRepoRoot = ""
+	route.WorktreeRoot = ""
+	route.WorktreeBranch = ""
+	route.TaskPath = ""
+	h.setRoute(chatKey, route)
+}
+
+func (h *Handler) createSession(ctx context.Context, cwd string) (string, error) {
 	url := fmt.Sprintf("%s/sessions", h.piAgentURL)
-	req, _ := http.NewRequestWithContext(ctx, "POST", url, nil)
+	body, _ := json.Marshal(map[string]string{"cwd": cwd})
+	req, _ := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := h.httpClient.Do(req)
@@ -616,6 +770,116 @@ func (h *Handler) createSession(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("empty session ID")
 	}
 	return result.ID, nil
+}
+
+func (h *Handler) prepareProjectRoute(ctx context.Context, projectPath, groupName, task string) (*ChatRoute, string, error) {
+	absProject, err := filepath.Abs(projectPath)
+	if err != nil {
+		return nil, "", fmt.Errorf("resolve project path: %w", err)
+	}
+	info, err := os.Stat(absProject)
+	if err != nil {
+		return nil, "", fmt.Errorf("路径不存在: %w", err)
+	}
+	if !info.IsDir() {
+		return nil, "", fmt.Errorf("路径不是目录: %s", absProject)
+	}
+
+	route := &ChatRoute{
+		ProjectRoot:       absProject,
+		SourceProjectRoot: absProject,
+		ChatName:          groupName,
+	}
+	wt, err := worktree.NewManager().Create(ctx, worktree.CreateOptions{
+		ProjectPath: absProject,
+		Name:        groupName,
+		Task:        task,
+	})
+	if err != nil {
+		if errors.Is(err, worktree.ErrNotGitRepository) {
+			return route, "⚠️ 未检测到 Git 仓库，已绑定原目录（未创建 worktree）", nil
+		}
+		return nil, "", err
+	}
+
+	route.ProjectRoot = wt.ProjectPath
+	route.SourceProjectRoot = wt.SourceProjectPath
+	route.SourceRepoRoot = wt.SourceRoot
+	route.WorktreeRoot = wt.WorktreeRoot
+	route.WorktreeBranch = wt.Branch
+	route.TaskPath = wt.TaskPath
+
+	return route, "✅ 已创建隔离 worktree", nil
+}
+
+func formatProjectWorkspace(route *ChatRoute, note string) string {
+	if route == nil {
+		return ""
+	}
+	var sb strings.Builder
+	if note != "" {
+		sb.WriteString(note)
+		sb.WriteString("\n")
+	}
+	if route.SourceProjectRoot != "" && route.SourceProjectRoot != route.ProjectRoot {
+		sb.WriteString(fmt.Sprintf("📁 源项目: `%s`\n", route.SourceProjectRoot))
+	}
+	sb.WriteString(fmt.Sprintf("📁 工作区: `%s`", route.ProjectRoot))
+	if route.WorktreeBranch != "" {
+		sb.WriteString(fmt.Sprintf("\n🌱 分支: `%s`", route.WorktreeBranch))
+	}
+	if route.TaskPath != "" {
+		sb.WriteString(fmt.Sprintf("\n📝 任务文件: `%s`", route.TaskPath))
+	}
+	return sb.String()
+}
+
+func commitMessageFromCardAction(action *callback.CallBackAction) string {
+	if action == nil {
+		return ""
+	}
+	if msg := stringValue(action.FormValue[worktreeCardCommitMessage]); msg != "" {
+		return msg
+	}
+	if msg := strings.TrimSpace(action.InputValue); msg != "" {
+		return msg
+	}
+	return stringValue(action.Value[worktreeCardCommitMessage])
+}
+
+func stringValue(value any) string {
+	switch v := value.(type) {
+	case string:
+		return strings.TrimSpace(v)
+	case fmt.Stringer:
+		return strings.TrimSpace(v.String())
+	default:
+		if value == nil {
+			return ""
+		}
+		return strings.TrimSpace(fmt.Sprint(value))
+	}
+}
+
+func toastTypeForReply(reply string) string {
+	reply = strings.TrimSpace(reply)
+	switch {
+	case strings.HasPrefix(reply, "❌"):
+		return "error"
+	case strings.HasPrefix(reply, "⚠️"):
+		return "warning"
+	default:
+		return "success"
+	}
+}
+
+func cardToast(toastType, content string) *callback.CardActionTriggerResponse {
+	return &callback.CardActionTriggerResponse{
+		Toast: &callback.Toast{
+			Type:    toastType,
+			Content: content,
+		},
+	}
 }
 
 // forwardCommand sends an unrecognized slash command to pi-agent for execution.

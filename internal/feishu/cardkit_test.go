@@ -237,6 +237,47 @@ func TestBuildFinalCard_SummaryStripsMarkdown(t *testing.T) {
 	}
 }
 
+func TestBuildWorktreeCard_WithActions(t *testing.T) {
+	route := &ChatRoute{
+		WorktreeRoot:   "/tmp/repo/.pi-go/worktrees/task",
+		WorktreeBranch: "pi-go/task",
+	}
+	card := BuildWorktreeCard("oc_chat", route, "status text")
+
+	body := card["body"].(map[string]any)
+	elements := body["elements"].([]any)
+	if len(elements) != 3 {
+		t.Fatalf("expected status, input, actions elements, got %d", len(elements))
+	}
+	input := elements[1].(map[string]any)
+	if input["tag"] != "input" || input["name"] != worktreeCardCommitMessage {
+		t.Fatalf("unexpected input element: %#v", input)
+	}
+	actions := elements[2].(map[string]any)["actions"].([]any)
+	if len(actions) != 3 {
+		t.Fatalf("expected 3 buttons, got %d", len(actions))
+	}
+	for _, action := range actions {
+		button := action.(map[string]any)
+		value := button["value"].(map[string]any)
+		if value[worktreeCardChatKey] != "oc_chat" {
+			t.Fatalf("button missing chat key: %#v", button)
+		}
+		if value[worktreeCardActionKey] == "" {
+			t.Fatalf("button missing action: %#v", button)
+		}
+	}
+}
+
+func TestBuildWorktreeCard_NoActionsWithoutWorktree(t *testing.T) {
+	card := BuildWorktreeCard("oc_chat", &ChatRoute{ProjectRoot: "/tmp/repo"}, "no worktree")
+	body := card["body"].(map[string]any)
+	elements := body["elements"].([]any)
+	if len(elements) != 1 {
+		t.Fatalf("expected only status element, got %d", len(elements))
+	}
+}
+
 func TestPushContent_Throttle(t *testing.T) {
 	h := &StreamingCardHandle{
 		client:      nil, // won't actually call API
