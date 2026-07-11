@@ -88,6 +88,11 @@ func (m *TuiModel) handleInputKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if input == "" {
 			return m, nil
 		}
+		// Final safety check: strip any remaining control characters
+		input = sanitizeInput(input)
+		if input == "" {
+			return m, nil
+		}
 		if slashcmd.IsSlashCommand(input) {
 			return m.handleSlashCommand(input)
 		}

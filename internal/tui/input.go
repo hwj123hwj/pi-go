@@ -111,9 +111,16 @@ func (im *InputModel) HandleKey(msg tea.KeyMsg) {
 		im.newLine()
 
 	default:
-		// Regular character input
-		if msg.Type == tea.KeyRunes || (msg.Alt && len(msg.Runes) > 0) {
-			im.insertString(string(msg.Runes))
+		// Regular character input — only accept printable runes.
+		// CRITICAL: Filter out ANSI escape sequences (\x1b, control chars).
+		// Some terminals send arrow keys as raw escape codes (\x1b[A) that
+		// Bubble Tea may pass as KeyRunes. If we insert them, they leak
+		// into the message and corrupt API URLs.
+		if msg.Type == tea.KeyRunes {
+			cleaned := sanitizeRunes(msg.Runes)
+			if len(cleaned) > 0 {
+				im.insertString(string(cleaned))
+			}
 		}
 	}
 }
@@ -173,6 +180,32 @@ func (im *InputModel) renderLineWithCursor(line string) string {
 func (im *InputModel) cursorHighlight(ch string) string {
 	// Use lipgloss reverse video — safer than raw escape codes.
 	return im.theme.InputPrompt.Reverse(true).Render(ch) + im.theme.InputPrompt.Reverse(false).Render("")
+}
+
+// sanitizeRunes filters out non-printable control characters from a rune slice.
+// This prevents ANSI escape sequences (ESC = \x1b = 0x1B) and other control
+// characters from leaking into the input buffer.
+func sanitizeRunes(runes []rune) []rune {
+	var result []rune
+	for _, r := range runes {
+		// Allow printable characters (including Unicode) and newline/tab.
+		// Block ESC (0x1B), backspace (0x08), delete (0x7F), and other control chars.
+		if r >= 0x20 && r != 0x7F {
+			result = append(result, r)
+		}
+	}
+	return result
+}
+
+// sanitizeInput strips control characters from a string (for final safety check).
+func sanitizeInput(s string) string {
+	var result []rune
+	for _, r := range s {
+		if r == '\n' || r == '\t' || (r >= 0x20 && r != 0x7F) {
+			result = append(result, r)
+		}
+	}
+	return string(result)
 }
 
 // ── Cursor movement ───────────────────────────────────────────────────────────
