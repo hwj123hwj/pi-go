@@ -1,9 +1,16 @@
+//go:build integration
+
 package netease
 
 import (
 	"fmt"
 	"testing"
 )
+
+// These tests hit the real NetEase Music API (music.163.com).
+// They are skipped in CI by default. Run locally with:
+//
+//	go test -tags integration ./internal/music/netease/
 
 func TestGetRankings(t *testing.T) {
 	c := NewClient()
