@@ -26,6 +26,7 @@ import (
 	"github.com/hwj123hwj/pi-go/internal/scheduler"
 	"github.com/hwj123hwj/pi-go/internal/slashcmd"
 	"github.com/hwj123hwj/pi-go/internal/tools"
+	"github.com/hwj123hwj/pi-go/internal/tui"
 )
 
 // version is the build version, injected via -ldflags during release builds.
@@ -83,6 +84,7 @@ func main() {
 	input := flag.String("prompt", "hello", "prompt for run mode")
 	sessionFlag := flag.String("session", "", "session ID (empty = new session)")
 	skillDir := flag.String("skill-dir", "", "directory containing skills (SKILL.md files)")
+	legacyTUI := flag.Bool("legacy", false, "Use legacy linear CLI instead of Bubble Tea TUI")
 	flag.Parse()
 
 	// Sync the actual listen port back to config so MusicApplication
@@ -158,7 +160,11 @@ func main() {
 		sess, err := application.LoadOrCreateSession(context.Background(), *sessionFlag)
 		must(err)
 		cmds := buildSlashRegistry(application.LoopManager())
-		must(mode.NewInteractiveMode(sess, cmds, application).Run(context.Background()))
+		if *legacyTUI {
+			must(mode.NewInteractiveMode(sess, cmds, application).Run(context.Background()))
+		} else {
+			must(tui.Run(sess, cmds))
+		}
 
 	case "run":
 		sess, err := application.LoadOrCreateSession(context.Background(), *sessionFlag)
