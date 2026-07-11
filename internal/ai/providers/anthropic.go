@@ -25,6 +25,8 @@ type AnthropicProvider struct {
 }
 
 func NewAnthropicProvider(apiKey, baseURL string) *AnthropicProvider {
+	// Strip ANSI escape codes that may leak from terminal input corruption.
+	baseURL = sanitizeURL(baseURL)
 	if !strings.HasSuffix(baseURL, "/") {
 		baseURL += "/"
 	}

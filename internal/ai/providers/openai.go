@@ -26,6 +26,11 @@ type OpenAIProvider struct {
 }
 
 func NewOpenAIProvider(apiKey, baseURL string) *OpenAIProvider {
+	// CRITICAL: Strip any control characters (ANSI escape codes like \x1b[A)
+	// that may have leaked into the baseURL from terminal input corruption.
+	// Without this, the URL becomes invalid and causes:
+	//   "parse \x1b[A\x1b[/v1/chat/completions": net/url: invalid control character in URL"
+	baseURL = sanitizeURL(baseURL)
 	if !strings.HasSuffix(baseURL, "/") {
 		baseURL += "/"
 	}
@@ -34,6 +39,17 @@ func NewOpenAIProvider(apiKey, baseURL string) *OpenAIProvider {
 		baseURL: baseURL,
 		client:  &http.Client{Timeout: 120 * time.Second},
 	}
+}
+
+// sanitizeURL removes all non-printable control characters from a URL string.
+func sanitizeURL(s string) string {
+	var b strings.Builder
+	for _, r := range s {
+		if r >= 0x20 && r != 0x7F {
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
 }
 
 func (p *OpenAIProvider) Name() string { return "openai" }
