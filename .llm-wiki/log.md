@@ -2,6 +2,25 @@
 
 > Chronological record of wiki operations.
 
+## [2026-07-10] design | TUI Bubble Tea Design Document
+
+**Scope**: Created comprehensive TUI design document comparing pi-go with pi (earendil) and hwjcode.
+
+**Key decisions**:
+- Framework: Bubble Tea (charmbracelet) — Go standard, Elm architecture, differential rendering
+- Styling: lipgloss (already a dependency)
+- Markdown: glamour (terminal markdown renderer)
+- Not parallelizing: TUI is tightly coupled (Model/Update/View), can't split across agents
+
+**3-phase plan**:
+1. Phase 1 (~1,100 lines): Core framework + multi-line input + viewport + agent event bridge
+2. Phase 2 (~900 lines): Markdown rendering + collapsible tool panels + status bar + theme
+3. Phase 3 (~1,000 lines): Autocomplete + keybindings + popups + confirmation dialogs
+
+**Migration**: TUI becomes default, `--legacy` flag for old CLI fallback.
+
+**File**: `docs/design/tui-bubbletea.md`
+
 ## [2026-07-05] merge | PR codex/feishu-worktree-controls
 
 **Scope**: Merged Feishu worktree project controls PR (+1,576 lines, 9 files).

@@ -92,6 +92,7 @@
 - [[security-hardening]] — SSRF protection on external tool callbacks, Bearer token API auth, YAML config file support, --version flag + /health version info (NEW)
 - [[feishu-oauth]] — Feishu OAuth scan login (/feishu setup → QR code → auto-save credentials), modeled after hwjcode's approach (NEW)
 - [[hwjcode-absorption-batch]] — Parallel worktree absorption: 4 modules from hwjcode (~10,800 lines). Enhanced tools ✅ wired, LSP ✅ wired. Hooks/Policy/MCP ⚠️ island code (not integrated yet). ask_user ⚠️ stub. (NEW v42)
+- [[tui-design]] — Bubble Tea TUI design doc. 3 phases: core framework → rich rendering → UX polish. ~3,000 lines total. Replaces linear CLI with Elm-architecture interactive terminal. See docs/design/tui-bubbletea.md. (NEW v43)
 
 ## Synthesis
 <!-- Cross-cutting analysis pages will be listed here -->
