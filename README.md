@@ -57,51 +57,43 @@
 
 ### 安装
 
-**方式一：一键安装（推荐）**
+**一键安装（推荐）**
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/hwj123hwj/pi-go/main/scripts/install.sh | bash
 ```
 
-**方式二：go install**
+安装脚本会自动完成：检测平台 → 下载二进制 → 配置 PATH → 创建 `.env` → 引导填入 API Key。
+
+安装完成后直接：
+```bash
+pi-go chat      # 交互式 TUI
+pi-go run -p "你好"  # 单次提问
+pi-go serve     # HTTP 服务
+```
+
+**其他方式**
+
+<details>
+<summary>go install</summary>
 
 ```bash
 go install github.com/hwj123hwj/pi-go/cmd/pi-agent@latest
 ```
 
-**方式三：从源码构建**
+</details>
+
+<details>
+<summary>从源码构建</summary>
 
 ```bash
 git clone https://github.com/hwj123hwj/pi-go.git
 cd pi-go
-make build       # 编译到 bin/pi-agent
+make build       # 编译到 bin/
 make install     # 安装到 $GOPATH/bin
 ```
 
-### 配置
-
-复制 `.env.example` 为 `.env`，填入 API Key：
-
-```bash
-cp .env.example .env
-# 编辑 .env，设置 PI_GO_PROVIDER 和对应的 API Key
-```
-
-### 运行
-
-```bash
-# 交互式聊天（Bubble Tea TUI，默认）
-pi-agent --mode chat
-
-# 旧的线性 CLI（加 --legacy）
-pi-agent --mode chat --legacy
-
-# 单次运行
-pi-agent --mode run --prompt "hello"
-
-# HTTP 服务
-pi-agent --mode serve --listen 127.0.0.1:8080
-```
+</details>
 
 ### 桌面端
 

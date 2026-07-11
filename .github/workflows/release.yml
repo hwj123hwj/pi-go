@@ -1,0 +1,86 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g. v0.10.0)'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Run tests
+        run: go test ./...
+
+      - name: Determine version
+        id: ver
+        run: |
+          if [ -n "${{ github.event.inputs.tag }}" ]; then
+            echo "version=${{ github.event.inputs.tag }}" >> $GITHUB_OUTPUT
+          else
+            echo "version=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build all platforms
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          mkdir -p dist
+          LDFLAGS="-X main.version=${{ steps.ver.outputs.version }}"
+          targets=(
+            "linux/amd64"
+            "linux/arm64"
+            "darwin/amd64"
+            "darwin/arm64"
+          )
+          for target in "${targets[@]}"; do
+            os="${target%/*}"
+            arch="${target#*/}"
+            echo "::group::Building ${os}/${arch}"
+            CGO_ENABLED=0 GOOS=$os GOARCH=$arch \
+              go build -ldflags "$LDFLAGS" -o "dist/pi-agent-${os}-${arch}" ./cmd/pi-agent
+            if [ "$os" = "linux" ]; then
+              CGO_ENABLED=0 GOOS=$os GOARCH=$arch \
+                go build -ldflags "$LDFLAGS" -o "dist/pi-feishu-bridge-${os}-${arch}" ./cmd/pi-feishu-bridge
+            fi
+            echo "::endgroup::"
+          done
+
+      - name: Generate checksums
+        run: |
+          cd dist
+          sha256sum pi-agent-* pi-feishu-bridge-* > checksums.txt 2>/dev/null || true
+          cat checksums.txt
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.ver.outputs.version }}
+          name: ${{ steps.ver.outputs.version }}
+          generate_release_notes: true
+          files: |
+            dist/pi-agent-linux-amd64
+            dist/pi-agent-linux-arm64
+            dist/pi-agent-darwin-amd64
+            dist/pi-agent-darwin-arm64
+            dist/pi-feishu-bridge-linux-amd64
+            dist/pi-feishu-bridge-linux-arm64
+            dist/checksums.txt
