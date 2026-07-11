@@ -107,7 +107,12 @@ func (m *TuiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		m.viewport.Resize(msg.Width, m.inputHeight()+m.statusBarHeight())
+		// Viewport gets: total height - input area - status bar - separators
+		viewportHeight := msg.Height - m.inputHeight() - m.statusBarHeight()
+		if viewportHeight < 3 {
+			viewportHeight = 3
+		}
+		m.viewport.Resize(msg.Width, viewportHeight)
 		return m, nil
 
 	// ── Key press ──
@@ -124,15 +129,22 @@ func (m *TuiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case ToolStartMsg:
 		m.agentBusy = true
 		m.spinnerOn = true
-		if len(m.messages) > 0 {
-			idx := len(m.messages) - 1
-			m.messages[idx].Tools = append(m.messages[idx].Tools, ToolCallInfo{
-				Name:      msg.Name,
-				Args:      fmt.Sprintf("%v", msg.Args),
-				Streaming: true,
-				Collapsed: true,
+		// Create a pending tool entry on the LAST message.
+		// If messages is empty, create a placeholder.
+		if len(m.messages) == 0 {
+			m.messages = append(m.messages, ChatMessage{
+				Role:      "assistant",
+				Content:   "",
+				Timestamp: time.Now(),
 			})
 		}
+		idx := len(m.messages) - 1
+		m.messages[idx].Tools = append(m.messages[idx].Tools, ToolCallInfo{
+			Name:      msg.Name,
+			Args:      fmt.Sprintf("%v", msg.Args),
+			Streaming: true,
+			Collapsed: true,
+		})
 		m.viewport.SetMessages(m.messages)
 		return m, m.spinnerTick()
 
@@ -141,14 +153,17 @@ func (m *TuiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case ToolEndMsg:
 		m.spinnerOn = false
-		if len(m.messages) > 0 {
-			idx := len(m.messages) - 1
-			for i := range m.messages[idx].Tools {
-				if m.messages[idx].Tools[i].Name == msg.Name && m.messages[idx].Tools[i].Streaming {
-					m.messages[idx].Tools[i].Streaming = false
-					m.messages[idx].Tools[i].Result = fmt.Sprintf("%v", msg.Result)
-					m.messages[idx].Tools[i].IsError = msg.IsError
-					break
+		// Find the matching tool call and mark it as done.
+		// Search from the last message backwards.
+		for msgIdx := len(m.messages) - 1; msgIdx >= 0; msgIdx-- {
+			for i := range m.messages[msgIdx].Tools {
+				t := &m.messages[msgIdx].Tools[i]
+				if t.Name == msg.Name && t.Streaming {
+					t.Streaming = false
+					t.Result = fmt.Sprintf("%v", msg.Result)
+					t.IsError = msg.IsError
+					m.viewport.SetMessages(m.messages)
+					return m, nil
 				}
 			}
 		}
@@ -285,11 +300,15 @@ func (m *TuiModel) View() string {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 func (m *TuiModel) inputHeight() int {
-	return 3 // input box height (tunable)
+	lines := len(m.input.lines)
+	if lines < 1 {
+		lines = 1
+	}
+	return lines // one terminal line per input line
 }
 
 func (m *TuiModel) statusBarHeight() int {
-	return 3 // help hint + status bar + separator
+	return 4 // separator + help hint + status bar + blank
 }
 
 var spinnerChars = []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}

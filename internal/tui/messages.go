@@ -23,8 +23,9 @@ type ToolStartMsg struct {
 
 // ToolUpdateMsg carries a partial result from a running tool.
 type ToolUpdateMsg struct {
-	ID      string
-	Partial any
+	ID     string
+	Name   string
+	Result any
 }
 
 // ToolEndMsg signals a tool has finished executing.

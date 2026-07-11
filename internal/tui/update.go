@@ -19,7 +19,6 @@ func (m *TuiModel) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		approved, consumed := m.confirmation.HandleKey(msg)
 		if consumed {
 			if m.confirmation.resultChan != nil {
-				// Dialog was resolved — send result
 				m.resolveConfirmation(approved)
 			}
 			return m, nil
@@ -69,7 +68,6 @@ func (m *TuiModel) handleInputKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case ActionToggleToolPanel: // Ctrl+O
-		// Toggle the last tool panel's collapsed state
 		if len(m.messages) > 0 && len(m.messages[len(m.messages)-1].Tools) > 0 {
 			idx := len(m.messages) - 1
 			lastTool := len(m.messages[idx].Tools) - 1
@@ -79,12 +77,9 @@ func (m *TuiModel) handleInputKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case ActionOpenModelSelect: // Ctrl+P
-		// Build model list from registry
 		if m.slashCmds == nil {
 			return m, nil
 		}
-		// Try to get available models from the session's app context
-		// For now, use a static list; Phase 3 will wire the real registry
 		m.modelSelect = true
 		return m, nil
 
@@ -93,47 +88,41 @@ func (m *TuiModel) handleInputKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if input == "" {
 			return m, nil
 		}
-		// Handle slash commands locally
 		if slashcmd.IsSlashCommand(input) {
 			return m.handleSlashCommand(input)
 		}
-		// Handle special commands
 		lower := strings.ToLower(strings.TrimSpace(input))
 		if lower == "exit" || lower == "quit" {
 			m.quitting = true
 			return m, tea.Quit
 		}
-		// Send to agent
 		return m.sendMessage(input)
 
 	case ActionNewline: // Ctrl+J
 		m.input.newLine()
+		// Resize viewport to account for new input line
+		m.viewport.Resize(m.width, m.height-m.inputHeight()-m.statusBarHeight())
 		return m, nil
 
 	case ActionSearchHistory: // Ctrl+R
-		// Phase 3: simple history search (cycle backward)
 		m.input.navigateHistory(-1)
 		return m, nil
 
-	case ActionPageUp: // PgUp
+	case ActionPageUp:
 		m.viewport.ScrollUp(m.viewport.height)
 		return m, nil
 
-	case ActionPageDown: // PgDn
+	case ActionPageDown:
 		m.viewport.ScrollDown(m.viewport.height)
 		return m, nil
 
-	case ActionClosePopup: // Esc
+	case ActionClosePopup:
 		m.completion.Close()
 		return m, nil
 
 	default:
-		// Delegate to input editor
 		m.input.HandleKey(msg)
-
-		// After each keystroke, check if we should trigger autocomplete
 		m.checkTriggerCompletion()
-
 		return m, nil
 	}
 }
@@ -143,7 +132,7 @@ func (m *TuiModel) handleCompletionKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	action := DefaultKeyBindings.ResolveCompletion(msg)
 
 	switch action {
-	case ActionAcceptCompletion: // Tab or Enter
+	case ActionAcceptCompletion:
 		item := m.completion.SelectedItem()
 		if item != nil {
 			m.acceptCompletion(item.InsertText)
@@ -151,20 +140,19 @@ func (m *TuiModel) handleCompletionKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.completion.Close()
 		return m, nil
 
-	case ActionHistoryNext: // Down
+	case ActionHistoryNext:
 		m.completion.Next()
 		return m, nil
 
-	case ActionHistoryPrev: // Up
+	case ActionHistoryPrev:
 		m.completion.Prev()
 		return m, nil
 
-	case ActionClosePopup: // Esc
+	case ActionClosePopup:
 		m.completion.Close()
 		return m, nil
 
 	default:
-		// Pass key to input, then re-evaluate completion
 		m.input.HandleKey(msg)
 		m.checkTriggerCompletion()
 		return m, nil
@@ -178,7 +166,6 @@ func (m *TuiModel) handleModelSelectKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.modelSelect = false
 		return m, nil
 	case tea.KeyEnter:
-		// TODO: apply selected model
 		m.modelSelect = false
 		return m, nil
 	case tea.KeyUp:
@@ -193,68 +180,49 @@ func (m *TuiModel) handleModelSelectKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 // checkTriggerCompletion evaluates the current input and triggers the
-// appropriate completion popup (slash commands or file paths).
+// appropriate completion popup.
 func (m *TuiModel) checkTriggerCompletion() {
 	if m.agentBusy {
 		m.completion.Close()
 		return
 	}
-
 	input := m.input.Text()
 	cursorX := m.input.cursorX
 
-	// Try slash command completion first
 	if m.completion.TriggerSlash(input, cursorX, m.slashCmds) {
 		return
 	}
-
-	// Try file path completion
 	if m.completion.TriggerFile(input, cursorX, m.workspace) {
 		return
 	}
-
-	// No trigger — close popup
 	m.completion.Close()
 }
 
 // acceptCompletion replaces the trigger text in the input with the completion.
 func (m *TuiModel) acceptCompletion(insertText string) {
-	// For slash commands: replace from "/" to cursor with the command
-	// For file paths: replace from "@" to cursor with the path
-	// For model selector: handled separately
-
 	switch m.completion.Kind() {
 	case CompletionSlash:
-		// Replace the partial /command with the full one
 		fullText := m.input.Text()
 		beforeCursor := substringBefore(fullText, m.input.cursorX)
-
 		slashIdx := strings.LastIndex(beforeCursor, "/")
 		if slashIdx < 0 {
 			return
 		}
-
-		// Everything before the "/" + the completion + everything after cursor
 		afterCursor := string([]rune(fullText)[m.input.cursorX:])
 		newText := beforeCursor[:slashIdx] + insertText + " " + afterCursor
-
 		m.input.lines = []string{newText}
 		m.input.cursorX = slashIdx + len(insertText) + 1
 		m.input.cursorY = 0
 
 	case CompletionFile:
-		// Replace from "@" to cursor
 		fullText := m.input.Text()
 		beforeCursor := substringBefore(fullText, m.input.cursorX)
-
 		atIdx := strings.LastIndex(beforeCursor, "@")
 		if atIdx < 0 {
 			return
 		}
-
 		afterCursor := string([]rune(fullText)[m.input.cursorX:])
 		newText := beforeCursor[:atIdx] + insertText + afterCursor
-
 		m.input.lines = []string{newText}
 		m.input.cursorX = atIdx + len(insertText)
 		m.input.cursorY = 0
@@ -269,11 +237,7 @@ func (m *TuiModel) sendMessage(input string) (tea.Model, tea.Cmd) {
 		Content:   input,
 		Timestamp: time.Now(),
 	})
-
-	// Add to input history
 	m.input.AddHistory(input)
-
-	// Reset input
 	m.input.Reset()
 
 	// Start agent streaming
@@ -282,17 +246,18 @@ func (m *TuiModel) sendMessage(input string) (tea.Model, tea.Cmd) {
 	m.spinnerOn = true
 	m.streamBuf = ""
 
-	// Update viewport
 	m.viewport.SetMessages(m.messages)
 	m.viewport.GotoBottom()
 
-	// Run agent in goroutine, stream events as tea.Msg
 	return m, m.startAgentStream(input)
 }
 
-// startAgentStream runs the agent stream loop in a goroutine,
-// converting agent events into tea.Msg via tea.Cmd.
+// startAgentStream runs the agent stream loop in a goroutine.
+// CRITICAL: We must NOT mutate model fields from inside this goroutine.
+// Instead, we send each event to the Bubble Tea program via program.Send(),
+// which safely delivers it to the Update() function on the main goroutine.
 func (m *TuiModel) startAgentStream(input string) tea.Cmd {
+	program := m.program // capture before goroutine starts
 	return func() tea.Msg {
 		ctx := context.Background()
 		stream, err := m.session.PromptStream(ctx, input)
@@ -300,23 +265,28 @@ func (m *TuiModel) startAgentStream(input string) tea.Cmd {
 			return AgentErrorMsg{Err: err}
 		}
 
-		var lastMsg tea.Msg = StreamDoneMsg{}
-
 		for event := range stream {
+			var msg tea.Msg
 			switch event.Type {
 			case agent.StreamEventTextDelta:
-				m.streamBuf += event.TextDelta
-				lastMsg = StreamTextMsg{Delta: event.TextDelta}
+				msg = StreamTextMsg{Delta: event.TextDelta}
 
 			case agent.StreamEventToolStart:
-				lastMsg = ToolStartMsg{
+				msg = ToolStartMsg{
 					ID:   event.ToolCallID,
 					Name: event.ToolName,
 					Args: event.ToolArgs,
 				}
 
+			case agent.StreamEventToolUpdate:
+				msg = ToolUpdateMsg{
+					ID:     event.ToolCallID,
+					Name:   event.ToolName,
+					Result: event.ToolResult,
+				}
+
 			case agent.StreamEventToolEnd:
-				lastMsg = ToolEndMsg{
+				msg = ToolEndMsg{
 					ID:      event.ToolCallID,
 					Name:    event.ToolName,
 					Result:  event.ToolResult,
@@ -324,20 +294,34 @@ func (m *TuiModel) startAgentStream(input string) tea.Cmd {
 				}
 
 			case agent.StreamEventCompacted:
-				lastMsg = CompactionMsg{Summary: event.Summary}
+				msg = CompactionMsg{Summary: event.Summary}
+
+			case agent.StreamEventMicroCompacted:
+				msg = CompactionMsg{Summary: "micro-compact: " + event.Summary}
 
 			case agent.StreamEventLoopDetected:
-				lastMsg = LoopDetectedMsg{Tool: event.ToolName, Count: event.RepeatCount}
+				msg = LoopDetectedMsg{Tool: event.ToolName, Count: event.RepeatCount}
 
 			case agent.StreamEventError:
-				lastMsg = AgentErrorMsg{Err: fmt.Errorf("%s", event.Error)}
+				msg = AgentErrorMsg{Err: fmt.Errorf("%s", event.Error)}
 
 			case agent.StreamEventDone:
-				return StreamDoneMsg{}
+				msg = StreamDoneMsg{}
+
+			case agent.StreamEventTurnEnd:
+				// Turn ended but stream may continue (multi-turn)
+				continue
+			}
+
+			// Send each event immediately to the TUI for live updates.
+			// This is the standard Bubble Tea pattern for async streaming.
+			if program != nil && msg != nil {
+				program.Send(msg)
 			}
 		}
 
-		return lastMsg
+		// Signal completion
+		return StreamDoneMsg{}
 	}
 }
 

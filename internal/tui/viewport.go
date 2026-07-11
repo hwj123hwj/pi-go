@@ -162,18 +162,11 @@ func (v *MessageViewport) renderMessage(msg ChatMessage) []string {
 
 	ts := v.theme.Timestamp.Render(msg.Timestamp.Format("15:04"))
 
-	// Header line: "● You [14:23]"
-	dot := "●"
-	switch msg.Role {
-	case "user":
-		dot = v.theme.UserLabel.Foreground(nil).Render("●")
-	}
-	headerLine := fmt.Sprintf("%s %s %s",
+	// Header line: "You 14:23"
+	headerLine := fmt.Sprintf("%s %s",
 		labelStyle.Render(label),
 		ts,
-		v.theme.StatusDim.Render("─"),
 	)
-	_ = dot // placeholder for future avatar
 	lines = append(lines, headerLine)
 
 	// Content rendering
