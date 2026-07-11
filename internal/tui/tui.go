@@ -22,15 +22,16 @@ type TuiModel struct {
 	// Sub-components
 	input      InputModel
 	viewport   MessageViewport
+	statusBar  StatusBar
 	spinnerOn  bool
 	spinnerIdx int
 
 	// State
-	messages   []ChatMessage
-	streaming  bool // LLM is generating text
-	agentBusy  bool // agent is running tools or thinking
-	streamBuf  string // accumulating text from LLM
-	quitting   bool
+	messages  []ChatMessage
+	streaming bool   // LLM is generating text
+	agentBusy bool   // agent is running tools or thinking
+	streamBuf string // accumulating text from LLM
+	quitting  bool
 
 	// Session
 	session   *runtime.AgentSession
@@ -44,6 +45,9 @@ type TuiModel struct {
 	provider  string
 	modelID   string
 	workspace string
+
+	// Theme
+	theme *Theme
 }
 
 // New creates a new TuiModel.
@@ -54,12 +58,14 @@ func New(session *runtime.AgentSession, cmds *slashcmd.Registry) *TuiModel {
 		height:    24,
 		input:     NewInputModel(),
 		viewport:  NewMessageViewport(80, 20),
+		statusBar: *NewStatusBar(),
 		messages:  []ChatMessage{},
 		session:   session,
 		slashCmds: cmds,
 		provider:  provider,
 		modelID:   modelID,
 		confirmCh: make(chan ConfirmationResultMsg, 1),
+		theme:     DefaultTheme(),
 	}
 
 	// Wire confirmation callback
@@ -191,7 +197,7 @@ func (m *TuiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			Timestamp: time.Now(),
 		})
 		m.viewport.SetMessages(m.messages)
-		return m, nil
+	 return m, nil
 
 	case TickMsg:
 		if m.spinnerOn {
@@ -210,49 +216,50 @@ func (m *TuiModel) View() string {
 		return "Goodbye! 👋\n"
 	}
 
-	var buf string
+	var buf strings.Builder
 
 	// Message viewport
-	buf += m.viewport.View()
-	buf += "\n"
+	buf.WriteString(m.viewport.View())
+	buf.WriteByte('\n')
 
 	// Separator line
-	buf += separatorLine(m.width)
-	buf += "\n"
+	sep := m.theme.Separator.Render(strings.Repeat("─", m.width))
+	buf.WriteString(sep)
+	buf.WriteByte('\n')
 
 	// Input area
-	buf += m.input.View()
+	buf.WriteString(m.input.View())
+	buf.WriteByte('\n')
+
+	// Help hint
+	buf.WriteString(m.statusBar.HelpHint(m.agentBusy))
+	buf.WriteByte('\n')
 
 	// Status bar
-	buf += "\n"
-	buf += m.statusBar()
+	status := "ready"
+	if m.agentBusy {
+		if m.streaming {
+			status = "thinking"
+		} else {
+			status = "busy"
+		}
+	}
+	buf.WriteString(m.statusBar.Render(
+		m.width, status, m.spinnerIdx,
+		m.provider, m.modelID, m.workspace, m.streaming,
+	))
 
-	return buf
+	return buf.String()
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 func (m *TuiModel) inputHeight() int {
 	return 3 // input box height (tunable)
 }
 
 func (m *TuiModel) statusBarHeight() int {
-	return 2 // status bar + separator
-}
-
-func (m *TuiModel) statusBar() string {
-	status := "● ready"
-	if m.agentBusy {
-		status = spinnerChars[m.spinnerIdx%len(spinnerChars)] + " working"
-	}
-	return fmt.Sprintf(" %s │ %s/%s │ %s", status, m.provider, m.modelID, m.workspace)
-}
-
-func separatorLine(width int) string {
-	if width <= 0 {
-		width = 80
-	}
-	return strings.Repeat("─", width)
+	return 3 // help hint + status bar + separator
 }
 
 var spinnerChars = []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
@@ -264,11 +271,9 @@ func (m *TuiModel) spinnerTick() tea.Cmd {
 }
 
 // handleConfirmation is called by the agent when a dangerous tool needs user approval.
-// It sends the request to the TUI and blocks until the user responds.
 func (m *TuiModel) handleConfirmation(ctx context.Context, req agent.ConfirmationRequest) agent.ConfirmDecision {
 	slog.Info("confirmation requested", "tool", req.ToolName, "desc", req.Description)
 
-	// In Phase 1, we auto-approve since we can't show a popup yet.
-	// Phase 3 will implement a proper confirmation dialog.
+	// Phase 2: auto-approve (Phase 3 will implement proper confirmation dialog)
 	return agent.ConfirmDecision{Approved: true}
 }

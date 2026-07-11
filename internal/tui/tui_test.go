@@ -147,13 +147,11 @@ func TestMessageViewport_Streaming(t *testing.T) {
 	}
 }
 
-func TestSeparatorLine(t *testing.T) {
-	line := separatorLine(10)
-	// ─ is a multi-byte rune (3 bytes in UTF-8), so len() counts bytes.
-	// Count runes instead.
-	runeCount := len([]rune(line))
-	if runeCount != 10 {
-		t.Errorf("separatorLine(10) rune count = %d, want 10", runeCount)
+func TestStatusBarRender(t *testing.T) {
+	sb := NewStatusBar()
+	result := sb.Render(80, "ready", 0, "openai", "gpt-4o", "/home/user/pi-go", false)
+	if result == "" {
+		t.Error("StatusBar.Render() should not be empty")
 	}
 }
 
@@ -161,11 +159,13 @@ func TestTuiModel_Init(t *testing.T) {
 	m := &TuiModel{
 		input:    NewInputModel(),
 		viewport: NewMessageViewport(80, 20),
-		messages: []ChatMessage{},
+		statusBar: *NewStatusBar(),
+		messages:  []ChatMessage{},
+		theme:     DefaultTheme(),
 	}
 	cmd := m.Init()
 	if cmd != nil {
-		t.Error("Init() should return nil for Phase 1")
+		t.Error("Init() should return nil")
 	}
 }
 
@@ -175,5 +175,35 @@ func TestInputModel_HandleKeyRunes(t *testing.T) {
 
 	if im.Text() != "abc" {
 		t.Errorf("after typing 'abc': Text() = %q, want 'abc'", im.Text())
+	}
+}
+
+func TestToolPanelRender(t *testing.T) {
+	tp := NewToolPanel(ToolCallInfo{
+		Name:      "bash",
+		Args:      "go test",
+		Result:    "ok  pkg 0.1s",
+		Collapsed: true,
+	}, 60)
+	lines := tp.Render()
+	if len(lines) == 0 {
+		t.Error("ToolPanel.Render() should produce output")
+	}
+}
+
+func TestRenderDiff(t *testing.T) {
+	theme := DefaultTheme()
+	diff := "+added line\n-removed line\n context"
+	lines := RenderDiff(diff, theme)
+	if len(lines) != 3 {
+		t.Errorf("RenderDiff should return 3 lines, got %d", len(lines))
+	}
+}
+
+func TestMarkdownRender(t *testing.T) {
+	mr := NewMarkdownRenderer(80)
+	result := mr.Render("**bold text**")
+	if result == "" {
+		t.Error("Markdown render should not be empty")
 	}
 }

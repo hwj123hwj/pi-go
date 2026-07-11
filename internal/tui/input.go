@@ -10,13 +10,14 @@ import (
 // InputModel is a multi-line text input editor.
 // Supports cursor movement, word deletion, undo, and history.
 type InputModel struct {
-	lines    []string
-	cursorX  int
-	cursorY  int
+	lines     []string
+	cursorX   int
+	cursorY   int
 	undoStack []InputSnapshot
-	history  []string
-	histIdx  int
-	prompt   string
+	history   []string
+	histIdx   int
+	prompt    string
+	theme     *Theme
 }
 
 // InputSnapshot captures input state for undo.
@@ -29,13 +30,14 @@ type InputSnapshot struct {
 // NewInputModel creates a new input editor.
 func NewInputModel() InputModel {
 	return InputModel{
-		lines:    []string{""},
-		cursorX:  0,
-		cursorY:  0,
+		lines:     []string{""},
+		cursorX:   0,
+		cursorY:   0,
 		undoStack: nil,
-		history:  nil,
-		histIdx:  -1,
-		prompt:   "> ",
+		history:   nil,
+		histIdx:   -1,
+		prompt:    "›",
+		theme:     DefaultTheme(),
 	}
 }
 
@@ -116,37 +118,64 @@ func (im *InputModel) HandleKey(msg tea.KeyMsg) {
 	}
 }
 
-// View renders the input area.
+// View renders the input area with a styled prompt and cursor indicator.
 func (im *InputModel) View() string {
 	var buf strings.Builder
 
 	for i, line := range im.lines {
 		if i == 0 {
-			buf.WriteString(im.prompt)
+			// First line: styled prompt
+			buf.WriteString(im.theme.InputPrompt.Render(im.prompt))
+			buf.WriteByte(' ')
 		} else {
+			// Continuation lines: align with prompt
 			buf.WriteString("  ")
 		}
-		buf.WriteString(line)
 
-		// Show cursor on the current line
+		// Render line with cursor on current line
 		if i == im.cursorY {
-			// Cursor position indicator (Phase 1: no cursor, just highlight line)
+			buf.WriteString(im.renderLineWithCursor(line))
+		} else {
+			buf.WriteString(line)
 		}
 
 		if i < len(im.lines)-1 {
-			buf.WriteString("\n")
+			buf.WriteByte('\n')
 		}
-	}
-
-	// Cursor blink indicator at the end
-	if im.cursorY == len(im.lines)-1 {
-		buf.WriteString("▏")
 	}
 
 	return buf.String()
 }
 
-// ── Cursor movement ───────────────────────────────────────────────────────
+// renderLineWithCursor renders a line with a visible block cursor.
+func (im *InputModel) renderLineWithCursor(line string) string {
+	runes := []rune(line)
+	var buf strings.Builder
+
+	for i, r := range runes {
+		if i == im.cursorX {
+			// Render the character under cursor in inverse/reversed style
+			buf.WriteString(im.cursorHighlight(string(r)))
+		} else {
+			buf.WriteRune(r)
+		}
+	}
+
+	// If cursor is at end of line, show block cursor
+	if im.cursorX >= len(runes) {
+		buf.WriteString(im.theme.InputPrompt.Render("▏"))
+	}
+
+	return buf.String()
+}
+
+// cursorHighlight renders a character with a highlighted background.
+func (im *InputModel) cursorHighlight(ch string) string {
+	// Use lipgloss reverse video for the cursor
+	return "\x1b[7m" + ch + "\x1b[0m"
+}
+
+// ── Cursor movement ───────────────────────────────────────────────────────────
 
 func (im *InputModel) cursorLeft() {
 	if im.cursorX > 0 {
@@ -187,7 +216,7 @@ func (im *InputModel) cursorDown() {
 	}
 }
 
-// ── Text editing ──────────────────────────────────────────────────────────
+// ── Text editing ──────────────────────────────────────────────────────────────
 
 func (im *InputModel) insertString(s string) {
 	im.saveUndo()
@@ -285,7 +314,7 @@ func (im *InputModel) newLine() {
 	im.cursorX = 0
 }
 
-// ── History ───────────────────────────────────────────────────────────────
+// ── History ───────────────────────────────────────────────────────────────────
 
 func (im *InputModel) navigateHistory(dir int) {
 	if len(im.history) == 0 {
@@ -320,7 +349,7 @@ func (im *InputModel) AddHistory(text string) {
 	im.histIdx = -1
 }
 
-// ── Undo ──────────────────────────────────────────────────────────────────
+// ── Undo ──────────────────────────────────────────────────────────────────────
 
 func (im *InputModel) saveUndo() {
 	snap := InputSnapshot{

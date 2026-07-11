@@ -3,17 +3,21 @@ package tui
 import (
 	"fmt"
 	"strings"
+
+	"github.com/charmbracelet/lipgloss"
 )
 
-// MessageViewport is a scrollable viewport that renders conversation messages.
-// Phase 1: Simple line-based rendering. Phase 2 will add Markdown + tool panels.
+// MessageViewport is a scrollable viewport that renders conversation messages
+// with full styling: Markdown rendering, tool panels, diff highlighting.
 type MessageViewport struct {
-	width   int
-	height  int
-	messages []ChatMessage
-	streaming string // text being streamed (not yet finalized)
-	lines   []string // rendered lines (cached)
+	width        int
+	height       int
+	messages     []ChatMessage
+	streaming    string // text being streamed (not yet finalized)
+	lines        []string // rendered lines (cached)
 	scrollOffset int
+	theme        *Theme
+	md           *MarkdownRenderer
 }
 
 // NewMessageViewport creates a new viewport.
@@ -21,13 +25,18 @@ func NewMessageViewport(width, height int) MessageViewport {
 	return MessageViewport{
 		width:  width,
 		height: height,
+		theme:  DefaultTheme(),
+		md:     SharedMarkdown(),
 	}
 }
 
-// Resize updates the viewport dimensions.
+// Resize updates the viewport dimensions and markdown renderer width.
 func (v *MessageViewport) Resize(width, height int) {
 	v.width = width
 	v.height = height
+	if v.md != nil {
+		v.md.SetWidth(width - 2) // account for left padding
+	}
 	v.rebuildLines()
 }
 
@@ -51,6 +60,26 @@ func (v *MessageViewport) Clear() {
 	v.scrollOffset = 0
 }
 
+// ScrollUp moves the viewport up by n lines.
+func (v *MessageViewport) ScrollUp(n int) {
+	v.scrollOffset -= n
+	if v.scrollOffset < 0 {
+		v.scrollOffset = 0
+	}
+}
+
+// ScrollDown moves the viewport down by n lines.
+func (v *MessageViewport) ScrollDown(n int) {
+	maxScroll := len(v.lines) - v.height
+	v.scrollOffset += n
+	if v.scrollOffset > maxScroll {
+		v.scrollOffset = maxScroll
+	}
+	if v.scrollOffset < 0 {
+		v.scrollOffset = 0
+	}
+}
+
 // GotoBottom scrolls to the bottom of the messages.
 func (v *MessageViewport) GotoBottom() {
 	maxScroll := len(v.lines) - v.height
@@ -64,7 +93,13 @@ func (v *MessageViewport) GotoBottom() {
 // View renders the visible portion of the viewport.
 func (v *MessageViewport) View() string {
 	if len(v.lines) == 0 {
-		return strings.Repeat("\n", v.height-1)
+		// Empty state — show a subtle hint
+		hint := v.theme.HelpText.Render("  Type a message and press Enter to start chatting…")
+		padLines := v.height - 1
+		if padLines < 0 {
+			padLines = 0
+		}
+		return hint + strings.Repeat("\n", padLines)
 	}
 
 	start := v.scrollOffset
@@ -86,7 +121,7 @@ func (v *MessageViewport) View() string {
 	return strings.Join(visible, "\n")
 }
 
-// ── Rendering ─────────────────────────────────────────────────────────────
+// ── Rendering ─────────────────────────────────────────────────────────────────
 
 func (v *MessageViewport) rebuildLines() {
 	var lines []string
@@ -107,40 +142,64 @@ func (v *MessageViewport) rebuildLines() {
 func (v *MessageViewport) renderMessage(msg ChatMessage) []string {
 	var lines []string
 
-	// Role label
-	var label, color string
+	// Role label with timestamp
+	var label string
+	var labelStyle lipgloss.Style
 	switch msg.Role {
 	case "user":
 		label = "You"
-		color = "\033[36m" // cyan
+		labelStyle = v.theme.UserLabel
 	case "assistant":
 		label = "π"
-		color = "\033[35m" // magenta
+		labelStyle = v.theme.AssistantLabel
 	case "system":
 		label = "system"
-		color = "\033[33m" // yellow
+		labelStyle = v.theme.SystemLabel
 	default:
 		label = msg.Role
-		color = ""
+		labelStyle = v.theme.SystemLabel
 	}
 
-	ts := msg.Timestamp.Format("15:04")
-	reset := ""
-	if color != "" {
-		reset = "\033[0m"
+	ts := v.theme.Timestamp.Render(msg.Timestamp.Format("15:04"))
+
+	// Header line: "● You [14:23]"
+	dot := "●"
+	switch msg.Role {
+	case "user":
+		dot = v.theme.UserLabel.Foreground(nil).Render("●")
 	}
+	headerLine := fmt.Sprintf("%s %s %s",
+		labelStyle.Render(label),
+		ts,
+		v.theme.StatusDim.Render("─"),
+	)
+	_ = dot // placeholder for future avatar
+	lines = append(lines, headerLine)
 
-	header := fmt.Sprintf("%s%s%s [%s]", color, label, reset, ts)
-	lines = append(lines, header)
-
-	// Content (Phase 1: plain text, Phase 2 will use glamour)
-	for _, line := range strings.Split(msg.Content, "\n") {
-		lines = append(lines, line)
+	// Content rendering
+	switch msg.Role {
+	case "user":
+		// User content: plain text with indentation, no markdown rendering
+		for _, line := range strings.Split(msg.Content, "\n") {
+			lines = append(lines, "  "+line)
+		}
+	case "assistant":
+		// Assistant content: full Markdown rendering via glamour
+		rendered := v.md.Render(msg.Content)
+		for _, line := range strings.Split(rendered, "\n") {
+			lines = append(lines, line)
+		}
+	case "system":
+		// System content: italic dim text
+		for _, line := range strings.Split(msg.Content, "\n") {
+			lines = append(lines, v.theme.SystemContent.Render("  "+line))
+		}
 	}
 
 	// Tool calls
 	for _, tool := range msg.Tools {
-		lines = append(lines, v.renderToolCall(tool)...)
+		panel := NewToolPanel(tool, v.width)
+		lines = append(lines, panel.Render()...)
 	}
 
 	lines = append(lines, "") // blank line separator
@@ -150,41 +209,17 @@ func (v *MessageViewport) renderMessage(msg ChatMessage) []string {
 
 func (v *MessageViewport) renderStreaming(text string) []string {
 	var lines []string
-	lines = append(lines, "\033[35mπ\033[0m (typing...)")
 
+	spinner := spinnerChars[0] // approximate; actual spinner in View()
+	lines = append(lines, fmt.Sprintf("%s %s",
+		v.theme.AssistantLabel.Render("π"),
+		v.theme.StatusDim.Render(spinner+" typing…"),
+	))
+
+	// Render streaming text as plain text (no markdown until done —
+	// glamour is too slow for per-keystroke streaming)
 	for _, line := range strings.Split(text, "\n") {
-		lines = append(lines, line)
+		lines = append(lines, "  "+line)
 	}
-	return lines
-}
-
-func (v *MessageViewport) renderToolCall(tool ToolCallInfo) []string {
-	var lines []string
-
-	icon := "🔧"
-	status := ""
-	if tool.Streaming {
-		status = " ⠋ running..."
-	} else if tool.IsError {
-		icon = "❌"
-		status = " error"
-	} else {
-		status = " ✓"
-	}
-
-	collapsed := "▸"
-	if !tool.Collapsed {
-		collapsed = "▾"
-	}
-
-	header := fmt.Sprintf("  %s %s%s%s %s", icon, tool.Name, tool.Args, status, collapsed)
-	lines = append(lines, header)
-
-	if !tool.Collapsed && tool.Result != "" {
-		for _, line := range strings.Split(tool.Result, "\n") {
-			lines = append(lines, "    "+line)
-		}
-	}
-
 	return lines
 }
