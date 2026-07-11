@@ -48,12 +48,6 @@ type ConfirmationMsg struct {
 	Req agent.ConfirmationRequest
 }
 
-// ConfirmationResultMsg carries the user's confirmation decision.
-type ConfirmationResultMsg struct {
-	ToolCallID string
-	Approved   bool
-}
-
 // CompactionMsg signals context compaction completed.
 type CompactionMsg struct {
 	Summary string

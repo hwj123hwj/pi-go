@@ -26,6 +26,9 @@ func Run(session *runtime.AgentSession, cmds *slashcmd.Registry) error {
 		tea.WithMouseCellMotion(),
 	)
 
+	// Wire program reference so callbacks can send messages
+	m.SetProgram(p)
+
 	// Print banner before entering alt screen
 	ui.PrintBanner(os.Stdout)
 

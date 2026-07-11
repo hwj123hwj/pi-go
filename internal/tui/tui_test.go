@@ -207,3 +207,102 @@ func TestMarkdownRender(t *testing.T) {
 		t.Error("Markdown render should not be empty")
 	}
 }
+
+func TestCompletionSlash(t *testing.T) {
+	cm := NewCompletionState()
+	// Simulate typing "/he"
+	// We can't use a real registry here, so just test the state machine
+	cm.kind = CompletionSlash
+	cm.visible = true
+	cm.items = []CompletionItem{
+		{Label: "/help", Description: "Show help"},
+		{Label: "/history", Description: "View history"},
+	}
+
+	if !cm.IsActive() {
+		t.Error("completion should be active")
+	}
+	if len(cm.Items()) != 2 {
+		t.Errorf("expected 2 items, got %d", len(cm.Items()))
+	}
+
+	// Test navigation
+	cm.Next()
+	if cm.SelectedIndex() != 1 {
+		t.Errorf("after Next, selected = %d, want 1", cm.SelectedIndex())
+	}
+	cm.Prev()
+	if cm.SelectedIndex() != 0 {
+		t.Errorf("after Prev, selected = %d, want 0", cm.SelectedIndex())
+	}
+
+	// Test close
+	cm.Close()
+	if cm.IsActive() {
+		t.Error("completion should be inactive after Close()")
+	}
+}
+
+func TestConfirmationState(t *testing.T) {
+	cs := NewConfirmationState()
+	if cs.IsActive() {
+		t.Error("new confirmation should be inactive")
+	}
+
+	cs.Show("tool-1", "bash", "Run: rm -rf /tmp/cache")
+	if !cs.IsActive() {
+		t.Error("confirmation should be active after Show()")
+	}
+
+	if cs.Selected() != 0 {
+		t.Errorf("default selected = %d, want 0 (Yes)", cs.Selected())
+	}
+
+	cs.Hide()
+	if cs.IsActive() {
+		t.Error("confirmation should be inactive after Hide()")
+	}
+}
+
+func TestKeyBindings(t *testing.T) {
+	kb := NewKeyBindingTable()
+
+	// Test input context
+	action := kb.ResolveInput(tea.KeyMsg{Type: tea.KeyEnter})
+	if action != ActionSubmit {
+		t.Errorf("Enter should resolve to ActionSubmit, got %v", action)
+	}
+
+	action = kb.ResolveInput(tea.KeyMsg{Type: tea.KeyCtrlL})
+	if action != ActionClearScreen {
+		t.Errorf("Ctrl+L should resolve to ActionClearScreen, got %v", action)
+	}
+
+	// Test completion context
+	action = kb.ResolveCompletion(tea.KeyMsg{Type: tea.KeyTab})
+	if action != ActionAcceptCompletion {
+		t.Errorf("Tab in completion should resolve to ActionAcceptCompletion, got %v", action)
+	}
+
+	// Test confirmation context
+	action = kb.ResolveConfirmation(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'y'}})
+	if action != ActionSelectYes {
+		t.Errorf("'y' in confirmation should resolve to ActionSelectYes, got %v", action)
+	}
+}
+
+func TestToolPanelToggle(t *testing.T) {
+	tp := NewToolPanel(ToolCallInfo{
+		Name:      "edit",
+		Args:      "test.go",
+		Result:    "ok",
+		Collapsed: true,
+	}, 60)
+	if !tp.info.Collapsed {
+		t.Error("should start collapsed")
+	}
+	tp.ToggleCollapsed()
+	if tp.info.Collapsed {
+		t.Error("should be expanded after toggle")
+	}
+}

@@ -48,24 +48,37 @@ type TuiModel struct {
 
 	// Theme
 	theme *Theme
+
+	// Phase 3: completion + confirmation + model selector
+	completion  CompletionState
+	confirmation *ConfirmationState
+	modelSelect bool         // Ctrl+P model selector popup active
+	program     *tea.Program // ref to program for sending msgs
+}
+
+// SetProgram stores a reference to the tea.Program so we can send msgs from callbacks.
+func (m *TuiModel) SetProgram(p *tea.Program) {
+	m.program = p
 }
 
 // New creates a new TuiModel.
 func New(session *runtime.AgentSession, cmds *slashcmd.Registry) *TuiModel {
 	provider, modelID := session.ModelInfo()
 	m := &TuiModel{
-		width:     80,
-		height:    24,
-		input:     NewInputModel(),
-		viewport:  NewMessageViewport(80, 20),
-		statusBar: *NewStatusBar(),
-		messages:  []ChatMessage{},
-		session:   session,
-		slashCmds: cmds,
-		provider:  provider,
-		modelID:   modelID,
-		confirmCh: make(chan ConfirmationResultMsg, 1),
-		theme:     DefaultTheme(),
+		width:        80,
+		height:       24,
+		input:        NewInputModel(),
+		viewport:     NewMessageViewport(80, 20),
+		statusBar:    *NewStatusBar(),
+		messages:     []ChatMessage{},
+		session:      session,
+		slashCmds:    cmds,
+		provider:     provider,
+		modelID:      modelID,
+		confirmCh:    make(chan ConfirmationResultMsg, 1),
+		theme:        DefaultTheme(),
+		completion:   NewCompletionState(),
+		confirmation: NewConfirmationState(),
 	}
 
 	// Wire confirmation callback
@@ -216,6 +229,11 @@ func (m *TuiModel) View() string {
 		return "Goodbye! 👋\n"
 	}
 
+	// ── Confirmation dialog takes over the entire screen ──
+	if m.confirmation.IsActive() {
+		return m.renderConfirmationOverlay()
+	}
+
 	var buf strings.Builder
 
 	// Message viewport
@@ -226,6 +244,18 @@ func (m *TuiModel) View() string {
 	sep := m.theme.Separator.Render(strings.Repeat("─", m.width))
 	buf.WriteString(sep)
 	buf.WriteByte('\n')
+
+	// Completion popup (rendered above the input area)
+	if m.completion.IsActive() {
+		popup := NewCompletionPopup()
+		buf.WriteString(popup.Render(&m.completion, m.width))
+		buf.WriteByte('\n')
+	}
+
+	// Model selector popup (Ctrl+P)
+	if m.modelSelect {
+		buf.WriteString("  Select model (↑/↓, Enter, Esc)\n")
+	}
 
 	// Input area
 	buf.WriteString(m.input.View())
@@ -271,9 +301,28 @@ func (m *TuiModel) spinnerTick() tea.Cmd {
 }
 
 // handleConfirmation is called by the agent when a dangerous tool needs user approval.
+// It shows the TUI confirmation dialog and blocks until the user responds.
 func (m *TuiModel) handleConfirmation(ctx context.Context, req agent.ConfirmationRequest) agent.ConfirmDecision {
 	slog.Info("confirmation requested", "tool", req.ToolName, "desc", req.Description)
 
-	// Phase 2: auto-approve (Phase 3 will implement proper confirmation dialog)
-	return agent.ConfirmDecision{Approved: true}
+	// Show the confirmation dialog
+	m.confirmation.Show(req.ToolCallID, req.ToolName, req.Description)
+
+	// Notify the TUI to re-render
+	if m.program != nil {
+		m.program.Send(ConfirmationDialogMsg{
+			ToolCallID:  req.ToolCallID,
+			ToolName:    req.ToolName,
+			Description: req.Description,
+		})
+	}
+
+	// Wait for user response
+	select {
+	case result := <-m.confirmation.resultChan:
+		return agent.ConfirmDecision{Approved: result.Approved}
+	case <-ctx.Done():
+		m.confirmation.Hide()
+		return agent.ConfirmDecision{Approved: false, Reason: "context cancelled"}
+	}
 }

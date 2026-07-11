@@ -11,14 +11,43 @@ import (
 	"github.com/hwj123hwj/pi-go/internal/slashcmd"
 )
 
-// handleKeyPress processes all keyboard input.
+// handleKeyPress processes all keyboard input, routing to the appropriate
+// context handler based on what overlay/popup is active.
 func (m *TuiModel) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch msg.Type {
+	// ── Priority 1: Confirmation dialog ──
+	if m.confirmation.IsActive() {
+		approved, consumed := m.confirmation.HandleKey(msg)
+		if consumed {
+			if m.confirmation.resultChan != nil {
+				// Dialog was resolved — send result
+				m.resolveConfirmation(approved)
+			}
+			return m, nil
+		}
+	}
 
-	// ── Global keys ──
-	case tea.KeyCtrlC:
+	// ── Priority 2: Completion popup active ──
+	if m.completion.IsActive() {
+		return m.handleCompletionKey(msg)
+	}
+
+	// ── Priority 3: Model selector popup (Ctrl+P) ──
+	if m.modelSelect {
+		return m.handleModelSelectKey(msg)
+	}
+
+	// ── Priority 4: Normal input context ──
+	return m.handleInputKey(msg)
+}
+
+// handleInputKey handles keys in the normal input context.
+func (m *TuiModel) handleInputKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	action := DefaultKeyBindings.ResolveInput(msg)
+
+	switch action {
+
+	case ActionCancel: // Ctrl+C
 		if m.agentBusy {
-			// Cancel current agent execution
 			m.streaming = false
 			m.agentBusy = false
 			m.spinnerOn = false
@@ -28,20 +57,38 @@ func (m *TuiModel) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.quitting = true
 		return m, tea.Quit
 
-	case tea.KeyCtrlD:
+	case ActionExit: // Ctrl+D
 		if m.input.IsEmpty() {
 			m.quitting = true
 			return m, tea.Quit
 		}
 		return m, nil
 
-	case tea.KeyCtrlL:
-		// Clear screen
+	case ActionClearScreen: // Ctrl+L
 		m.viewport.Clear()
 		return m, nil
 
-	// ── Submit message ──
-	case tea.KeyEnter:
+	case ActionToggleToolPanel: // Ctrl+O
+		// Toggle the last tool panel's collapsed state
+		if len(m.messages) > 0 && len(m.messages[len(m.messages)-1].Tools) > 0 {
+			idx := len(m.messages) - 1
+			lastTool := len(m.messages[idx].Tools) - 1
+			m.messages[idx].Tools[lastTool].Collapsed = !m.messages[idx].Tools[lastTool].Collapsed
+			m.viewport.SetMessages(m.messages)
+		}
+		return m, nil
+
+	case ActionOpenModelSelect: // Ctrl+P
+		// Build model list from registry
+		if m.slashCmds == nil {
+			return m, nil
+		}
+		// Try to get available models from the session's app context
+		// For now, use a static list; Phase 3 will wire the real registry
+		m.modelSelect = true
+		return m, nil
+
+	case ActionSubmit: // Enter
 		input := m.input.Text()
 		if input == "" {
 			return m, nil
@@ -59,10 +106,158 @@ func (m *TuiModel) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// Send to agent
 		return m.sendMessage(input)
 
-	// ── Input editing (delegate to input model) ──
-	default:
-		m.input.HandleKey(msg)
+	case ActionNewline: // Ctrl+J
+		m.input.newLine()
 		return m, nil
+
+	case ActionSearchHistory: // Ctrl+R
+		// Phase 3: simple history search (cycle backward)
+		m.input.navigateHistory(-1)
+		return m, nil
+
+	case ActionPageUp: // PgUp
+		m.viewport.ScrollUp(m.viewport.height)
+		return m, nil
+
+	case ActionPageDown: // PgDn
+		m.viewport.ScrollDown(m.viewport.height)
+		return m, nil
+
+	case ActionClosePopup: // Esc
+		m.completion.Close()
+		return m, nil
+
+	default:
+		// Delegate to input editor
+		m.input.HandleKey(msg)
+
+		// After each keystroke, check if we should trigger autocomplete
+		m.checkTriggerCompletion()
+
+		return m, nil
+	}
+}
+
+// handleCompletionKey handles keys when the autocomplete popup is visible.
+func (m *TuiModel) handleCompletionKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	action := DefaultKeyBindings.ResolveCompletion(msg)
+
+	switch action {
+	case ActionAcceptCompletion: // Tab or Enter
+		item := m.completion.SelectedItem()
+		if item != nil {
+			m.acceptCompletion(item.InsertText)
+		}
+		m.completion.Close()
+		return m, nil
+
+	case ActionHistoryNext: // Down
+		m.completion.Next()
+		return m, nil
+
+	case ActionHistoryPrev: // Up
+		m.completion.Prev()
+		return m, nil
+
+	case ActionClosePopup: // Esc
+		m.completion.Close()
+		return m, nil
+
+	default:
+		// Pass key to input, then re-evaluate completion
+		m.input.HandleKey(msg)
+		m.checkTriggerCompletion()
+		return m, nil
+	}
+}
+
+// handleModelSelectKey handles keys when the model selector popup is open.
+func (m *TuiModel) handleModelSelectKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.Type {
+	case tea.KeyEsc, tea.KeyCtrlP:
+		m.modelSelect = false
+		return m, nil
+	case tea.KeyEnter:
+		// TODO: apply selected model
+		m.modelSelect = false
+		return m, nil
+	case tea.KeyUp:
+		m.completion.Prev()
+		return m, nil
+	case tea.KeyDown:
+		m.completion.Next()
+		return m, nil
+	default:
+		return m, nil
+	}
+}
+
+// checkTriggerCompletion evaluates the current input and triggers the
+// appropriate completion popup (slash commands or file paths).
+func (m *TuiModel) checkTriggerCompletion() {
+	if m.agentBusy {
+		m.completion.Close()
+		return
+	}
+
+	input := m.input.Text()
+	cursorX := m.input.cursorX
+
+	// Try slash command completion first
+	if m.completion.TriggerSlash(input, cursorX, m.slashCmds) {
+		return
+	}
+
+	// Try file path completion
+	if m.completion.TriggerFile(input, cursorX, m.workspace) {
+		return
+	}
+
+	// No trigger — close popup
+	m.completion.Close()
+}
+
+// acceptCompletion replaces the trigger text in the input with the completion.
+func (m *TuiModel) acceptCompletion(insertText string) {
+	// For slash commands: replace from "/" to cursor with the command
+	// For file paths: replace from "@" to cursor with the path
+	// For model selector: handled separately
+
+	switch m.completion.Kind() {
+	case CompletionSlash:
+		// Replace the partial /command with the full one
+		fullText := m.input.Text()
+		beforeCursor := substringBefore(fullText, m.input.cursorX)
+
+		slashIdx := strings.LastIndex(beforeCursor, "/")
+		if slashIdx < 0 {
+			return
+		}
+
+		// Everything before the "/" + the completion + everything after cursor
+		afterCursor := string([]rune(fullText)[m.input.cursorX:])
+		newText := beforeCursor[:slashIdx] + insertText + " " + afterCursor
+
+		m.input.lines = []string{newText}
+		m.input.cursorX = slashIdx + len(insertText) + 1
+		m.input.cursorY = 0
+
+	case CompletionFile:
+		// Replace from "@" to cursor
+		fullText := m.input.Text()
+		beforeCursor := substringBefore(fullText, m.input.cursorX)
+
+		atIdx := strings.LastIndex(beforeCursor, "@")
+		if atIdx < 0 {
+			return
+		}
+
+		afterCursor := string([]rune(fullText)[m.input.cursorX:])
+		newText := beforeCursor[:atIdx] + insertText + afterCursor
+
+		m.input.lines = []string{newText}
+		m.input.cursorX = atIdx + len(insertText)
+		m.input.cursorY = 0
 	}
 }
 
@@ -110,8 +305,6 @@ func (m *TuiModel) startAgentStream(input string) tea.Cmd {
 		for event := range stream {
 			switch event.Type {
 			case agent.StreamEventTextDelta:
-				// Text deltas need to be sent live, but tea.Cmd can only return
-				// one msg. We'll accumulate in the model and send the final state.
 				m.streamBuf += event.TextDelta
 				lastMsg = StreamTextMsg{Delta: event.TextDelta}
 
@@ -140,7 +333,6 @@ func (m *TuiModel) startAgentStream(input string) tea.Cmd {
 				lastMsg = AgentErrorMsg{Err: fmt.Errorf("%s", event.Error)}
 
 			case agent.StreamEventDone:
-				// Stream complete
 				return StreamDoneMsg{}
 			}
 		}
