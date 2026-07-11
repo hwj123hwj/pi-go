@@ -163,7 +163,7 @@ func (im *InputModel) renderLineWithCursor(line string) string {
 
 	// If cursor is at end of line, show block cursor
 	if im.cursorX >= len(runes) {
-		buf.WriteString(im.theme.InputPrompt.Render("▏"))
+		buf.WriteString(im.theme.InputPrompt.Render("│"))
 	}
 
 	return buf.String()
@@ -171,8 +171,8 @@ func (im *InputModel) renderLineWithCursor(line string) string {
 
 // cursorHighlight renders a character with a highlighted background.
 func (im *InputModel) cursorHighlight(ch string) string {
-	// Use lipgloss reverse video for the cursor
-	return "\x1b[7m" + ch + "\x1b[0m"
+	// Use lipgloss reverse video — safer than raw escape codes.
+	return im.theme.InputPrompt.Reverse(true).Render(ch) + im.theme.InputPrompt.Reverse(false).Render("")
 }
 
 // ── Cursor movement ───────────────────────────────────────────────────────────

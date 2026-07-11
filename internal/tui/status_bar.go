@@ -83,9 +83,9 @@ func (sb *StatusBar) Render(
 // HelpHint renders a one-line help hint above the status bar.
 func (sb *StatusBar) HelpHint(agentBusy bool) string {
 	if agentBusy {
-		return sb.theme.HelpText.Render("Ctrl+C: cancel │ Ctrl+L: clear │ Ctrl+D: exit")
+		return sb.theme.HelpText.Render("Ctrl+C: cancel | Ctrl+L: clear | Ctrl+D: exit")
 	}
-	return sb.theme.HelpText.Render("Enter: send │ Shift+Enter: newline │ Ctrl+L: clear │ Ctrl+D: exit │ /help: commands")
+	return sb.theme.HelpText.Render("Enter: send | Ctrl+J: newline | Ctrl+L: clear | Ctrl+D: exit | /help: commands")
 }
 
 // formatTokenCount converts a raw token number to a human-readable string.

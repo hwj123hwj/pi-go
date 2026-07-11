@@ -57,7 +57,7 @@ func (mr *MarkdownRenderer) SetWidth(width int) {
 	defer mr.mu.Unlock()
 
 	r, err := glamour.NewTermRenderer(
-		glamour.WithAutoStyle(),
+		glamour.WithStandardStyle("dark"),
 		glamour.WithWordWrap(width),
 		glamour.WithEmoji(),
 	)

@@ -21,9 +21,11 @@ func Run(session *runtime.AgentSession, cmds *slashcmd.Registry) error {
 		m.SetWorkspace(cwd)
 	}
 
+	// Use AltScreen for clean full-screen rendering.
+	// Do NOT use WithMouseCellMotion — it sends escape sequences that
+	// many terminals (especially older/SSH) don't support, causing garbled output.
 	p := tea.NewProgram(m,
 		tea.WithAltScreen(),
-		tea.WithMouseCellMotion(),
 	)
 
 	// Wire program reference so callbacks can send messages

@@ -94,7 +94,7 @@ func (v *MessageViewport) GotoBottom() {
 func (v *MessageViewport) View() string {
 	if len(v.lines) == 0 {
 		// Empty state — show a subtle hint
-		hint := v.theme.HelpText.Render("  Type a message and press Enter to start chatting…")
+		hint := v.theme.HelpText.Render("  Type a message and press Enter to start chatting...")
 		padLines := v.height - 1
 		if padLines < 0 {
 			padLines = 0
