@@ -10,7 +10,7 @@ jobs:
   test-and-deploy:
     runs-on: ubuntu-latest
     env:
-      GO_VERSION: "1.22.0"
+      GO_VERSION: "1.24.2"
       BINARY_NAME: pi-agent
       SERVICE_NAME: pi-go
     steps:
