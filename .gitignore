@@ -26,3 +26,4 @@ docs/reviews/
 # Runtime data
 data/
 *.log
+bin/
