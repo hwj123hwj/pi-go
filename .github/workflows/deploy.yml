@@ -23,7 +23,20 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
 
       - name: Run tests
-        run: go test ./...
+        run: go test ./... -v 2>&1 | tee /tmp/test-output.txt
+        continue-on-error: true
+
+      - name: Show test results on failure
+        if: always()
+        run: |
+          echo "=== Test output ==="
+          cat /tmp/test-output.txt | tail -100
+          echo "=== Checking for failures ==="
+          if go test ./... 2>&1 | grep -q "FAIL"; then
+            echo "Tests failed!"
+            exit 1
+          fi
+          echo "All tests passed"
 
       - name: Build linux binary
         run: |
