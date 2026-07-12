@@ -1,216 +1,183 @@
-# Pi-Go
+<div align="center">
 
-用 Go 实现的通用 Agent 框架，核心目标：**可扩展的 Agent 底座 + 可插拔的应用层**。当前主要应用是 coding-agent（代码编辑助手）、music-agent（音乐助手）和 kb-agent（个人知识库）。
+# π-go
 
-## 架构
+**你的 AI 编程搭档，也是你的个人 AI 助手。**
 
-![架构图](docs/references/structure.png)
+Go 实现的智能 Agent 框架 — 写代码、搜知识、放音乐，一个终端全搞定。
 
-```
-┌─────────────────────────────────────────────────────┐
-│  Entrypoints（组装与入口）                           │
-│  cmd/pi-agent  cmd/pi-feishu-bridge                  │
-├─────────────────────────────────────────────────────┤
-│  Application（领域应用层，可插拔）                    │
-│  agents/coding/ — 工具集、提示、命令、Profile        │
-│  agents/music/  — 音乐助手应用                       │
-│  agents/kb/     — 知识库 Agent（第二大脑）            │
-├─────────────────────────────────────────────────────┤
-│  Platform（运行时平台层，领域无关）                   │
-│  runtime/ — AgentSession 生命周期、Application 接口  │
-├─────────────────────────────────────────────────────┤
-│  Core（核心层，零领域知识）                           │
-│  agent/  ai/  session/  compaction/  operations/     │
-│  prompt/  skill/  extensions/  slashcmd/             │
-└─────────────────────────────────────────────────────┘
-```
+[快速开始](#快速开始) · [功能一览](#核心功能) · [桌面端](#桌面客户端) · [技术文档](#技术文档)
 
-**层间依赖规则**：Core 不依赖上层；Platform 只依赖 Core；Application 通过 `runtime.Application` 接口与 Platform 解耦；Entrypoints 组装所有依赖。
+</div>
 
-## 功能
+---
 
-- **多 Provider 支持**：Anthropic、OpenAI（含本地网关），通过插件注册机制扩展
-- **流式输出**：SSE 事件流，支持 text delta / tool call / error 等细粒度事件
-- **Agent 循环**：双层循环（外层 follow-up + 内层 tool call），支持顺序/并行工具执行
-- **8 个内置工具**：bash、read、write、edit、grep、find、ls、web_fetch
-- **会话持久化**：JSONL append-only 存储，支持树状分支
-- **上下文压缩**：长对话自动摘要，防止超出上下文窗口
-- **MicroCompact**：零 LLM 成本的工具结果清理，保留最近 N 个完整结果
-- **技能系统**：加载 `.claude/skills/` 目录下的 SKILL.md
-- **HTTP API**：RESTful 接口 + SSE 流式端点 + WebSocket，含 logging/recovery/CORS 中间件
-- **CLI 控制面**：Slash Commands 框架 + 16 个内置命令
-- **Profile 系统**：coding / review 双 profile，切换即重建 agent
-- **SSH 远程执行**：通过 Operations 抽象切换本地 / SSH 执行后端
-- **扩展系统**：Extension 接口支持工具、命令、事件钩子注入
-- **Tool Lifecycle Hooks**：Before/After hook + PrepareArguments + Confirmation 接口
-- **Goal-Driven Loop**：目标驱动模式，LLM 评估器 + 关键词回退自动判断完成度
-- **循环检测**：SHA256 指纹识别连续相同工具调用，柔性提醒 Agent 换策略
-- **确认门控**：危险工具执行前用户确认（`ToolWithConfirmation` 接口）
-- **飞书桥接**：独立服务（`cmd/pi-feishu-bridge`），将 Agent 接入飞书群聊
-- **统一用户画像**：跨 Agent 共享的用户记忆层，自动记录用户偏好（频率×时效热度淘汰）
-- **KB 向量搜索**：SiliconFlow bge-m3 混合关键词+向量检索，本地 JSON 向量库
-- **会话记忆提取**：每轮对话后异步 LLM 抽取用户特征，写入用户画像
-- **工具输出概要**：超长工具输出自动生成结构化摘要，保护上下文窗口
-- **桌面客户端**：Electron + React GUI，含全局音乐播放器、文件浏览、知识库面板、用户画像面板
+## 它能做什么
+
+**写代码** — 读文件、改代码、跑命令、搜代码库，一个对话窗口搞定。不用切终端。
+
+**记知识** — 自动学习你的习惯和偏好，越用越懂你。个人知识库帮你沉淀经验。
+
+**放音乐** — 内置音乐助手，支持网易云 / B站 / 本地音乐，边写代码边听歌。
+
+**多端使用** — 终端 TUI、桌面客户端、飞书群聊、HTTP API，随时随地用。
+
+---
+
+## 核心功能
+
+| 🤖 智能 Agent | 📝 编程助手 | 🎵 个人助手 |
+|---|---|---|
+| 多模型自由切换 | 8 个内置工具 | 音乐播放器 |
+| 流式实时输出 | Markdown 渲染 | 网易云 / B站 / 本地 |
+| 自动上下文压缩 | Git diff 集成 | 用户画像记忆 |
+| 循环检测防卡死 | 文件自动补全 | 个人知识库 |
+
+<details>
+<summary>📖 展开看完整功能列表</summary>
+
+### Agent 引擎
+- **多 Provider**：Anthropic Claude、OpenAI、本地网关，随时切换
+- **流式输出**：实时看到 AI 的思考和回复，不用等
+- **自动压缩**：长对话自动总结，不会因为太长而"失忆"
+- **循环检测**：AI 卡在重复操作时会自动提醒换思路
+- **安全确认**：执行危险操作前会先问你
+
+### 编程能力
+- **文件读写**：读取、创建、编辑项目文件
+- **代码搜索**：按内容或文件名快速定位
+- **Shell 命令**：执行 bash 命令（需开启）
+- **网页抓取**：获取网页内容用于分析
+- **Slash 命令**：`/help`、`/model`、`/compact` 等 16 个快捷命令
+- **自动补全**：`/` 补全命令，`@` 补全文件路径
+
+### 个人助手
+- **音乐播放**：搜歌、播放、收藏，支持多源混合
+- **用户画像**：自动学习你的偏好和习惯
+- **知识库**：个人经验沉淀，支持语义搜索
+- **飞书集成**：在飞书群里直接和 AI 对话
+
+### 多端支持
+- **终端 TUI**：美观的终端界面，Markdown 渲染、语法高亮
+- **桌面客户端**：Electron + React，全局音乐播放器
+- **HTTP API**：RESTful + WebSocket，方便二次开发
+- **飞书桥接**：独立服务，接入飞书群聊
+
+</details>
+
+---
 
 ## 快速开始
 
 ### 安装
 
-**一键安装（推荐）**
-
 ```bash
 curl -fsSL https://raw.githubusercontent.com/hwj123hwj/pi-go/main/scripts/install.sh | bash
 ```
 
-安装脚本会自动完成：检测平台 → 下载二进制 → 配置 PATH → 创建 `.env` → 引导填入 API Key。
+安装脚本会自动完成一切：下载二进制 → 配置 PATH → 创建配置 → 引导填入 API Key。
 
-安装完成后直接：
+### 使用
+
 ```bash
-pi-go chat      # 交互式 TUI
-pi-go run -p "你好"  # 单次提问
-pi-go serve     # HTTP 服务
+pi-go chat              # 💬 交互式聊天（推荐）
+pi-go run -p "你好"      # ⚡ 单次提问
+pi-go serve             # 🌐 HTTP 服务模式
 ```
 
-**其他方式**
+### 终端界面快捷键
+
+| 按键 | 功能 | | 按键 | 功能 |
+|------|------|-|------|------|
+| `Enter` | 发送消息 | | `Ctrl+C` | 中断 / 退出 |
+| `Ctrl+J` | 换行 | | `Ctrl+D` | 退出 |
+| `Ctrl+L` | 清屏 | | `Ctrl+P` | 切换模型 |
+| `Ctrl+R` | 搜索历史 | | `↑` `↓` | 浏览历史 |
+| `Tab` | 自动补全 | | `/` | Slash 命令 |
+
+### 配置
+
+安装时如果没有填 API Key，或者想修改配置：
+
+```bash
+nano ~/.pi-go/.env
+```
+
+最简配置：
+```env
+PI_GO_PROVIDER=openai
+PI_GO_API_KEY=your-api-key
+PI_GO_BASE_URL=http://localhost:4001
+PI_GO_MODEL=longcat-opus
+```
 
 <details>
-<summary>go install</summary>
+<summary>⚙️ 其他安装方式</summary>
 
+**go install**
 ```bash
 go install github.com/hwj123hwj/pi-go/cmd/pi-agent@latest
 ```
 
+**从源码构建**
+```bash
+git clone https://github.com/hwj123hwj/pi-go.git
+cd pi-go
+make build && make install
+```
+
 </details>
 
-<details>
-<summary>从源码构建</summary>
+---
+
+## 桌面客户端
+
+pi-go 提供了基于 Electron + React 的桌面客户端，含全局音乐播放器、文件浏览器、知识库面板：
+
+```bash
+cd desktop
+npm install
+npm run electron:dev      # 开发模式
+npm run electron:build    # 打包
+```
+
+---
+
+## 飞书集成
+
+通过 `pi-feishu-bridge` 独立服务，可以将 AI Agent 接入飞书群聊，在群里直接和 AI 对话、执行 Slash 命令。
+
+详见 [飞书集成文档](docs/references/feishu-integration-ref.md)。
+
+---
+
+## 技术文档
+
+> 以下文档面向开发者和贡献者，普通用户不需要看。
+
+| 文档 | 说明 |
+|------|------|
+| [架构设计](docs/ARCHITECTURE.md) | 四层架构、模块划分、依赖规则 |
+| [环境变量](docs/CONFIG.md) | 完整配置项说明 |
+| [HTTP API](docs/API.md) | RESTful + WebSocket 接口文档 |
+| [贡献指南](docs/CONTRIBUTING.md) | 项目结构、开发流程、代码规范 |
+| [项目上下文](docs/PROJECT_CONTEXT.md) | 高层架构快照 |
+| [产品路线图](docs/PRODUCT_ROADMAP.md) | 未来规划 |
+| [部署指南](docs/deploy.md) | 自动部署说明 |
+
+---
+
+## 参与贡献
+
+欢迎 Issue 和 PR！开发流程详见 [贡献指南](docs/CONTRIBUTING.md)。
 
 ```bash
 git clone https://github.com/hwj123hwj/pi-go.git
 cd pi-go
-make build       # 编译到 bin/
-make install     # 安装到 $GOPATH/bin
+make test    # 跑测试
+make build   # 编译
 ```
 
-</details>
+## License
 
-### 桌面端
-
-pi-go 提供了基于 Electron + React 的桌面客户端：
-
-```bash
-cd desktop
-
-# 安装依赖
-npm install
-
-# 开发模式（Vite + Electron 热重载）
-npm run electron:dev
-
-# 构建桌面应用
-npm run electron:build
-
-# 指定架构构建
-npm run electron:build:arm64
-npm run electron:build:x64
-```
-
-### 指定会话
-
-```bash
-./pi-agent -mode chat -session sess_1234567890
-```
-
-## HTTP API
-
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| `GET` | `/health` | 健康检查 |
-| `POST` | `/chat` | 同步对话 |
-| `POST` | `/chat/stream` | SSE 流式对话 |
-| `GET` | `/sessions` | 列出会话 |
-| `POST` | `/sessions` | 创建会话 |
-| `GET` | `/sessions/{id}/messages` | 获取会话消息 |
-| `GET` | `/sessions/{id}/info` | 获取会话信息 |
-| `DELETE` | `/sessions/{id}` | 删除会话 |
-| `POST` | `/sessions/{id}/model` | 切换会话模型 |
-| `POST` | `/sessions/{id}/compact` | 压缩会话上下文 |
-| `POST` | `/sessions/{id}/command` | 执行斜杠命令 |
-| `GET` | `/sessions/{id}/diff` | 获取会话 Git diff |
-| `GET` | `/sessions/{id}/file` | 获取会话文件内容 |
-| `GET` | `/models` | 列出可用模型 |
-| `GET` | `/tools` | 列出工具 |
-| `POST` | `/tools/register` | 注册外部工具 |
-| `GET` | `/applications` | 列出可用应用 |
-| `GET` | `/profile` | 获取用户画像（所有分类+摘要） |
-| `DELETE` | `/profile` | 删除指定用户画像条目 |
-| `GET` | `/kb/stats` | 知识库统计 |
-| `GET` | `/kb/entries` | 列出知识库条目 |
-| `GET` | `/kb/categories` | 知识库分类列表 |
-| `GET` | `/kb/tags` | 知识库标签列表 |
-| `GET` | `/kb/health` | 知识库健康报告 |
-| `GET` | `/kb/read` | 读取知识库条目内容 |
-| `GET` | `/workspace/list-dir` | 列出工作目录内容 |
-| `GET` | `/workspace/search-files` | 模糊搜索文件 |
-| `GET` | `/workspace/read-file` | 读取文件内容 |
-| `PUT` | `/workspace/write-file` | 写入文件内容 |
-| `GET` | `/ws` | WebSocket 连接 |
-
-## 环境变量
-
-| 变量 | 默认值 | 说明 |
-|------|--------|------|
-| `PI_GO_PROVIDER` | _(必填)_ | LLM Provider：`anthropic` / `openai` |
-| `PI_GO_API_KEY` | - | Provider API Key（优先） |
-| `OPENAI_API_KEY` | - | OpenAI API Key（PI_GO_API_KEY 后备） |
-| `PI_GO_MODEL` | - | 模型名称（优先） |
-| `OPENAI_MODEL` | - | OpenAI 模型名称（PI_GO_MODEL 后备） |
-| `PI_GO_BASE_URL` | - | API 地址（优先） |
-| `OPENAI_BASE_URL` | `https://api.openai.com/v1` | OpenAI API 地址（后备） |
-| `ANTHROPIC_API_KEY` | - | Anthropic API Key |
-| `ANTHROPIC_MODEL` | - | Anthropic 模型名称 |
-| `ANTHROPIC_BASE_URL` | `https://api.anthropic.com` | Anthropic API 地址 |
-| `PI_GO_HOST` | `127.0.0.1` | HTTP 监听地址 |
-| `PI_GO_PORT` | `8080` | HTTP 监听端口 |
-| `PI_GO_DATA_DIR` | `./data` | 数据目录 |
-| `PI_GO_SESSION_FILE` | `./data/session.jsonl` | 会话文件路径 |
-| `PI_GO_ENABLE_BASH` | `false` | 是否启用 Bash 工具 |
-| `PI_GO_BASH_TIMEOUT_SECONDS` | `30` | Bash 命令超时 |
-| `PI_GO_ENABLE_WEB` | `false` | 是否启用 Web Fetch 工具 |
-| `PI_GO_WEB_TIMEOUT_SECONDS` | `30` | Web Fetch 超时（秒） |
-| `PI_GO_MAX_OUTPUT_LEN` | `30000` | 工具输出最大字符数 |
-| `PI_GO_WORKSPACE` | 当前目录 | 工作目录 |
-| `PI_GO_EXECUTION_MODE` | `local` | 执行后端：`local` 或 `ssh` |
-| `PI_GO_SSH_HOST` | - | SSH 模式目标主机 |
-| `PI_GO_SSH_PORT` | `22` | SSH 端口 |
-| `PI_GO_SSH_WORKDIR` | - | SSH 模式远程工作目录 |
-| `PI_GO_ALLOWED_TOOLS` | - | 工具白名单（逗号分隔） |
-| `PI_GO_BLOCKED_TOOLS` | - | 工具黑名单（逗号分隔） |
-| `PI_GO_KB_REPO_PATH` | `~/agent-lessons` | 知识库仓库路径 |
-| `PI_GO_KB_EMBEDDING_API_KEY` | - | KB 向量搜索 API Key（空则仅关键词搜索） |
-| `PI_GO_KB_EMBEDDING_BASE_URL` | - | KB Embedding API 地址 |
-| `PI_GO_KB_EMBEDDING_MODEL` | `bge-m3` | KB Embedding 模型名称 |
-| `PI_GO_HISTORY_FILE` | - | 交互模式历史记录路径 |
-| `PI_GO_PROMPT_TEMPLATE` | - | 自定义提示模板路径 |
-| `PI_GO_MUSIC_PORT` | - | 音乐服务端口 |
-
-完整环境变量说明见 [CONTRIBUTING.md](docs/CONTRIBUTING.md#八环境变量速查)。
-
-## 参与贡献
-
-详见 [贡献指南](docs/CONTRIBUTING.md)，包含项目结构、开发流程、代码规范等。
-
-## 测试
-
-```bash
-go test ./...
-```
-
-## 项目统计
-
-- **语言**：Go 1.24+
-- **代码量**：~26,000+ 行 Go 代码（144 个源文件 + 67 个测试文件）+ TypeScript 前端
-- **应用层**：3 个（coding-agent / music-agent / kb-agent）
-- **内置工具**：8 个（read / write / edit / bash / grep / find / ls / web_fetch）
-- **斜杠命令**：16 个（help / compact / sessions / session / branch / new / switch / tools / model / models / profiles / profile / goal / context / clear / wiki）
+MIT
