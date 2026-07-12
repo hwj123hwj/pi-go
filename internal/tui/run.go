@@ -13,8 +13,9 @@ import (
 
 // Run starts the Bubble Tea TUI program.
 // This is the main entry point for the new TUI interactive mode.
-func Run(session *runtime.AgentSession, cmds *slashcmd.Registry) error {
+func Run(session *runtime.AgentSession, cmds *slashcmd.Registry, app slashcmd.AppContext) error {
 	m := New(session, cmds)
+	m.app = app
 
 	// Set workspace for display
 	if cwd, err := os.Getwd(); err == nil {

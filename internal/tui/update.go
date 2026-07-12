@@ -9,6 +9,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/hwj123hwj/pi-go/internal/agent"
 	modelsregistry "github.com/hwj123hwj/pi-go/internal/models"
+	"github.com/hwj123hwj/pi-go/internal/runtime"
 	"github.com/hwj123hwj/pi-go/internal/slashcmd"
 )
 
@@ -390,7 +391,7 @@ func (m *TuiModel) handleSlashCommand(input string) (tea.Model, tea.Cmd) {
 	cmdCtx := slashcmd.Context{
 		Ctx:     context.Background(),
 		Session: m.session,
-		App:     nil,
+		App:     m.app,
 	}
 	result, err := m.slashCmds.Execute(cmdCtx, input)
 	if err != nil {
@@ -408,6 +409,24 @@ func (m *TuiModel) handleSlashCommand(input string) (tea.Model, tea.Cmd) {
 				Role:    "system",
 				Content: result.Output,
 			})
+		}
+
+		// Handle session switch (/new, /switch)
+		if result.SessionSwitchTo != nil {
+			// Convert SessionContext to AgentSession
+			if as, ok := result.SessionSwitchTo.(*runtime.AgentSession); ok {
+				m.session = as
+				m.provider, m.modelID = as.ModelInfo()
+				m.messages = []ChatMessage{} // clear conversation display
+				m.inputTokens = 0
+				m.outputTokens = 0
+			}
+		}
+
+		// Handle clear screen
+		if result.ClearScreen {
+			m.viewport.Clear()
+			m.messages = []ChatMessage{}
 		}
 	}
 

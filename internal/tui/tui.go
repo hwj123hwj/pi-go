@@ -12,7 +12,6 @@ import (
 	"github.com/hwj123hwj/pi-go/internal/runtime"
 	"github.com/hwj123hwj/pi-go/internal/slashcmd"
 )
-
 // TuiModel is the root Bubble Tea model for pi-go's interactive TUI.
 type TuiModel struct {
 	// Dimensions
@@ -54,10 +53,13 @@ type TuiModel struct {
 	theme *Theme
 
 	// Phase 3: completion + confirmation + model selector
-	completion  CompletionState
+	completion   CompletionState
 	confirmation *ConfirmationState
-	modelSelect bool         // Ctrl+P model selector popup active
-	program     *tea.Program // ref to program for sending msgs
+	modelSelect  bool         // Ctrl+P model selector popup active
+	program      *tea.Program // ref to program for sending msgs
+
+	// App context for slash commands that need session management (/new, /switch, etc.)
+	app slashcmd.AppContext
 }
 
 // SetProgram stores a reference to the tea.Program so we can send msgs from callbacks.

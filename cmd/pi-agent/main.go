@@ -163,7 +163,7 @@ func main() {
 		if *legacyTUI {
 			must(mode.NewInteractiveMode(sess, cmds, application).Run(context.Background()))
 		} else {
-			must(tui.Run(sess, cmds))
+			must(tui.Run(sess, cmds, application))
 		}
 
 	case "run":
