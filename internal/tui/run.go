@@ -8,7 +8,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/hwj123hwj/pi-go/internal/runtime"
 	"github.com/hwj123hwj/pi-go/internal/slashcmd"
-	"github.com/hwj123hwj/pi-go/internal/ui"
 )
 
 // Run starts the Bubble Tea TUI program.
@@ -32,8 +31,10 @@ func Run(session *runtime.AgentSession, cmds *slashcmd.Registry, app slashcmd.Ap
 	// Wire program reference so callbacks can send messages
 	m.SetProgram(p)
 
-	// Print banner before entering alt screen
-	ui.PrintBanner(os.Stdout)
+	// NOTE: Do NOT print anything to stdout before p.Run().
+	// AltScreen mode creates a separate buffer, but anything printed
+	// before p.Run() goes into the terminal's normal scrollback,
+	// which users can see by scrolling up.
 
 	_, err := p.Run()
 	return err
