@@ -244,7 +244,7 @@ func (v *MessageViewport) renderMessage(msg ChatMessage) []string {
 
 	// Tool calls
 	for _, tool := range msg.Tools {
-		panel := NewToolPanel(tool, v.width)
+		panel := NewToolPanel(tool, v.width-2) // account for left padding
 		lines = append(lines, panel.Render()...)
 	}
 

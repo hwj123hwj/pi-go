@@ -14,20 +14,19 @@ import (
 // ToolPanel renders a single tool execution as a collapsible bordered panel.
 //
 // Collapsed (default):
-// ┌─ 🔧 bash ───────────────────────── ▸ ─┐
-// └────────────────────────────────────────┘
+// ┌─ 🔧 bash ────────────────────── ✓ 1.2s ▸ ─┐
+// └────────────────────────────────────────────┘
 //
 // Expanded (Ctrl+O toggle):
-// ┌─ 🔧 bash ───────────────────────── ▾ ─┐
-// │ go test ./internal/tools/              │
-// │ ok  github.com/hwj123hwj/pi-go/...     │
-// │ 0.012s                                 │
-// └────────────────────────────────────────┘
+// ┌─ 🔧 bash ────────────────────── ✓ 1.2s ▾ ─┐
+// │ go test ./internal/tools/                   │
+// │ ok  github.com/hwj123hwj/pi-go/...          │
+// └─────────────────────────────────────────────┘
 type ToolPanel struct {
-	info     ToolCallInfo
-	width    int
-	theme    *Theme
-	md       *MarkdownRenderer
+	info  ToolCallInfo
+	width int
+	theme *Theme
+	md    *MarkdownRenderer
 }
 
 // NewToolPanel creates a panel for a tool call.
@@ -40,39 +39,52 @@ func NewToolPanel(info ToolCallInfo, width int) *ToolPanel {
 	}
 }
 
+// innerWidth returns the actual text content area inside the border + padding.
+func (tp *ToolPanel) innerWidth() int {
+	// Border: 2 chars (left+right), Padding: 2 chars (1 each side)
+	return tp.width - 4
+}
+
 // Render returns the rendered panel string (one or more lines).
 func (tp *ToolPanel) Render() []string {
 	if tp.width < 30 {
 		tp.width = 60 // safe minimum
 	}
 
-	// Build header
+	contentWidth := tp.innerWidth()
+
+	// ── Build left side of header ──
 	icon := toolIcon(tp.info.Name)
 	name := tp.info.Name
 
-	// Format args for display: try to extract key-value from JSON
 	argsDisplay := formatToolArgs(tp.info.Args)
-	args := truncateArg(argsDisplay, tp.width-len(name)-10)
+	args := truncateArg(argsDisplay, contentWidth-len(name)-12) // leave room for status
 
-	var statusIcon string
-	var statusColor lipgloss.Style
+	leftParts := []string{icon, tp.theme.ToolHeader.Render(name)}
+	if args != "" {
+		leftParts = append(leftParts, tp.theme.StatusDim.Render(args))
+	}
+	leftStr := strings.Join(leftParts, " ")
+	leftWidth := lipgloss.Width(leftStr)
+
+	// ── Build right side of header ──
+	var statusStr string
 
 	if tp.info.Streaming {
-		statusIcon = spinnerChars[0] // will be animated by spinner tick
-		statusColor = tp.theme.StatusBusy
+		statusStr = tp.theme.StatusBusy.Render("● running")
 	} else if tp.info.IsError {
-		statusIcon = "✗"
-		statusColor = tp.theme.StatusError
+		statusStr = tp.theme.StatusError.Render("✗")
 	} else {
-		statusIcon = "✓"
-		statusColor = tp.theme.SuccessText
-	}
-
-	// Show elapsed time for non-streaming tools
-	if !tp.info.Streaming && !tp.info.StartTime.IsZero() {
-		elapsed := time.Since(tp.info.StartTime)
-		if elapsed >= time.Second {
-			statusIcon = fmt.Sprintf("✓ %s", formatDuration(elapsed))
+		// Show elapsed time if available
+		if !tp.info.StartTime.IsZero() {
+			elapsed := time.Since(tp.info.StartTime)
+			if elapsed >= time.Second {
+				statusStr = tp.theme.SuccessText.Render(fmt.Sprintf("✓ %s", formatDuration(elapsed)))
+			} else {
+				statusStr = tp.theme.SuccessText.Render("✓")
+			}
+		} else {
+			statusStr = tp.theme.SuccessText.Render("✓")
 		}
 	}
 
@@ -81,34 +93,18 @@ func (tp *ToolPanel) Render() []string {
 	if !tp.info.Collapsed {
 		collapseIcon = "▾"
 	}
+	rightStr := statusStr + " " + tp.theme.StatusDim.Render(collapseIcon)
+	rightWidth := lipgloss.Width(rightStr)
 
-	// Build header line: "🔧 tool_name(args)  ✓ ▸"
-	headerParts := []string{
-		icon,
-		tp.theme.ToolHeader.Render(name),
-	}
-	if args != "" {
-		headerParts = append(headerParts, tp.theme.StatusDim.Render(args))
-	}
-
-	// Right side: status + collapse
-	rightPart := statusColor.Render(statusIcon) + " " + tp.theme.StatusDim.Render(collapseIcon)
-
-	leftWidth := visibleLength(headerParts) + len(headerParts) - 1 // parts + spaces between
-	rightWidth := lipgloss.Width(rightPart)
-	fillWidth := tp.width - leftWidth - rightWidth - 4 // account for padding
+	// ── Assemble header with proper fill ──
+	fillWidth := contentWidth - leftWidth - rightWidth
 	if fillWidth < 1 {
 		fillWidth = 1
 	}
 
-	headerLine := fmt.Sprintf("%s %s  %s",
-		strings.Join(headerParts, " "),
-		strings.Repeat(" ", fillWidth),
-		rightPart,
-	)
+	headerLine := leftStr + strings.Repeat(" ", fillWidth) + rightStr
 
 	if tp.info.Collapsed || tp.info.Result == "" {
-		// Collapsed view — just the header inside a border
 		return tp.wrapInBorder([]string{headerLine}, tp.info.Streaming, tp.info.IsError)
 	}
 
@@ -140,12 +136,7 @@ func (tp *ToolPanel) renderBody() []string {
 		lines = append(lines[:maxLines], tp.theme.StatusDim.Render(fmt.Sprintf("… (%d more lines)", len(lines)-maxLines)))
 	}
 
-	// Render each line with subtle indentation
-	var rendered []string
-	for _, line := range lines {
-		rendered = append(rendered, line)
-	}
-	return rendered
+	return lines
 }
 
 // wrapInBorder wraps lines in a rounded border with appropriate color.
@@ -197,6 +188,9 @@ func isEditTool(name string) bool {
 func truncateArg(args string, maxLen int) string {
 	args = strings.ReplaceAll(args, "\n", " ")
 	runes := []rune(args)
+	if maxLen < 10 {
+		maxLen = 10
+	}
 	if len(runes) > maxLen {
 		return string(runes[:maxLen]) + "…"
 	}
@@ -229,7 +223,6 @@ func formatJSONArgs(m map[string]interface{}) string {
 	for k, v := range m {
 		switch val := v.(type) {
 		case string:
-			// Truncate long strings
 			s := val
 			if len(s) > 40 {
 				s = s[:40] + "…"
@@ -243,22 +236,6 @@ func formatJSONArgs(m map[string]interface{}) string {
 	return strings.Join(parts, " ")
 }
 
-// visibleLength counts runes, ignoring ANSI escape sequences.
-func visibleLength(parts []string) int {
-	total := 0
-	for _, p := range parts {
-		total += lipgloss.Width(p)
-	}
-	return total
-}
-
-func maxInt(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
-}
-
 // formatDuration renders a duration as a human-readable string.
 func formatDuration(d time.Duration) string {
 	if d < time.Second {
@@ -268,6 +245,13 @@ func formatDuration(d time.Duration) string {
 		return fmt.Sprintf("%.1fs", d.Seconds())
 	}
 	return fmt.Sprintf("%dm%ds", int(d.Minutes()), int(d.Seconds())%60)
+}
+
+func maxInt(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }
 
 // ToggleCollapsed toggles the collapsed state of a tool panel.
