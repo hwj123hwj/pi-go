@@ -473,8 +473,8 @@ func executeOneTool(ctx context.Context, a *Agent, call ai.ToolCall) ai.Message 
 		return ai.ToolResultMessage{ToolCallID: call.ID, Content: fmt.Sprintf("tool %q not found", call.Name), IsError: true}
 	}
 
-	// 2. Emit start
-	a.emit(ctx, EventToolExecutionStart{ToolCallID: call.ID, ToolName: call.Name})
+	// 2. Emit start (with raw args for UI display)
+	a.emit(ctx, EventToolExecutionStart{ToolCallID: call.ID, ToolName: call.Name, Args: string(call.Args)})
 
 	// 3. Validate args
 	validated, err := a.decodeToolArgs(call.Args, tool)

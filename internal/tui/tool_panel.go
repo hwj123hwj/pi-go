@@ -1,7 +1,10 @@
 package tui
 
 import (
+	"encoding/json"
 	"fmt"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -46,7 +49,10 @@ func (tp *ToolPanel) Render() []string {
 	// Build header
 	icon := toolIcon(tp.info.Name)
 	name := tp.info.Name
-	args := truncateArg(tp.info.Args, tp.width-len(name)-10)
+
+	// Format args for display: try to extract key-value from JSON
+	argsDisplay := formatToolArgs(tp.info.Args)
+	args := truncateArg(argsDisplay, tp.width-len(name)-10)
 
 	var statusIcon string
 	var statusColor lipgloss.Style
@@ -195,6 +201,46 @@ func truncateArg(args string, maxLen int) string {
 		return string(runes[:maxLen]) + "…"
 	}
 	return args
+}
+
+// formatToolArgs parses the raw args string (which might be JSON, Go fmt "%v", or <nil>)
+// and returns a compact human-readable display string.
+func formatToolArgs(raw string) string {
+	if raw == "" || raw == "<nil>" {
+		return ""
+	}
+
+	// Try to parse as JSON object
+	trimmed := strings.TrimSpace(raw)
+	if strings.HasPrefix(trimmed, "{") {
+		var m map[string]interface{}
+		if err := json.Unmarshal([]byte(trimmed), &m); err == nil {
+			return formatJSONArgs(m)
+		}
+	}
+
+	// Fallback: just show the raw string
+	return raw
+}
+
+// formatJSONArgs converts a JSON object to a compact "key: value" display.
+func formatJSONArgs(m map[string]interface{}) string {
+	var parts []string
+	for k, v := range m {
+		switch val := v.(type) {
+		case string:
+			// Truncate long strings
+			s := val
+			if len(s) > 40 {
+				s = s[:40] + "…"
+			}
+			parts = append(parts, k+": "+strconv.Quote(s))
+		default:
+			parts = append(parts, k+": "+fmt.Sprintf("%v", v))
+		}
+	}
+	sort.Strings(parts)
+	return strings.Join(parts, " ")
 }
 
 // visibleLength counts runes, ignoring ANSI escape sequences.

@@ -149,7 +149,7 @@ func (m *TuiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.messages[idx].Tools = append(m.messages[idx].Tools, ToolCallInfo{
 			ID:        msg.ID,
 			Name:      msg.Name,
-			Args:      fmt.Sprintf("%v", msg.Args),
+			Args:      formatArgsForDisplay(msg.Args),
 			Streaming: true,
 			Collapsed: true,
 			StartTime: time.Now(),
@@ -365,6 +365,21 @@ func (m *TuiModel) statusBarHeight() int {
 }
 
 var spinnerChars = []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
+
+// formatArgsForDisplay converts tool args (interface{}) to a readable string.
+func formatArgsForDisplay(args interface{}) string {
+	if args == nil {
+		return ""
+	}
+	switch v := args.(type) {
+	case string:
+		return v
+	case []byte:
+		return string(v)
+	default:
+		return fmt.Sprintf("%v", v)
+	}
+}
 
 func (m *TuiModel) spinnerTick() tea.Cmd {
 	return tea.Tick(100*time.Millisecond, func(t time.Time) tea.Msg {
