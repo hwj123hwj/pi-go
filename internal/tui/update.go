@@ -8,6 +8,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/hwj123hwj/pi-go/internal/agent"
+	modelsregistry "github.com/hwj123hwj/pi-go/internal/models"
 	"github.com/hwj123hwj/pi-go/internal/slashcmd"
 )
 
@@ -80,6 +81,12 @@ func (m *TuiModel) handleInputKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.slashCmds == nil {
 			return m, nil
 		}
+		// Populate model list from session's available models
+		models := m.getAvailableModels()
+		if len(models) == 0 {
+			return m, nil
+		}
+		m.completion.TriggerModel(models)
 		m.modelSelect = true
 		return m, nil
 
@@ -169,9 +176,37 @@ func (m *TuiModel) handleModelSelectKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.Type {
 	case tea.KeyEsc, tea.KeyCtrlP:
 		m.modelSelect = false
+		m.completion.Close()
 		return m, nil
 	case tea.KeyEnter:
+		// Apply the selected model
+		item := m.completion.SelectedItem()
 		m.modelSelect = false
+		if item != nil {
+			// Parse "provider/modelID" from InsertText
+			parts := strings.SplitN(item.InsertText, "/", 2)
+			if len(parts) == 2 {
+				provider := parts[0]
+				modelID := parts[1]
+				if err := m.session.SwitchModel(context.Background(), modelID, provider); err != nil {
+					m.messages = append(m.messages, ChatMessage{
+						Role:    "system",
+						Content: fmt.Sprintf("❌ Model switch failed: %v", err),
+						Timestamp: time.Now(),
+					})
+				} else {
+					m.provider = provider
+					m.modelID = modelID
+					m.messages = append(m.messages, ChatMessage{
+						Role:    "system",
+						Content: fmt.Sprintf("✅ Switched: %s/%s", provider, modelID),
+						Timestamp: time.Now(),
+					})
+				}
+				m.viewport.SetMessages(m.messages)
+			}
+		}
+		m.completion.Close()
 		return m, nil
 	case tea.KeyUp:
 		m.completion.Prev()
@@ -361,4 +396,20 @@ func (m *TuiModel) handleSlashCommand(input string) (tea.Model, tea.Cmd) {
 	m.viewport.SetMessages(m.messages)
 	m.viewport.GotoBottom()
 	return m, nil
+}
+
+// getAvailableModels returns the list of models the user can switch to.
+// Uses the built-in default model catalog.
+func (m *TuiModel) getAvailableModels() []ModelOption {
+	// Use the built-in default models from the models package
+	defaults := modelsregistry.DefaultModels()
+	result := make([]ModelOption, 0, len(defaults))
+	for _, dm := range defaults {
+		result = append(result, ModelOption{
+			Provider:    dm.Provider,
+			ModelID:     dm.ID,
+			Description: dm.Name,
+		})
+	}
+	return result
 }

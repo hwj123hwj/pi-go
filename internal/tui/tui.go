@@ -122,9 +122,10 @@ func (m *TuiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// ── Agent events ──
 	case StreamTextMsg:
 		m.streamBuf += msg.Delta
+		m.streaming = true
 		m.agentBusy = true
 		m.viewport.SetStreaming(m.streamBuf)
-		return m, nil
+		return m, m.spinnerTick()
 
 	case ToolStartMsg:
 		m.agentBusy = true
@@ -140,31 +141,34 @@ func (m *TuiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		idx := len(m.messages) - 1
 		m.messages[idx].Tools = append(m.messages[idx].Tools, ToolCallInfo{
+			ID:        msg.ID,
 			Name:      msg.Name,
 			Args:      fmt.Sprintf("%v", msg.Args),
 			Streaming: true,
 			Collapsed: true,
+			StartTime: time.Now(),
 		})
 		m.viewport.SetMessages(m.messages)
 		return m, m.spinnerTick()
 
-	case ToolUpdateMsg:
-		return m, nil
-
 	case ToolEndMsg:
 		m.spinnerOn = false
-		// Find the matching tool call and mark it as done.
+		// Find the matching tool call by ID (primary) or name (fallback).
 		// Search from the last message backwards.
+		found := false
 		for msgIdx := len(m.messages) - 1; msgIdx >= 0; msgIdx-- {
 			for i := range m.messages[msgIdx].Tools {
 				t := &m.messages[msgIdx].Tools[i]
-				if t.Name == msg.Name && t.Streaming {
+				if t.Streaming && ((msg.ID != "" && t.ID == msg.ID) || (msg.ID == "" && t.Name == msg.Name)) {
 					t.Streaming = false
 					t.Result = fmt.Sprintf("%v", msg.Result)
 					t.IsError = msg.IsError
-					m.viewport.SetMessages(m.messages)
-					return m, nil
+					found = true
+					break
 				}
+			}
+			if found {
+				break
 			}
 		}
 		m.viewport.SetMessages(m.messages)
@@ -269,7 +273,9 @@ func (m *TuiModel) View() string {
 
 	// Model selector popup (Ctrl+P)
 	if m.modelSelect {
-		buf.WriteString("  Select model (↑/↓, Enter, Esc)\n")
+		popup := NewCompletionPopup()
+		buf.WriteString(popup.Render(&m.completion, m.width))
+		buf.WriteByte('\n')
 	}
 
 	// Input area

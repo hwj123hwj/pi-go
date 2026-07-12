@@ -15,7 +15,9 @@ type MessageViewport struct {
 	messages     []ChatMessage
 	streaming    string // text being streamed (not yet finalized)
 	lines        []string // rendered lines (cached)
+	cachedLines  []string // rendered message lines (without streaming) — cached for incremental updates
 	scrollOffset int
+	userScrolled bool // true if user manually scrolled up
 	theme        *Theme
 	md           *MarkdownRenderer
 }
@@ -43,10 +45,14 @@ func (v *MessageViewport) Resize(width, height int) {
 // SetMessages updates the message list and rebuilds the view.
 func (v *MessageViewport) SetMessages(msgs []ChatMessage) {
 	v.messages = msgs
+	// Invalidate message cache — messages changed
+	v.cachedLines = nil
 	v.rebuildLines()
 }
 
 // SetStreaming sets the current streaming text (shown live as agent types).
+// This uses incremental rendering: only re-renders the streaming portion,
+// not the cached message lines.
 func (v *MessageViewport) SetStreaming(text string) {
 	v.streaming = text
 	v.rebuildLines()
@@ -57,7 +63,9 @@ func (v *MessageViewport) Clear() {
 	v.messages = nil
 	v.streaming = ""
 	v.lines = nil
+	v.cachedLines = nil
 	v.scrollOffset = 0
+	v.userScrolled = false
 }
 
 // ScrollUp moves the viewport up by n lines.
@@ -66,6 +74,7 @@ func (v *MessageViewport) ScrollUp(n int) {
 	if v.scrollOffset < 0 {
 		v.scrollOffset = 0
 	}
+	v.userScrolled = true
 }
 
 // ScrollDown moves the viewport down by n lines.
@@ -78,6 +87,10 @@ func (v *MessageViewport) ScrollDown(n int) {
 	if v.scrollOffset < 0 {
 		v.scrollOffset = 0
 	}
+	// If user scrolled to bottom, clear the flag
+	if v.scrollOffset >= maxScroll {
+		v.userScrolled = false
+	}
 }
 
 // GotoBottom scrolls to the bottom of the messages.
@@ -88,6 +101,13 @@ func (v *MessageViewport) GotoBottom() {
 	} else {
 		v.scrollOffset = 0
 	}
+	v.userScrolled = false
+}
+
+// AtBottom returns true if the viewport is scrolled to the bottom.
+func (v *MessageViewport) AtBottom() bool {
+	maxScroll := len(v.lines) - v.height
+	return v.scrollOffset >= maxScroll || maxScroll <= 0
 }
 
 // View renders the visible portion of the viewport.
@@ -118,25 +138,47 @@ func (v *MessageViewport) View() string {
 		visible = append(visible, "")
 	}
 
+	// Add scroll indicator if user has scrolled up
+	if v.userScrolled && !v.AtBottom() {
+		totalLines := len(v.lines)
+		percent := int(float64(v.scrollOffset) / float64(totalLines) * 100)
+		if percent < 0 {
+			percent = 0
+		}
+		indicator := v.theme.StatusDim.Render(fmt.Sprintf(" ↑ %d%% (scroll for more) ", percent))
+		if len(visible) > 0 {
+			visible[len(visible)-1] = indicator
+		}
+	}
+
 	return strings.Join(visible, "\n")
 }
 
 // ── Rendering ─────────────────────────────────────────────────────────────────
 
 func (v *MessageViewport) rebuildLines() {
-	var lines []string
-
-	for _, msg := range v.messages {
-		lines = append(lines, v.renderMessage(msg)...)
+	// Cache message lines if not yet cached
+	if v.cachedLines == nil {
+		v.cachedLines = nil
+		for _, msg := range v.messages {
+			v.cachedLines = append(v.cachedLines, v.renderMessage(msg)...)
+		}
 	}
 
-	// Streaming text
+	// Combine cached message lines + streaming lines
+	var lines []string
+	lines = append(lines, v.cachedLines...)
+
 	if v.streaming != "" {
 		lines = append(lines, v.renderStreaming(v.streaming)...)
 	}
 
 	v.lines = lines
-	v.GotoBottom()
+
+	// Smart auto-scroll: only jump to bottom if user hasn't scrolled up
+	if !v.userScrolled {
+		v.GotoBottom()
+	}
 }
 
 func (v *MessageViewport) renderMessage(msg ChatMessage) []string {
@@ -203,10 +245,9 @@ func (v *MessageViewport) renderMessage(msg ChatMessage) []string {
 func (v *MessageViewport) renderStreaming(text string) []string {
 	var lines []string
 
-	spinner := spinnerChars[0] // approximate; actual spinner in View()
 	lines = append(lines, fmt.Sprintf("%s %s",
 		v.theme.AssistantLabel.Render("π"),
-		v.theme.StatusDim.Render(spinner+" typing…"),
+		v.theme.StatusDim.Render("typing…"),
 	))
 
 	// Render streaming text as plain text (no markdown until done —

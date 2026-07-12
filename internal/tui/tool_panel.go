@@ -3,6 +3,7 @@ package tui
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/lipgloss"
 )
@@ -51,7 +52,7 @@ func (tp *ToolPanel) Render() []string {
 	var statusColor lipgloss.Style
 
 	if tp.info.Streaming {
-		statusIcon = "⠋"
+		statusIcon = spinnerChars[0] // will be animated by spinner tick
 		statusColor = tp.theme.StatusBusy
 	} else if tp.info.IsError {
 		statusIcon = "✗"
@@ -59,6 +60,14 @@ func (tp *ToolPanel) Render() []string {
 	} else {
 		statusIcon = "✓"
 		statusColor = tp.theme.SuccessText
+	}
+
+	// Show elapsed time for non-streaming tools
+	if !tp.info.Streaming && !tp.info.StartTime.IsZero() {
+		elapsed := time.Since(tp.info.StartTime)
+		if elapsed >= time.Second {
+			statusIcon = fmt.Sprintf("✓ %s", formatDuration(elapsed))
+		}
 	}
 
 	// Collapse indicator
@@ -202,6 +211,17 @@ func maxInt(a, b int) int {
 		return a
 	}
 	return b
+}
+
+// formatDuration renders a duration as a human-readable string.
+func formatDuration(d time.Duration) string {
+	if d < time.Second {
+		return fmt.Sprintf("%dms", d.Milliseconds())
+	}
+	if d < time.Minute {
+		return fmt.Sprintf("%.1fs", d.Seconds())
+	}
+	return fmt.Sprintf("%dm%ds", int(d.Minutes()), int(d.Seconds())%60)
 }
 
 // ToggleCollapsed toggles the collapsed state of a tool panel.

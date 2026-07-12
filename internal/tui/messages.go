@@ -83,10 +83,12 @@ type ChatMessage struct {
 
 // ToolCallInfo represents a tool call within a message.
 type ToolCallInfo struct {
+	ID        string // unique tool call ID for reliable matching
 	Name      string
 	Args      string
 	Result    string
 	IsError   bool
 	Collapsed bool
 	Streaming bool
+	StartTime time.Time
 }
