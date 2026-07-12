@@ -22,10 +22,12 @@ func Run(session *runtime.AgentSession, cmds *slashcmd.Registry, app slashcmd.Ap
 	}
 
 	// Use AltScreen for clean full-screen rendering.
-	// Do NOT use WithMouseCellMotion — it sends escape sequences that
-	// many terminals (especially older/SSH) don't support, causing garbled output.
+	// Enable mouse cell motion so we can capture mouse wheel events.
+	// Without this, the terminal emulator handles wheel scrolling itself,
+	// which leaks into scrollback (showing pre-TUI output like install logs).
 	p := tea.NewProgram(m,
 		tea.WithAltScreen(),
+		tea.WithMouseCellMotion(),
 	)
 
 	// Wire program reference so callbacks can send messages

@@ -121,6 +121,16 @@ func (m *TuiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.viewport.Resize(msg.Width, viewportHeight)
 		return m, nil
 
+	// ── Mouse wheel ──
+	case tea.MouseMsg:
+		switch msg.Button {
+		case tea.MouseButtonWheelUp:
+			m.viewport.ScrollUp(3)
+		case tea.MouseButtonWheelDown:
+			m.viewport.ScrollDown(3)
+		}
+		return m, nil
+
 	// ── Key press ──
 	case tea.KeyMsg:
 		return m.handleKeyPress(msg)
