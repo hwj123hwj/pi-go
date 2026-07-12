@@ -210,6 +210,9 @@ PI_GO_BASE_URL=${BASE_URL:-http://localhost:4001}
 PI_GO_MODEL=${MODEL:-longcat-opus}
 PI_GO_HOST=127.0.0.1
 PI_GO_PORT=8080
+
+# Enable bash tool (allows running shell commands like free, top, ps, etc.)
+PI_GO_ENABLE_BASH=true
 EOF
             ok "Config saved"
             ;;
