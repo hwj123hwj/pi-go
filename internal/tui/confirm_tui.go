@@ -48,30 +48,30 @@ func (cs *ConfirmationState) Hide() {
 }
 
 // HandleKey processes a key event when the dialog is visible.
-// Returns true if the key was consumed.
-func (cs *ConfirmationState) HandleKey(msg tea.KeyMsg) (approved bool, consumed bool) {
+// Returns: approved (the decision if resolved), consumed (whether the key was handled),
+// resolved (whether the dialog was dismissed and a decision was made).
+func (cs *ConfirmationState) HandleKey(msg tea.KeyMsg) (approved bool, consumed bool, resolved bool) {
 	if !cs.active {
-		return false, false
+		return false, false, false
 	}
 
 	action := DefaultKeyBindings.ResolveConfirmation(msg)
 
 	switch action {
 	case ActionSelectYes:
-		return true, true
+		return true, true, true
 	case ActionSelectNo:
-		return false, true
+		return false, true, true
 	case ActionClosePopup:
-		cs.Hide()
-		return false, true
+		return false, true, true // Esc = deny
 	case ActionCursorLeft:
 		cs.selected = 0
-		return false, true
+		return false, true, false
 	case ActionCursorRight:
 		cs.selected = 1
-		return false, true
+		return false, true, false
 	default:
-		return false, true // consume all other keys while dialog is active
+		return false, false, false
 	}
 }
 
@@ -135,7 +135,7 @@ type ConfirmationResultMsg struct {
 	Approved   bool
 }
 
-// resolveConfirmation is called when the user presses Y or N in the dialog.
+// resolveConfirmation is called when the user presses Y, N, or Esc in the dialog.
 func (m *TuiModel) resolveConfirmation(approved bool) {
 	if !m.confirmation.IsActive() {
 		return

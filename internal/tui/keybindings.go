@@ -145,7 +145,7 @@ func (k *KeyBindingTable) ResolveConfirmation(msg tea.KeyMsg) KeyAction {
 	case tea.KeyRight:
 		return ActionSelectNo
 	case tea.KeyEnter:
-		return ActionSelectYes // accept current selection
+		return ActionSelectYes // accept with current selection (default: Yes)
 	case tea.KeyEsc:
 		return ActionClosePopup
 	case tea.KeyCtrlC:

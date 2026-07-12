@@ -178,6 +178,20 @@ func (m *TuiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.viewport.SetMessages(m.messages)
 		return m, nil
 
+	case ToolUpdateMsg:
+		// Update partial result for a running tool (live progress)
+		for msgIdx := len(m.messages) - 1; msgIdx >= 0; msgIdx-- {
+			for i := range m.messages[msgIdx].Tools {
+				t := &m.messages[msgIdx].Tools[i]
+				if t.Streaming && ((msg.ID != "" && t.ID == msg.ID) || (msg.ID == "" && t.Name == msg.Name)) {
+					t.Result = fmt.Sprintf("%v", msg.Result)
+					m.viewport.SetMessages(m.messages)
+					return m, nil
+				}
+			}
+		}
+		return m, nil
+
 	case StreamDoneMsg:
 		if m.streamBuf != "" {
 			m.messages = append(m.messages, ChatMessage{
@@ -255,9 +269,32 @@ func (m *TuiModel) View() string {
 		return "Goodbye! 👋\n"
 	}
 
-	// ── Confirmation dialog takes over the entire screen ──
+	// ── Confirmation dialog overlays on top of normal view ──
 	if m.confirmation.IsActive() {
-		return m.renderConfirmationOverlay()
+		var baseBuf strings.Builder
+		baseBuf.WriteString(m.viewport.View())
+		baseBuf.WriteByte('\n')
+		baseBuf.WriteString(m.theme.Separator.Render(strings.Repeat("─", m.width)))
+		baseBuf.WriteByte('\n')
+		baseBuf.WriteString(m.input.View())
+		baseBuf.WriteByte('\n')
+		baseBuf.WriteString(m.statusBar.HelpHint(m.agentBusy))
+		baseBuf.WriteByte('\n')
+		baseBuf.WriteString(m.statusBar.Render(
+			m.width, "confirm", m.spinnerIdx,
+			m.provider, m.modelID, m.workspace, m.streaming,
+			m.inputTokens, m.outputTokens,
+		))
+
+		// Overlay confirmation dialog centered on screen
+		dialog := m.confirmation.Render(m.width)
+		dialogLines := strings.Split(dialog, "\n")
+		dialogHeight := len(dialogLines)
+		blankLines := (m.height - dialogHeight) / 2
+		if blankLines < 0 {
+			blankLines = 0
+		}
+		return baseBuf.String() + strings.Repeat("\n", blankLines) + dialog
 	}
 
 	var buf strings.Builder

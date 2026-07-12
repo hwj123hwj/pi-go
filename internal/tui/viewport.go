@@ -18,6 +18,7 @@ type MessageViewport struct {
 	cachedLines  []string // rendered message lines (without streaming) — cached for incremental updates
 	scrollOffset int
 	userScrolled bool // true if user manually scrolled up
+	newLinesSinceScroll int // lines added since user scrolled up
 	theme        *Theme
 	md           *MarkdownRenderer
 }
@@ -90,6 +91,7 @@ func (v *MessageViewport) ScrollDown(n int) {
 	// If user scrolled to bottom, clear the flag
 	if v.scrollOffset >= maxScroll {
 		v.userScrolled = false
+		v.newLinesSinceScroll = 0
 	}
 }
 
@@ -102,12 +104,15 @@ func (v *MessageViewport) GotoBottom() {
 		v.scrollOffset = 0
 	}
 	v.userScrolled = false
+	v.newLinesSinceScroll = 0
 }
 
-// AtBottom returns true if the viewport is scrolled to the bottom.
-func (v *MessageViewport) AtBottom() bool {
-	maxScroll := len(v.lines) - v.height
-	return v.scrollOffset >= maxScroll || maxScroll <= 0
+// NewLinesCount returns how many new lines appeared since user scrolled up.
+func (v *MessageViewport) NewLinesCount() int {
+	if !v.userScrolled {
+		return 0
+	}
+	return len(v.lines) - v.scrollOffset - v.height
 }
 
 // View renders the visible portion of the viewport.
@@ -139,7 +144,13 @@ func (v *MessageViewport) View() string {
 	}
 
 	// Add scroll indicator if user has scrolled up
-	if v.userScrolled && !v.AtBottom() {
+	if v.userScrolled && v.NewLinesCount() > 0 {
+		newLines := v.NewLinesCount()
+		indicator := v.theme.StatusDim.Render(fmt.Sprintf(" ↑ %d new (scroll down to view) ", newLines))
+		if len(visible) > 0 {
+			visible[len(visible)-1] = indicator
+		}
+	} else if v.userScrolled {
 		totalLines := len(v.lines)
 		percent := int(float64(v.scrollOffset) / float64(totalLines) * 100)
 		if percent < 0 {

@@ -17,13 +17,12 @@ import (
 func (m *TuiModel) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// ── Priority 1: Confirmation dialog ──
 	if m.confirmation.IsActive() {
-		approved, consumed := m.confirmation.HandleKey(msg)
-		if consumed {
-			if m.confirmation.resultChan != nil {
-				m.resolveConfirmation(approved)
-			}
-			return m, nil
+		approved, _, resolved := m.confirmation.HandleKey(msg)
+		if resolved {
+			m.resolveConfirmation(approved)
 		}
+		// Consume all keys when dialog is active (but don't resolve on navigation keys)
+		return m, nil
 	}
 
 	// ── Priority 2: Completion popup active ──
@@ -51,7 +50,17 @@ func (m *TuiModel) handleInputKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.streaming = false
 			m.agentBusy = false
 			m.spinnerOn = false
-			m.streamBuf = ""
+			// Save partial response and clear stream buffer
+			if m.streamBuf != "" {
+				m.messages = append(m.messages, ChatMessage{
+					Role:      "assistant",
+					Content:   m.streamBuf + "\n\n_⚠ Interrupted_",
+					Timestamp: time.Now(),
+				})
+				m.streamBuf = ""
+			}
+			m.viewport.SetStreaming("")
+			m.viewport.SetMessages(m.messages)
 			return m, nil
 		}
 		m.quitting = true
@@ -305,6 +314,7 @@ func (m *TuiModel) startAgentStream(input string) tea.Cmd {
 			return AgentErrorMsg{Err: err}
 		}
 
+		done := false
 		for event := range stream {
 			var msg tea.Msg
 			switch event.Type {
@@ -350,6 +360,7 @@ func (m *TuiModel) startAgentStream(input string) tea.Cmd {
 					InputTokens:  event.Usage.InputTokens,
 					OutputTokens: event.Usage.OutputTokens,
 				}
+				done = true
 
 			case agent.StreamEventTurnEnd:
 				// Turn ended but stream may continue (multi-turn)
@@ -357,13 +368,17 @@ func (m *TuiModel) startAgentStream(input string) tea.Cmd {
 			}
 
 			// Send each event immediately to the TUI for live updates.
-			// This is the standard Bubble Tea pattern for async streaming.
 			if program != nil && msg != nil {
 				program.Send(msg)
 			}
 		}
 
-		// Signal completion (fallback if done event didn't carry usage)
+		// If StreamEventDone was received, the final StreamDoneMsg was already
+		// sent via program.Send(). Return nil to avoid a duplicate.
+		if done {
+			return nil
+		}
+		// Fallback: stream closed without a Done event
 		return StreamDoneMsg{}
 	}
 }
