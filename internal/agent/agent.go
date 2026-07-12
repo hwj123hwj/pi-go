@@ -311,7 +311,7 @@ func (a *Agent) PromptStream(ctx context.Context, msg ai.Message) (<-chan AgentS
 		if err != nil {
 			ch <- AgentStreamEvent{Type: StreamEventError, Error: err.Error()}
 		}
-		ch <- AgentStreamEvent{Type: StreamEventDone, FinalMessage: lastAssistant}
+		ch <- AgentStreamEvent{Type: StreamEventDone, FinalMessage: lastAssistant, Usage: lastAssistant.Usage}
 
 		a.mu.Lock()
 		a.state = StateIdle
@@ -432,6 +432,7 @@ func (a *Agent) handleAssistantMessage(message ai.StreamAssistantMessage) (ai.As
 		ToolCalls:  message.ToolCalls,
 		StopReason: message.StopReason,
 		ErrorMsg:   message.ErrorMsg,
+		Usage:      message.Usage,
 	}
 	return assistant, nil
 }
@@ -486,4 +487,5 @@ type AgentStreamEvent struct {
 	Approved      bool                `json:"approved,omitempty"`      // 确认结果：是否放行
 	RepeatCount   int                 `json:"repeat_count,omitempty"`  // 循环检测：连续重复次数
 	ClearedCount  int                 `json:"cleared_count,omitempty"` // MicroCompact：清理的 tool result 数
+	Usage         ai.Usage            `json:"usage,omitempty"`         // token usage from final assistant message
 }

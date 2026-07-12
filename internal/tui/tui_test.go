@@ -149,7 +149,7 @@ func TestMessageViewport_Streaming(t *testing.T) {
 
 func TestStatusBarRender(t *testing.T) {
 	sb := NewStatusBar()
-	result := sb.Render(80, "ready", 0, "openai", "gpt-4o", "/home/user/pi-go", false)
+	result := sb.Render(80, "ready", 0, "openai", "gpt-4o", "/home/user/pi-go", false, 0, 0)
 	if result == "" {
 		t.Error("StatusBar.Render() should not be empty")
 	}

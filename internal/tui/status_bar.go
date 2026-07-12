@@ -29,6 +29,7 @@ func (sb *StatusBar) Render(
 	spinnerIdx int,
 	provider, modelID, workspace string,
 	streaming bool,
+	inputTokens, outputTokens int,
 ) string {
 	sep := sb.theme.StatusDim.Render(" │ ")
 
@@ -51,6 +52,16 @@ func (sb *StatusBar) Render(
 	modelPart := sb.theme.StatusDim.Render("model: ") +
 		sb.theme.StatusAccent.Render(provider+"/"+modelID)
 
+	// Token usage
+	tokenPart := ""
+	if inputTokens > 0 || outputTokens > 0 {
+		total := inputTokens + outputTokens
+		tokenPart = sb.theme.StatusDim.Render("tokens: ") +
+			sb.theme.StatusAccent.Render(fmt.Sprintf("%s ↑ %s ↓",
+				formatTokenCount(total),
+				formatTokenCount(outputTokens)))
+	}
+
 	// Workspace
 	wsPart := ""
 	if workspace != "" {
@@ -65,6 +76,9 @@ func (sb *StatusBar) Render(
 
 	// Assemble
 	parts := []string{statusPart, modelPart}
+	if tokenPart != "" {
+		parts = append(parts, tokenPart)
+	}
 	if wsPart != "" {
 		parts = append(parts, wsPart)
 	}

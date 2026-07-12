@@ -41,6 +41,10 @@ type TuiModel struct {
 	confirmCh chan ConfirmationResultMsg // user's confirmation reply
 	err       error
 
+	// Token tracking
+	inputTokens  int
+	outputTokens int
+
 	// UI metadata
 	provider  string
 	modelID   string
@@ -186,6 +190,9 @@ func (m *TuiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.streaming = false
 		m.agentBusy = false
 		m.spinnerOn = false
+		// Accumulate token usage
+		m.inputTokens += msg.InputTokens
+		m.outputTokens += msg.OutputTokens
 		m.viewport.SetStreaming("")
 		m.viewport.SetMessages(m.messages)
 		return m, nil
@@ -232,7 +239,7 @@ func (m *TuiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	 return m, nil
 
 	case TickMsg:
-		if m.spinnerOn {
+		if m.spinnerOn || m.streaming {
 			m.spinnerIdx++
 			return m, m.spinnerTick()
 		}
@@ -298,6 +305,7 @@ func (m *TuiModel) View() string {
 	buf.WriteString(m.statusBar.Render(
 		m.width, status, m.spinnerIdx,
 		m.provider, m.modelID, m.workspace, m.streaming,
+		m.inputTokens, m.outputTokens,
 	))
 
 	return buf.String()

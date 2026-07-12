@@ -47,6 +47,7 @@ type AssistantMessage struct {
 	ToolCalls  []ToolCall `json:"tool_calls,omitempty"`
 	StopReason StopReason `json:"stop_reason,omitempty"`
 	ErrorMsg   string     `json:"error_msg,omitempty"`
+	Usage      Usage      `json:"usage,omitempty"`
 }
 
 func (AssistantMessage) Role() Role     { return RoleAssistant }

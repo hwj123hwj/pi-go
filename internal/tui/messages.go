@@ -37,7 +37,10 @@ type ToolEndMsg struct {
 }
 
 // StreamDoneMsg signals the agent stream has completed.
-type StreamDoneMsg struct{}
+type StreamDoneMsg struct {
+	InputTokens  int
+	OutputTokens int
+}
 
 // AgentErrorMsg carries an error from the agent.
 type AgentErrorMsg struct {

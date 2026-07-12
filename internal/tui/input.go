@@ -10,14 +10,17 @@ import (
 // InputModel is a multi-line text input editor.
 // Supports cursor movement, word deletion, undo, and history.
 type InputModel struct {
-	lines     []string
-	cursorX   int
-	cursorY   int
-	undoStack []InputSnapshot
-	history   []string
-	histIdx   int
-	prompt    string
-	theme     *Theme
+	lines       []string
+	cursorX     int
+	cursorY     int
+	undoStack   []InputSnapshot
+	history     []string
+	histIdx     int
+	draftLines  []string // saved draft when entering history mode
+	draftCursorX int
+	draftCursorY int
+	prompt      string
+	theme       *Theme
 }
 
 // InputSnapshot captures input state for undo.
@@ -179,7 +182,7 @@ func (im *InputModel) renderLineWithCursor(line string) string {
 // cursorHighlight renders a character with a highlighted background.
 func (im *InputModel) cursorHighlight(ch string) string {
 	// Use lipgloss reverse video — safer than raw escape codes.
-	return im.theme.InputPrompt.Reverse(true).Render(ch) + im.theme.InputPrompt.Reverse(false).Render("")
+	return im.theme.InputPrompt.Reverse(true).Render(ch)
 }
 
 // sanitizeRunes filters out non-printable control characters from a rune slice.
@@ -354,15 +357,26 @@ func (im *InputModel) navigateHistory(dir int) {
 		return
 	}
 	if im.histIdx < 0 {
-		// First time navigating — save current input
+		// First time navigating — save current input as draft
+		im.draftLines = make([]string, len(im.lines))
+		copy(im.draftLines, im.lines)
+		im.draftCursorX = im.cursorX
+		im.draftCursorY = im.cursorY
 		im.histIdx = len(im.history)
 	}
 	im.histIdx += dir
+	// Allow navigating past the end to restore draft
 	if im.histIdx < 0 {
 		im.histIdx = 0
 	}
 	if im.histIdx >= len(im.history) {
-		im.histIdx = len(im.history) - 1
+		// Past the end — restore draft
+		im.histIdx = -1
+		im.lines = make([]string, len(im.draftLines))
+		copy(im.lines, im.draftLines)
+		im.cursorX = im.draftCursorX
+		im.cursorY = im.draftCursorY
+		return
 	}
 	im.lines = []string{im.history[im.histIdx]}
 	im.cursorX = utf8.RuneCountInString(im.lines[0])

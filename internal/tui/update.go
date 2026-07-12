@@ -346,7 +346,10 @@ func (m *TuiModel) startAgentStream(input string) tea.Cmd {
 				msg = AgentErrorMsg{Err: fmt.Errorf("%s", event.Error)}
 
 			case agent.StreamEventDone:
-				msg = StreamDoneMsg{}
+				msg = StreamDoneMsg{
+					InputTokens:  event.Usage.InputTokens,
+					OutputTokens: event.Usage.OutputTokens,
+				}
 
 			case agent.StreamEventTurnEnd:
 				// Turn ended but stream may continue (multi-turn)
@@ -360,7 +363,7 @@ func (m *TuiModel) startAgentStream(input string) tea.Cmd {
 			}
 		}
 
-		// Signal completion
+		// Signal completion (fallback if done event didn't carry usage)
 		return StreamDoneMsg{}
 	}
 }
