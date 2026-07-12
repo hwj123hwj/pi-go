@@ -3,12 +3,45 @@ package config
 import (
 	"fmt"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
 	"gopkg.in/yaml.v3"
 )
+
+// ansiEscapeRegex matches complete ANSI escape sequences so they can be
+// stripped from config values. Covers:
+//   - OSC sequences: ESC ] ... BEL            (e.g. \x1b]11;rgb:...\x07)
+//   - CSI sequences: ESC [ params... letter    (e.g. \x1b[A, \x1b[2;3H)
+//   - Incomplete CSI opener: ESC [             (leftover when only ESC+[ leaked)
+var ansiEscapeRegex = regexp.MustCompile(`\x1b\][^\x07]*\x07|\x1b\[[0-9;?<=>]*[a-zA-Z]|\x1b\[`)
+
+// sanitizeConfigString strips ANSI escape sequences and other non-printable
+// control characters from configuration string values.
+//
+// Root cause of the infamous "\x1b[A\x1b[/v1/chat/completions" bug:
+// When a user presses arrow keys during interactive input (e.g. during
+// install.sh's read prompts, or in the TUI before the fix), the raw ESC
+// byte (0x1B) and subsequent CSI sequences can get written into .env
+// files or environment variables. These control characters are invisible
+// in most editors but cause URL parse failures and other subtle bugs.
+//
+// This function strips complete ANSI escape sequences FIRST (using regex),
+// then removes any remaining stray control characters.
+func sanitizeConfigString(s string) string {
+	// Step 1: Remove complete ANSI escape sequences (ESC + printable chars)
+	s = ansiEscapeRegex.ReplaceAllString(s, "")
+	// Step 2: Remove any remaining individual control characters
+	var b strings.Builder
+	for _, r := range s {
+		if r == '\t' || r >= 0x20 && r != 0x7F {
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
+}
 
 type Config struct {
 	Name        string
@@ -158,31 +191,31 @@ func (c *Config) LoadFromEnv() {
 
 	// Anthropic
 	if v := os.Getenv("ANTHROPIC_API_KEY"); v != "" {
-		c.AnthropicAPIKey = v
+		c.AnthropicAPIKey = sanitizeConfigString(v)
 	}
 	if v := os.Getenv("ANTHROPIC_MODEL"); v != "" {
-		c.AnthropicModel = v
+		c.AnthropicModel = sanitizeConfigString(v)
 	}
 	if v := os.Getenv("ANTHROPIC_BASE_URL"); v != "" {
-		c.AnthropicBaseURL = v
+		c.AnthropicBaseURL = sanitizeConfigString(v)
 	}
 
 	// OpenAI-compatible gateway
 	// PI_GO_API_KEY is the preferred name; OPENAI_API_KEY is also accepted (fallback)
 	if v := os.Getenv("PI_GO_API_KEY"); v != "" {
-		c.OpenAIAPIKey = v
+		c.OpenAIAPIKey = sanitizeConfigString(v)
 	} else if v := os.Getenv("OPENAI_API_KEY"); v != "" {
-		c.OpenAIAPIKey = v
+		c.OpenAIAPIKey = sanitizeConfigString(v)
 	}
 	if v := os.Getenv("PI_GO_MODEL"); v != "" {
-		c.OpenAIModel = v
+		c.OpenAIModel = sanitizeConfigString(v)
 	} else if v := os.Getenv("OPENAI_MODEL"); v != "" {
-		c.OpenAIModel = v
+		c.OpenAIModel = sanitizeConfigString(v)
 	}
 	if v := os.Getenv("PI_GO_BASE_URL"); v != "" {
-		c.OpenAIBaseURL = v
+		c.OpenAIBaseURL = sanitizeConfigString(v)
 	} else if v := os.Getenv("OPENAI_BASE_URL"); v != "" {
-		c.OpenAIBaseURL = v
+		c.OpenAIBaseURL = sanitizeConfigString(v)
 	}
 
 	// Tool output
@@ -266,7 +299,7 @@ func (c *Config) LoadFromEnv() {
 
 	// Server security
 	if v := os.Getenv("PI_GO_API_KEY"); v != "" {
-		c.APIKey = v
+		c.APIKey = sanitizeConfigString(v)
 	}
 }
 
@@ -288,6 +321,9 @@ func LoadDotEnv(path string) error {
 		}
 		key := strings.TrimSpace(parts[0])
 		value := strings.TrimSpace(parts[1])
+		// Strip ANSI escape codes from .env values — prevents the
+		// "\x1b...http://localhost:4001/v1/chat/completions" URL bug.
+		value = sanitizeConfigString(value)
 		// 不覆盖已有环境变量
 		if os.Getenv(key) == "" {
 			_ = os.Setenv(key, value)
