@@ -2,6 +2,26 @@
 
 > Chronological record of wiki operations.
 
+## [2026-07-13] ingest | Project Root (.) — v41: TUI Bubble Tea + Installer + Release Pipeline
+
+**Scope**: Comprehensive re-ingest covering the full Bubble Tea TUI rewrite (Phase 1–3), one-line installer, GitHub Actions release workflow, and 12 rounds of TUI bug fixes (v0.10.1–v0.10.12).
+
+**Pages created**:
+- `wiki/source-project-root-v41.md` — Source summary: TUI implementation, installer features, 12-round bug fix table, Go slice aliasing bug analysis
+- `wiki/tui-bubbletea.md` — NEW entity: Full-screen Bubble Tea TUI (Elm architecture, 17 files, 3,697 lines, component map, event bridge, keybindings, bug history)
+- `wiki/tui-design.md` — NEW concept: TUI design document (framework selection, three-phase plan, key design decisions)
+
+**Pages updated**:
+- `wiki/tui-presenter.md` — Marked as legacy, added superseded-by note, updated related links to [[tui-bubbletea]] and [[tui-design]]
+- `wiki/deployment-infrastructure.md` — Added Release workflow section (cross-compile darwin/linux × amd64/arm64, GitHub Releases binary upload), updated frontmatter tags and related links
+- `wiki/config-system.md` — Updated Tool Sandboxing section: PI_GO_ENABLE_BASH now default in installer, added note about manual config for existing users
+- `index.md` — Added source-project-root-v41, tui-bubbletea, tui-design; updated tui-presenter, deployment-infrastructure, config-system descriptions
+
+**Contradictions flagged**:
+1. `tui-presenter.md` described EnhancedPresenter as default — now superseded by [[tui-bubbletea]] for `--mode chat`
+2. `index.md` referenced `[[tui-design]]` as "NEW v43" but the wiki page didn't exist — now created
+3. `config-system.md` showed `PI_GO_ENABLE_BASH=false` — now defaults to `true` in installer
+
 ## [2026-07-10] design | TUI Bubble Tea Design Document
 
 **Scope**: Created comprehensive TUI design document comparing pi-go with pi (earendil) and hwjcode.

@@ -1,12 +1,22 @@
 ---
 type: entity
-date: 2026-06-14
-tags: [cli, tui, presenter, renderer, terminal]
+date: 2026-07-13
+tags: [cli, tui, presenter, renderer, terminal, legacy]
 ---
 
-# Terminal UI & Presenter System
+# Terminal UI & Presenter System (Legacy)
 
-> The terminal user interface system for interactive CLI mode, with two presenter implementations.
+> The original terminal UI system for single-shot mode (`--mode run`).
+> **Superseded by [[tui-bubbletea]]** for interactive mode (`--mode chat`) as of v0.10.1.
+
+## Current Usage
+
+| Mode | Presenter | Status |
+|------|-----------|--------|
+| `--mode chat` (interactive) | [[tui-bubbletea]] (Bubble Tea) | ✅ Active (default) |
+| `--mode run` (single-shot) | EnhancedPresenter (ANSI) | ✅ Active |
+| `--mode serve` (HTTP server) | N/A (desktop/mobile clients) | ✅ Active |
+| `-tags fancy` (tagged build) | FancyPresenter (Bubble Tea/Lipgloss) | ⚠️ Dead code |
 
 ## Source: `internal/ui/`
 
@@ -91,3 +101,5 @@ Two factory files provide conditional compilation:
 
 - [[coding-application]] — CLI interactive mode uses the presenter
 - [[server-websocket]] — Alternative event display via desktop
+- [[tui-bubbletea]] — The replacement interactive TUI (default for `--mode chat`)
+- [[tui-design]] — TUI design document

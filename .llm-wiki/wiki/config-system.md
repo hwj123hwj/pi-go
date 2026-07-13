@@ -105,9 +105,11 @@ PI_GO_MODEL=longcat-opus
 This prevents `.env` empty fields from zeroing out shell-set keys.
 
 ### Tool Sandboxing
-- `PI_GO_ENABLE_BASH=false` — Disable shell execution
+- `PI_GO_ENABLE_BASH=true` — Enable shell execution (**now default in installer** as of v0.10.10)
 - `PI_GO_ALLOWED_TOOLS=read,write,grep` — Whitelist only
 - `PI_GO_BLOCKED_TOOLS=bash,rm` — Blacklist specific tools
+
+> **Note**: Users installing via `scripts/install.sh` get `PI_GO_ENABLE_BASH=true` by default. Users who installed earlier need to add it manually to `~/.pi-go/.env`. Without bash, the agent cannot run system commands (`free`, `top`, `ps`, etc) and may incorrectly claim it's in "planning mode".
 
 ### Remote Execution
 - `PI_GO_EXECUTION_MODE=ssh` — Switch to remote execution

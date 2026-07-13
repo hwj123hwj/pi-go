@@ -1,19 +1,37 @@
 ---
 type: entity
-date: 2026-06-22
-tags: [deployment, ci-cd, systemd, github-actions, infrastructure]
-related: [[config-system]], [[feishu-integration]], [[server-websocket]]
+date: 2026-07-13
+tags: [deployment, ci-cd, systemd, github-actions, infrastructure, release, cross-compile]
+related: [[config-system]], [[feishu-integration]], [[server-websocket]], [[tui-bubbletea]]
 ---
 
 # Deployment Infrastructure
 
-> pi-go uses GitHub Actions for CI/CD, deploying to an Ubuntu server via SSH with systemd service management.
+> pi-go uses **two GitHub Actions workflows**: one for continuous server deployment, one for cross-platform release binary distribution.
 
-## CI/CD Pipeline
+## Release Workflow (v0.10.0+) — `.github/workflows/release.yml`
+
+**Trigger**: Push of version tags (`v*`) or manual `workflow_dispatch`.
+
+**Pipeline steps**:
+1. Checkout + setup Go 1.24.2
+2. Run tests (`go test ./...`)
+3. Cross-compile for 4 platforms:
+   - `linux/amd64` — pi-agent + pi-feishu-bridge
+   - `linux/arm64` — pi-agent
+   - `darwin/amd64` — pi-agent
+   - `darwin/arm64` — pi-agent
+4. Version injection via `-ldflags "-X main.version=<tag>"`
+5. Generate SHA256 checksums
+6. Create GitHub Release (via `softprops/action-gh-release@v2`) with binaries attached
+
+**Used by**: `scripts/install.sh` downloads these pre-compiled binaries for one-line installation. See [[tui-bubbletea]] for installer details.
+
+## Deploy Workflow — `.github/workflows/deploy.yml`
 
 **Trigger**: Push to `main` branch or manual `workflow_dispatch`.
 
-**Pipeline steps** (`.github/workflows/deploy.yml`):
+**Pipeline steps**:
 
 1. `go test ./...` — Full test suite
 2. Build `linux/amd64` binaries (CGO_ENABLED=0):
@@ -70,7 +88,9 @@ Service files use `__DEPLOY_PATH__` placeholder, replaced at deploy time via `se
 
 ## Source
 
-- `.github/workflows/deploy.yml` — Pipeline definition
+- `.github/workflows/release.yml` — Cross-platform release binary workflow
+- `.github/workflows/deploy.yml` — Server deployment workflow
 - [docs/deploy.md](../../docs/deploy.md) — Deployment documentation
 - `deploy/` directory — Systemd service file templates
+- `scripts/install.sh` — One-line installer (downloads release binaries)
 - `scripts/install_release.sh` — Server-side installation script

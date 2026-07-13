@@ -43,6 +43,7 @@
 - [[source-project-root-v38]] — In-app self-update: custom ApkUpdaterPlugin (native APK download + install intent), MobileUpdateDialog UI, version 0.6.0 release (2026-06-27)
 - [[source-project-root-v39]] — Re-ingest v39: manual check-update button, model selector restored, music bar transform fix, version management lesson (2026-06-28)
 - [[source-project-root-v40]] — Voice input (ASR): TeleSpeechASR via SiliconFlow, MediaRecorder API, server proxy, /asr/transcribe endpoint (2026-06-28)
+- [[source-project-root-v41]] — Re-ingest v41: TUI Bubble Tea implementation (3,697 lines, 17 files), one-line installer, GitHub Actions release workflow, 12 rounds of TUI bug fixes v0.10.1–v0.10.12 (2026-07-13)
 
 ## Entities
 - [[agent-core]] — Agent state machine and execution engine
@@ -60,13 +61,14 @@
 - [[desktop-app]] — Electron + React GUI client (global music player, workspace layout, KB panel, profile panel v25, path clicking, v10 race condition fixes, mobile self-update v38, version management v39, voice input/ASR v40)
 - [[feishu-integration]] — Lark/Feishu bot bridge
 - [[server-websocket]] — HTTP REST + SSE + WebSocket server (protocol, file endpoints, KB endpoints, profile endpoints v25, gateway models, ASR endpoint v40)
-- [[config-system]] — Environment-driven configuration (PI_GO_* env priority, LoadDotEnv no-override, provider required v7, KB embedding config v19, ASR config v40)
+- [[config-system]] — Environment-driven configuration (PI_GO_* env priority, LoadDotEnv no-override, provider required v7, KB embedding config v19, ASR config v40, PI_GO_ENABLE_BASH default in installer)
 - [[coding-application]] — Coding agent (primary application layer)
-- [[tui-presenter]] — Terminal UI rendering system
+- [[tui-presenter]] — Legacy terminal presenter (ANSI, used for `--mode run` single-shot)
+- [[tui-bubbletea]] — Full-screen Bubble Tea TUI (Elm architecture, 17 files, 3,697 lines, default for `--mode chat`)
 - [[external-tools]] — HTTP callback tool registration
 - [[web-embed]] — Embedded SPA static file serving
 - [[ai-transform-retry]] — Message transform, retry, cost, model registry
-- [[deployment-infrastructure]] — GitHub Actions CI/CD, Ubuntu systemd deployment (NEW)
+- [[deployment-infrastructure]] — GitHub Actions CI/CD (release workflow cross-compile + deploy workflow systemd), Ubuntu server deployment
 - [[agent-guidance-system]] — CLAUDE.md/AGENTS.md coding conventions for AI agents (NEW)
 
 ## Concepts
@@ -92,7 +94,8 @@
 - [[security-hardening]] — SSRF protection on external tool callbacks, Bearer token API auth, YAML config file support, --version flag + /health version info (NEW)
 - [[feishu-oauth]] — Feishu OAuth scan login (/feishu setup → QR code → auto-save credentials), modeled after hwjcode's approach (NEW)
 - [[hwjcode-absorption-batch]] — Parallel worktree absorption: 4 modules from hwjcode (~10,800 lines). Enhanced tools ✅ wired, LSP ✅ wired. Hooks/Policy/MCP ⚠️ island code (not integrated yet). ask_user ⚠️ stub. (NEW v42)
-- [[tui-design]] — Bubble Tea TUI design doc. 3 phases: core framework → rich rendering → UX polish. ~3,000 lines total. Replaces linear CLI with Elm-architecture interactive terminal. See docs/design/tui-bubbletea.md. (NEW v43)
+- [[tui-design]] — Bubble Tea TUI design doc. 3 phases: core framework → rich rendering → UX polish. See docs/design/tui-bubbletea.md.
+- [[tui-bubbletea]] — Full-screen Bubble Tea TUI entity (Elm architecture, AltScreen + MouseCellMotion, agent event bridge, tool panels, autocomplete, confirmation dialog, 12-round bug fix history v0.10.1–v0.10.12)
 
 ## Synthesis
 <!-- Cross-cutting analysis pages will be listed here -->
