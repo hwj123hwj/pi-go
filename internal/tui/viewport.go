@@ -136,7 +136,12 @@ func (v *MessageViewport) View() string {
 		start = end
 	}
 
-	visible := v.lines[start:end]
+	// CRITICAL: copy the slice — v.lines[start:end] shares the underlying
+	// array, so modifying `visible` would corrupt v.lines permanently.
+	// This was causing scroll indicators to bleed into message content.
+	tmp := v.lines[start:end]
+	visible := make([]string, len(tmp))
+	copy(visible, tmp)
 
 	// Pad to fill height
 	for len(visible) < v.height {
