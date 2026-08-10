@@ -1,0 +1,2 @@
+# Agent skills are development tooling, not product source.
+.agents/skills/** linguist-vendored
