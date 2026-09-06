@@ -87,7 +87,7 @@ curl --version
 
 工作流文件位于：
 
-- [.github/workflows/deploy.yml](/Users/weijian/Desktop/develop/test/pi/pi-go/.github/workflows/deploy.yml)
+- [.github/workflows/deploy.yml](https://github.com/hwj123hwj/pi-go/blob/main/.github/workflows/deploy.yml)
 
 触发方式：
 

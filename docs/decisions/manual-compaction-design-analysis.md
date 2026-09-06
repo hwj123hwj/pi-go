@@ -86,10 +86,10 @@ depends-on:
 ### 已确认事实
 
 - `pi-go` 已有自动 compaction 主链：
-  - [internal/agent/loop.go](../../internal/agent/loop.go)
+  - [internal/agent/loop.go](../../sdk/agent/loop.go)
   - `maybeCompact()` 会在上下文接近窗口限制时触发摘要压缩
 - `runtime.AgentSession.Compact()` 目前仍是 placeholder：
-  - [internal/runtime/agent_session.go](../../internal/runtime/agent_session.go)
+  - [internal/runtime/agent_session.go](../../sdk/runtime/agent_session.go)
 - 当前 `/compact` 命令还没有接入真实 compact 行为：
   - [internal/agents/coding/commands/builtins.go](../../internal/agents/coding/commands/builtins.go)
 
