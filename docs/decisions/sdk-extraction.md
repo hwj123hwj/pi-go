@@ -9,8 +9,8 @@ pi-go 的定位从"对齐 pi 的 coding agent"演进为"可扩展 Agent 底座 +
 
 ## 决策
 
-1. **搬门牌而非重写**：Core + Platform 的 18 个包（ai/agent/session/sessionmgr/compaction/operations/prompt/skill/extensions/slashcmd/config/util/runtime/tools/hooks/policy/lsp）从 `internal/` `git mv` 到 `sdk/`，import 路径全仓重写。四层架构和依赖方向**不变**，只变物理可见性。
-2. **应用层一律不进 SDK**：agents/music/feishu/tui/server/lsp 之外的领域包留在 `internal/`，它们是 SDK 的消费者而非组成部分。
+1. **搬门牌而非重写**：Core + Platform 的 17 个目录、19 个包（ai/agent/session/sessionmgr/compaction/operations/prompt/skill/extensions/slashcmd/config/util/runtime/tools/hooks/policy/lsp，其中 ai 含 models/providers 两个子包）从 `internal/` `git mv` 到 `sdk/`，import 路径全仓重写。四层架构和依赖方向**不变**，只变物理可见性。
+2. **应用层一律不进 SDK**：agents/music/feishu/tui/server 等领域包留在 `internal/`（lsp 例外：它是零领域知识的通用 LSP 客户端，随 tools 一起进了 SDK），应用层是 SDK 的消费者而非组成部分。
 3. **kbvector 明确排除**：它依赖 `internal/agents/kb/tools`（应用层），耦合了 kb agent，不满足零领域知识门槛。
 4. **架构规则测试化**：新增 `sdk/arch_test.go`，`go list -deps` 断言 sdk 不依赖 internal——把文档里的层间规则变成 CI 可拦截的硬约束。
 5. **v0 不承诺兼容**：导出符号仍可能变，第一个正式消费方是 pi-go 自身的 Application 层；用 SDK 写出第一个新个人 agent 后再考虑冻结 v1。
