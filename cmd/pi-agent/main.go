@@ -25,7 +25,6 @@ import (
 	"github.com/hwj123hwj/pi-go/sdk/runtime"
 	"github.com/hwj123hwj/pi-go/internal/scheduler"
 	"github.com/hwj123hwj/pi-go/sdk/slashcmd"
-	"github.com/hwj123hwj/pi-go/sdk/tools"
 	"github.com/hwj123hwj/pi-go/internal/tui"
 )
 
@@ -152,8 +151,6 @@ func main() {
 	}
 	defer application.Close()
 
-	// Ensure LSP processes are cleaned up on exit
-	defer tools.ResetLSPManager()
 
 	switch *modeFlag {
 	case "interactive", "chat":

@@ -11,7 +11,7 @@
 //   - session / sessionmgr — JSONL 树状会话持久化与管理
 //   - compaction — 上下文压缩（LLM 摘要 + 保留最近消息）
 //   - operations — 本地 / SSH 执行后端抽象
-//   - tools — 内置通用工具（read/write/edit/bash/grep/find/ls 及 LSP）
+//   - tools — 内置通用工具（read/write/edit/bash/grep/find/ls）
 //   - runtime — AgentSession 生命周期与 Application 接口（Platform 层）
 //   - slashcmd / skill / extensions / hooks / policy / prompt / config —
 //     命令框架、技能、扩展、钩子、权限、提示与配置
