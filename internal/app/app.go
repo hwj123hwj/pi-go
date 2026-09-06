@@ -5,17 +5,17 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/hwj123hwj/pi-go/internal/agent"
+	"github.com/hwj123hwj/pi-go/sdk/agent"
 	"github.com/hwj123hwj/pi-go/internal/agents/coding"
-	"github.com/hwj123hwj/pi-go/internal/ai/providers"
-	"github.com/hwj123hwj/pi-go/internal/config"
-	"github.com/hwj123hwj/pi-go/internal/extensions"
-	"github.com/hwj123hwj/pi-go/internal/operations"
+	"github.com/hwj123hwj/pi-go/sdk/ai/providers"
+	"github.com/hwj123hwj/pi-go/sdk/config"
+	"github.com/hwj123hwj/pi-go/sdk/extensions"
+	"github.com/hwj123hwj/pi-go/sdk/operations"
 	"github.com/hwj123hwj/pi-go/internal/profile"
-	"github.com/hwj123hwj/pi-go/internal/runtime"
+	"github.com/hwj123hwj/pi-go/sdk/runtime"
 	"github.com/hwj123hwj/pi-go/internal/scheduler"
-	"github.com/hwj123hwj/pi-go/internal/sessionmgr"
-	"github.com/hwj123hwj/pi-go/internal/slashcmd"
+	"github.com/hwj123hwj/pi-go/sdk/sessionmgr"
+	"github.com/hwj123hwj/pi-go/sdk/slashcmd"
 )
 
 // App is the thin assembly layer for the agent.

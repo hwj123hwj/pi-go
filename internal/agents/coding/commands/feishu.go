@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/hwj123hwj/pi-go/internal/feishu"
-	"github.com/hwj123hwj/pi-go/internal/slashcmd"
+	"github.com/hwj123hwj/pi-go/sdk/slashcmd"
 )
 
 // feishuGatewayMgr is the package-level feishu gateway manager.

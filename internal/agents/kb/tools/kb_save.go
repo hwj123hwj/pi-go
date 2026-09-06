@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hwj123hwj/pi-go/internal/agent"
+	"github.com/hwj123hwj/pi-go/sdk/agent"
 )
 
 // SaveTool writes a new knowledge entry to the repository.

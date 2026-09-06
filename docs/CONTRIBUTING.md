@@ -147,7 +147,7 @@ go build -o pi-agent ./cmd/pi-agent
 go test ./...
 
 # 运行单个包的测试
-go test ./internal/tools/ -v
+go test ./sdk/tools/ -v
 
 # 开发模式：交互式聊天
 ./pi-agent -mode chat
@@ -371,16 +371,16 @@ chore: update Go dependencies
 
 ### 新增 LLM Provider
 
-1. 在 `internal/ai/providers/` 下新建 `<provider>.go`
+1. 在 `sdk/ai/providers/` 下新建 `<provider>.go`
 2. 实现 `ai.Provider` 接口（`Stream()` 方法）
 3. 在 `internal/app/app.go` 的 `registerProvider()` 中注册
-4. 在 `internal/config/config.go` 中添加对应的环境变量
+4. 在 `sdk/config/config.go` 中添加对应的环境变量
 
 ### 新增工具
 
-1. 在 `internal/tools/` 下新建 `<tool>.go`
+1. 在 `sdk/tools/` 下新建 `<tool>.go`
 2. 实现 `tools.Tool` 接口（`Name()`、`Description()`、`Parameters()`、`Execute()`）
-3. 在 `internal/tools/` 的注册函数中添加新工具
+3. 在 `sdk/tools/` 的注册函数中添加新工具
 4. 添加 `_test.go` 测试文件
 
 ### 新增前端页面/组件

@@ -1,7 +1,7 @@
 package kbtools
 
 import (
-	"github.com/hwj123hwj/pi-go/internal/agent"
+	"github.com/hwj123hwj/pi-go/sdk/agent"
 )
 
 // ListOptions controls how the kb-agent toolset is assembled.

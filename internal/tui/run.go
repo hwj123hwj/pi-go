@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/hwj123hwj/pi-go/internal/runtime"
-	"github.com/hwj123hwj/pi-go/internal/slashcmd"
+	"github.com/hwj123hwj/pi-go/sdk/runtime"
+	"github.com/hwj123hwj/pi-go/sdk/slashcmd"
 )
 
 // Run starts the Bubble Tea TUI program.

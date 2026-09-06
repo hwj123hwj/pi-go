@@ -8,9 +8,9 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/hwj123hwj/pi-go/internal/agent"
-	"github.com/hwj123hwj/pi-go/internal/runtime"
-	"github.com/hwj123hwj/pi-go/internal/slashcmd"
+	"github.com/hwj123hwj/pi-go/sdk/agent"
+	"github.com/hwj123hwj/pi-go/sdk/runtime"
+	"github.com/hwj123hwj/pi-go/sdk/slashcmd"
 )
 // TuiModel is the root Bubble Tea model for pi-go's interactive TUI.
 type TuiModel struct {

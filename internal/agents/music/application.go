@@ -3,14 +3,14 @@ package music
 import (
 	"path/filepath"
 
-	"github.com/hwj123hwj/pi-go/internal/agent"
+	"github.com/hwj123hwj/pi-go/sdk/agent"
 	musicprompt "github.com/hwj123hwj/pi-go/internal/agents/music/prompt"
 	musictools "github.com/hwj123hwj/pi-go/internal/agents/music/tools"
-	"github.com/hwj123hwj/pi-go/internal/config"
+	"github.com/hwj123hwj/pi-go/sdk/config"
 	"github.com/hwj123hwj/pi-go/internal/music"
 	"github.com/hwj123hwj/pi-go/internal/music/pref"
 	"github.com/hwj123hwj/pi-go/internal/profile"
-	"github.com/hwj123hwj/pi-go/internal/runtime"
+	"github.com/hwj123hwj/pi-go/sdk/runtime"
 )
 
 // MusicApplication implements runtime.Application for the music-agent.

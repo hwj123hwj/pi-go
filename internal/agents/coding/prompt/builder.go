@@ -7,11 +7,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hwj123hwj/pi-go/internal/agent"
+	"github.com/hwj123hwj/pi-go/sdk/agent"
 	codingprofile "github.com/hwj123hwj/pi-go/internal/agents/coding/profile"
 	"github.com/hwj123hwj/pi-go/internal/handoff"
-	platformprompt "github.com/hwj123hwj/pi-go/internal/prompt"
-	"github.com/hwj123hwj/pi-go/internal/skill"
+	platformprompt "github.com/hwj123hwj/pi-go/sdk/prompt"
+	"github.com/hwj123hwj/pi-go/sdk/skill"
 )
 
 // Options configures the coding-agent system prompt.

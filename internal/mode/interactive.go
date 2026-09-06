@@ -3,8 +3,8 @@ package mode
 import (
 	codingcli "github.com/hwj123hwj/pi-go/internal/agents/coding/cli"
 	"github.com/hwj123hwj/pi-go/internal/app"
-	"github.com/hwj123hwj/pi-go/internal/runtime"
-	"github.com/hwj123hwj/pi-go/internal/slashcmd"
+	"github.com/hwj123hwj/pi-go/sdk/runtime"
+	"github.com/hwj123hwj/pi-go/sdk/slashcmd"
 )
 
 // InteractiveMode is the interactive CLI entrypoint.

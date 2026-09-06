@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/hwj123hwj/pi-go/internal/slashcmd"
+	"github.com/hwj123hwj/pi-go/sdk/slashcmd"
 )
 
 // CompletionKind identifies what type of completion is being offered.

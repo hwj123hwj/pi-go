@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hwj123hwj/pi-go/internal/config"
+	"github.com/hwj123hwj/pi-go/sdk/config"
 )
 
 func truncateResp(b []byte, max int) []byte {
