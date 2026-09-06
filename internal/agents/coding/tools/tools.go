@@ -33,18 +33,6 @@ func BaseToolNames(enableBash bool) []string {
 	return names
 }
 
-// LSPToolNames returns the canonical LSP tool names.
-func LSPToolNames() []string {
-	return []string{
-		"lsp_go_to_definition",
-		"lsp_find_references",
-		"lsp_hover",
-		"lsp_document_symbols",
-		"lsp_workspace_symbols",
-		"lsp_go_to_implementation",
-	}
-}
-
 // WebSearchToolNames returns the canonical web tool names.
 func WebSearchToolNames() []string {
 	return []string{"web_search"}
@@ -134,12 +122,6 @@ func BuildList(opts ListOptions) []agent.Tool {
 		),
 		basetools.NewAskUserTool(),
 	)
-
-	// LSP tools (go-to-definition, find-references, hover, symbols, etc.)
-	// Enabled when workspace is set and LSP is available.
-	if opts.Workspace != "" {
-		toolList = append(toolList, basetools.NewLSPTools(opts.Workspace)...)
-	}
 
 	toolList = append(toolList, opts.ExtensionTools...)
 	return filterTools(toolList, opts.AllowedTools, opts.BlockedTools)
