@@ -6,7 +6,7 @@ updated: 2026-05-25
 depends-on:
   - research/codex-rust-cli-analysis.md
   - research/cc-haha-core-engine-analysis.md
-  - ../references/pi-go-analysis.md
+  - ../archive/pi-go-analysis.md
   - ../research/claude-code-plugins-hooks-analysis.md
 ---
 

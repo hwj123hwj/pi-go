@@ -16,9 +16,9 @@ docs/
 │
 ├── references/                        # 稳定查阅资料（接口/集成/项目快照）
 │   ├── feishu-integration-ref.md      # 飞书接入参考
-│   ├── pi-go-analysis.md              # pi-go 当前结构/问题快照
 │   ├── original-pi-built-in-prompts.md # 原始 Pi 内置提示词
-│   └── code-review-suggestions.md     # 项目代码审查与改进建议
+│   ├── netease-recommendation-apis.md # 网易云推荐 API 参考
+│   └── vibecheck-api-analysis.md      # VibeCheck API 分析
 │
 ├── decisions/                         # 当前采纳判断（会演进，但比 research 更接近团队共识）
 │   ├── skills-vs-application.md
@@ -37,10 +37,6 @@ docs/
 │   ├── deepv-code-full-analysis.md
 │   └── competitive-research.md        # (archived)
 │
-├── dev/                               # 活跃开发主题（4-agent 流水线产出）
-│   ├── skills-support/                # Skills 完整支持
-│   └── web-access/                    # 浏览器操控能力
-│
 └── archive/                           # 已完成的开发主题
     ├── goal-driven-loop/              # Goal 驱动循环（已完成）
     ├── coding-agent/                  # Coding Agent 规格（已完成）
@@ -57,6 +53,13 @@ docs/
     ├── tool-lifecycle/                # Tool Lifecycle（已完成）
     ├── desktop-golang/                # Desktop Go 实现
     ├── learning-notes/                # 早期学习笔记
+    ├── skills-support/                # Skills 完整支持（已落地：skill/ 包）
+    ├── web-access/                    # Web 工具（已落地：web_fetch/web_search）
+    ├── tui-bubbletea.md               # TUI 设计（已落地：tui/ 包）
+    ├── llm-wiki-integration.md        # llm-wiki 集成设计（已落地：/wiki 命令）
+    ├── pi-go-analysis.md              # pi-go 深度分析（2026-05-25 历史快照）
+    ├── code-review-suggestions.md     # 全面代码审查建议（历史快照）
+    ├── easycode-memories.md           # EasyCode agent 记忆（误置于根目录，存档）
     ├── project-overview.md            # 项目概览（历史快照）
     └── code-review-issues.md          # 代码评审问题清单
 ```
@@ -81,9 +84,9 @@ docs/
 | 文档 | 用途 |
 |------|------|
 | [feishu-integration-ref.md](references/feishu-integration-ref.md) | 飞书 Bot 接入参考 |
-| [pi-go-analysis.md](references/pi-go-analysis.md) | pi-go 项目深度分析报告（架构评估、Bug 清单、功能差距） |
 | [original-pi-built-in-prompts.md](references/original-pi-built-in-prompts.md) | 原始 Pi 项目内置提示词完整整理 |
-| [code-review-suggestions.md](references/code-review-suggestions.md) | 项目全面代码审查与改进建议 |
+| [netease-recommendation-apis.md](references/netease-recommendation-apis.md) | 网易云推荐 API 参考 |
+| [vibecheck-api-analysis.md](references/vibecheck-api-analysis.md) | VibeCheck API 分析 |
 
 ## 决策文档
 
@@ -145,10 +148,8 @@ updated: YYYY-MM-DD
 
 ### 当前活跃主题
 
-| 主题 | 状态 | 文档 | 说明 |
-|------|------|------|------|
-| Skills 完整支持 | draft | [proposal.md](dev/skills-support/proposal.md) | Skills 从展示列表变为可调用指令集 |
-| 浏览器操控 | draft | [spec.md](dev/web-access/spec.md) | 为 Agent 提供内置浏览器操控能力 |
+（无。`dev/` 已清空——skills-support 与 web-access 均已落地，按维护规则归档；
+新主题由 plan-agent 重新创建。）
 
 ## 归档
 
@@ -172,6 +173,13 @@ updated: YYYY-MM-DD
 | [tool-lifecycle/](archive/tool-lifecycle/execution-plan.md) | Tool Lifecycle 执行计划（已完成） |
 | [desktop-golang/](archive/desktop-golang/changes.md) | Desktop Go 实现变更说明 |
 | [learning-notes/](archive/learning-notes/01-agent-framework-extensibility.md) | 早期学习笔记归档 |
+| [skills-support/](archive/skills-support/proposal.md) | Skills 完整支持提案（已落地：skill/ 包 + 命令集） |
+| [web-access/](archive/web-access/spec.md) | Web 工具规格（已落地：sdk/tools/web_fetch、web_search） |
+| [tui-bubbletea.md](archive/tui-bubbletea.md) | TUI Bubble Tea 设计（已落地：internal/tui/） |
+| [llm-wiki-integration.md](archive/llm-wiki-integration.md) | llm-wiki 集成设计（已落地：/wiki 命令） |
+| [pi-go-analysis.md](archive/pi-go-analysis.md) | pi-go 深度分析（2026-05-25 快照，当时 65 个源文件） |
+| [code-review-suggestions.md](archive/code-review-suggestions.md) | 全面代码审查建议（历史快照，路径为重构前） |
+| [easycode-memories.md](archive/easycode-memories.md) | EasyCode agent 记忆文件（原误置于仓库根目录） |
 | [project-overview.md](archive/project-overview.md) | 项目概览（历史快照） |
 | [code-review-issues.md](archive/code-review-issues.md) | 代码评审问题清单 |
 
