@@ -48,7 +48,6 @@ type Config struct {
 	Host        string
 	Port        int
 	DataDir     string
-	SessionFile string
 	MaxTurns    int
 	Timeout     time.Duration
 
@@ -68,7 +67,6 @@ type Config struct {
 	// Tool sandbox
 	Workspace          string
 	EnableBash         bool
-	BashTimeoutSeconds int
 	EnableWeb          bool
 	WebTimeoutSeconds  int
 	EnableWebSearch    bool
@@ -87,11 +85,8 @@ type Config struct {
 	BlockedTools []string
 
 	// Prompt
-	HistoryFile    string
 	PromptTemplate string
 
-	// Music
-	MusicPort int // Port for the music-agent server (default 8081)
 
 	// Knowledge base (second-brain)
 	KBRepoPath string // path to the personal knowledge repo (default: ~/agent-lessons)
@@ -116,7 +111,6 @@ func Default() Config {
 		Host:        "127.0.0.1",
 		Port:        8080,
 		DataDir:     "./data",
-		SessionFile: "./data/session.jsonl",
 		MaxTurns:    200,
 		Timeout:     5 * time.Minute,
 
@@ -130,14 +124,12 @@ func Default() Config {
 
 		Workspace:          "", // empty = use cwd
 		EnableBash:         false,
-		BashTimeoutSeconds: 30,
 		EnableWeb:          false,
 		WebTimeoutSeconds:  30,
 		EnableWebSearch:    false,
 
 		MaxOutputLen: 30000,
 
-		MusicPort: 8081,
 
 		KBRepoPath: "", // empty → defaults to ~/agent-lessons at runtime
 	}
@@ -158,24 +150,12 @@ func (c *Config) LoadFromEnv() {
 	}
 	if v := os.Getenv("PI_GO_DATA_DIR"); v != "" {
 		c.DataDir = v
-		// If SessionFile not explicitly set, derive from DataDir
-		if os.Getenv("PI_GO_SESSION_FILE") == "" {
-			c.SessionFile = v + "/session.jsonl"
-		}
-	}
-	if v := os.Getenv("PI_GO_SESSION_FILE"); v != "" {
-		c.SessionFile = v
 	}
 	if v := os.Getenv("PI_GO_WORKSPACE"); v != "" {
 		c.Workspace = v
 	}
 	if v := os.Getenv("PI_GO_ENABLE_BASH"); v != "" {
 		c.EnableBash = strings.ToLower(v) == "true" || v == "1"
-	}
-	if v := os.Getenv("PI_GO_BASH_TIMEOUT_SECONDS"); v != "" {
-		if t, err := strconv.Atoi(v); err == nil {
-			c.BashTimeoutSeconds = t
-		}
 	}
 	if v := os.Getenv("PI_GO_ENABLE_WEB"); v != "" {
 		c.EnableWeb = strings.ToLower(v) == "true" || v == "1"
@@ -250,18 +230,8 @@ func (c *Config) LoadFromEnv() {
 	}
 
 	// Prompt
-	if v := os.Getenv("PI_GO_HISTORY_FILE"); v != "" {
-		c.HistoryFile = v
-	}
 	if v := os.Getenv("PI_GO_PROMPT_TEMPLATE"); v != "" {
 		c.PromptTemplate = v
-	}
-
-	// Music
-	if v := os.Getenv("PI_GO_MUSIC_PORT"); v != "" {
-		if p, err := strconv.Atoi(v); err == nil && p > 0 {
-			c.MusicPort = p
-		}
 	}
 
 	// Knowledge base
@@ -339,7 +309,6 @@ type yamlConfig struct {
 	Host        string `yaml:"host,omitempty"`
 	Port        int    `yaml:"port,omitempty"`
 	DataDir     string `yaml:"data_dir,omitempty"`
-	SessionFile string `yaml:"session_file,omitempty"`
 
 	Provider string `yaml:"provider,omitempty"`
 
@@ -353,7 +322,6 @@ type yamlConfig struct {
 
 	Workspace          string `yaml:"workspace,omitempty"`
 	EnableBash         bool   `yaml:"enable_bash,omitempty"`
-	BashTimeoutSeconds int    `yaml:"bash_timeout_seconds,omitempty"`
 	EnableWeb          bool   `yaml:"enable_web,omitempty"`
 	WebTimeoutSeconds  int    `yaml:"web_timeout_seconds,omitempty"`
 	EnableWebSearch    bool   `yaml:"enable_web_search,omitempty"`
@@ -370,7 +338,6 @@ type yamlConfig struct {
 	MaxTurns int           `yaml:"max_turns,omitempty"`
 	Timeout  time.Duration `yaml:"timeout,omitempty"`
 
-	MusicPort int    `yaml:"music_port,omitempty"`
 	APIKey    string `yaml:"api_key,omitempty"`
 
 	KBRepoPath         string `yaml:"kb_repo_path,omitempty"`
@@ -410,9 +377,6 @@ func (c *Config) LoadFromYAML(path string) error {
 	if yc.DataDir != "" {
 		c.DataDir = yc.DataDir
 	}
-	if yc.SessionFile != "" {
-		c.SessionFile = yc.SessionFile
-	}
 	if yc.Provider != "" {
 		c.Provider = yc.Provider
 	}
@@ -439,9 +403,6 @@ func (c *Config) LoadFromYAML(path string) error {
 	}
 	if yc.EnableBash {
 		c.EnableBash = true
-	}
-	if yc.BashTimeoutSeconds > 0 {
-		c.BashTimeoutSeconds = yc.BashTimeoutSeconds
 	}
 	if yc.EnableWeb {
 		c.EnableWeb = true
@@ -478,9 +439,6 @@ func (c *Config) LoadFromYAML(path string) error {
 	}
 	if yc.Timeout > 0 {
 		c.Timeout = yc.Timeout
-	}
-	if yc.MusicPort > 0 {
-		c.MusicPort = yc.MusicPort
 	}
 	if yc.APIKey != "" {
 		c.APIKey = yc.APIKey

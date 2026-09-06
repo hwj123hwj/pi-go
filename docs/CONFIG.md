@@ -53,14 +53,12 @@ ANTHROPIC_MODEL=claude-sonnet-4-20250514
 | `PI_GO_HOST` | `127.0.0.1` | HTTP 监听地址 |
 | `PI_GO_PORT` | `8080` | HTTP 监听端口 |
 | `PI_GO_DATA_DIR` | `./data` | 数据目录 |
-| `PI_GO_SESSION_FILE` | `./data/session.jsonl` | 会话文件路径 |
 
 ### 工具
 
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
 | `PI_GO_ENABLE_BASH` | `false` | 是否启用 Bash 工具 |
-| `PI_GO_BASH_TIMEOUT_SECONDS` | `30` | Bash 命令超时 |
 | `PI_GO_ENABLE_WEB` | `false` | 是否启用 Web Fetch 工具 |
 | `PI_GO_WEB_TIMEOUT_SECONDS` | `30` | Web Fetch 超时（秒） |
 | `PI_GO_MAX_OUTPUT_LEN` | `30000` | 工具输出最大字符数 |
@@ -81,7 +79,6 @@ ANTHROPIC_MODEL=claude-sonnet-4-20250514
 
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
-| `PI_GO_MUSIC_PORT` | - | 音乐服务端口 |
 | `PI_GO_KB_REPO_PATH` | `~/agent-lessons` | 知识库仓库路径 |
 | `SILICONFLOW_API_KEY` | - | KB 向量搜索 API Key |
 | `SILICONFLOW_EMBEDDING_MODEL` | `bge-m3` | KB Embedding 模型 |
@@ -91,7 +88,6 @@ ANTHROPIC_MODEL=claude-sonnet-4-20250514
 
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
-| `PI_GO_HISTORY_FILE` | - | 交互模式历史记录路径 |
 | `PI_GO_PROMPT_TEMPLATE` | - | 自定义提示模板路径 |
 
 ---
