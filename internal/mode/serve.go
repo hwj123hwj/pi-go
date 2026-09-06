@@ -5,7 +5,7 @@ import (
 
 	"github.com/hwj123hwj/pi-go/internal/app"
 	"github.com/hwj123hwj/pi-go/internal/server"
-	"github.com/hwj123hwj/pi-go/internal/slashcmd"
+	"github.com/hwj123hwj/pi-go/sdk/slashcmd"
 )
 
 // ServeMode handles the HTTP server mode.

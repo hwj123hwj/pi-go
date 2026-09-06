@@ -7,10 +7,10 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/hwj123hwj/pi-go/internal/agent"
+	"github.com/hwj123hwj/pi-go/sdk/agent"
 	modelsregistry "github.com/hwj123hwj/pi-go/internal/models"
-	"github.com/hwj123hwj/pi-go/internal/runtime"
-	"github.com/hwj123hwj/pi-go/internal/slashcmd"
+	"github.com/hwj123hwj/pi-go/sdk/runtime"
+	"github.com/hwj123hwj/pi-go/sdk/slashcmd"
 )
 
 // handleKeyPress processes all keyboard input, routing to the appropriate

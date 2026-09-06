@@ -151,6 +151,33 @@ npm run electron:build    # 打包
 
 ---
 
+---
+
+## 作为 SDK 嵌入你的 Go 服务
+
+π-go 不只是命令行工具——核心 Agent 能力以 `sdk/` 包对外提供，任何 Go 后端服务都能 import 拿到原子能力（Agent 循环、工具系统、会话持久化、上下文压缩、Provider 注册制）：
+
+```go
+import (
+    "github.com/hwj123hwj/pi-go/sdk/agent"
+    "github.com/hwj123hwj/pi-go/sdk/ai"
+    "github.com/hwj123hwj/pi-go/sdk/ai/providers"
+)
+
+registry := providers.NewRegistry()
+registry.Register(myProvider{}) // 实现 providers.Provider 接口
+
+ag := agent.New(agent.Options{
+    Model:    ai.Model{ID: "glm-4.7", Name: "GLM", Provider: "my"},
+    Registry: registry,
+    System:   "你是嵌入在业务服务里的助手",
+    Tools:    []agent.Tool{myTool{}}, // 实现 agent.Tool 接口
+})
+reply, err := ag.Prompt(ctx, ai.NewTextUserMessage("..."))
+```
+
+完整可运行示例见 [`sdk/example_test.go`](sdk/example_test.go)。架构约束：`sdk/` 零领域知识、不依赖 `internal/`（测试强制）；音乐/飞书等领域能力属于应用层，通过实现 `runtime.Application` 接口构建，参考 `internal/agents/`。
+
 ## 技术文档
 
 > 以下文档面向开发者和贡献者，普通用户不需要看。

@@ -45,38 +45,46 @@ pi-go 是一个用 Go 实现的通用 Agent 框架，核心目标是：**可扩�
 - **Entrypoints** → 组装所有依赖，注入 Application 实例
 - **领域基础设施**（如 `internal/music/`）→ Application 层的叶子库，只被对应 agent 和入口 import，零上层依赖。**不属于标准四层**，是某 Application 的专属支撑层
 
+### 物理位置：`sdk/` 与 `internal/`
+
+Core + Platform（18 个包）物理位于 `sdk/`，是**可被外部 Go 模块 import 的公共 API 面**——其他 Go 后端服务 `import "github.com/hwj123hwj/pi-go/sdk/..."` 即可拿到 Agent 原子能力（详见 `sdk/doc.go` 与 `sdk/example_test.go`）。
+
+Application 层及以下（agents/music/feishu/tui/server 等）位于 `internal/`，编译器强制私有。
+
+**硬约束**：`sdk/` 不得 import `pi-go/internal/` 的任何包，由 `sdk/arch_test.go` 在测试中强制——想进 SDK 的能力必须零领域知识。当前 v0 阶段，SDK API 不承诺向后兼容。
+
 ### 关键接口
 
 | 接口 | 位置 | 作用 |
 |------|------|------|
-| `runtime.Application` | `internal/runtime/application.go` | Platform 与 Application 的解耦点：`BuildTools()` + `BuildPrompt()` |
-| `agent.Tool` | `internal/agent/` | 工具系统：泛型 schema + 执行函数 |
-| `providers.Provider` | `internal/ai/providers/` | LLM Provider 抽象：注册制 + 懒加载 |
-| `operations.Operations` | `internal/operations/` | 执行后端：本地 / SSH 切换 |
+| `runtime.Application` | `sdk/runtime/application.go` | Platform 与 Application 的解耦点：`BuildTools()` + `BuildPrompt()` |
+| `agent.Tool` | `sdk/agent/` | 工具系统：泛型 schema + 执行函数 |
+| `providers.Provider` | `sdk/ai/providers/` | LLM Provider 抽象：注册制 + 懒加载 |
+| `operations.Operations` | `sdk/operations/` | 执行后端：本地 / SSH 切换 |
 | `music.MusicSource` | `internal/music/source.go` | 音乐源后端抽象：Search/GetAudioURL/GetLyrics/...（网易/B站实现） |
 | `music.SourceRouter` | `internal/music/router.go` | 多源路由：按复合 ID（`netease:123`/`bilibili:BV1xx`）分发到对应源 |
-| `slashcmd.SessionContext` | `internal/slashcmd/context.go` | Slash command 可操作的 session 接口（model/profile/switch） |
-| `slashcmd.AppContext` | `internal/slashcmd/context.go` | Slash command 可操作的 app 接口（session CRUD/profiles） |
+| `slashcmd.SessionContext` | `sdk/slashcmd/context.go` | Slash command 可操作的 session 接口（model/profile/switch） |
+| `slashcmd.AppContext` | `sdk/slashcmd/context.go` | Slash command 可操作的 app 接口（session CRUD/profiles） |
 
 ## 核心能力
 
 | 能力 | 实现位置 | 状态 |
 |------|---------|------|
-| 统一 LLM API 抽象 | `internal/ai/` | ✅ 多 Provider（Anthropic/OpenAI/Mock/DeepV） |
-| Agent 双层循环 | `internal/agent/` | ✅ 外层 follow-up + 内层 tool call |
-| 7 个内置工具 | `internal/tools/` + 组装于 `internal/agents/coding/tools/` | ✅ read/write/edit/bash/grep/find/ls |
+| 统一 LLM API 抽象 | `sdk/ai/` | ✅ 多 Provider（Anthropic/OpenAI/Mock/DeepV） |
+| Agent 双层循环 | `sdk/agent/` | ✅ 外层 follow-up + 内层 tool call |
+| 7 个内置工具 | `sdk/tools/` + 组装于 `internal/agents/coding/tools/` | ✅ read/write/edit/bash/grep/find/ls |
 | 工具过滤 | config AllowedTools/BlockedTools | ✅ |
-| Tool Lifecycle hooks | `internal/agent/tool_lifecycle.go` | ✅ Before/After hook 接口 + PrepareArguments |
-| Operations 抽象 | `internal/operations/` | ✅ Local + SSH 执行后端 |
-| 事件系统 + 流式输出 | `internal/agent/` + SSE | ✅ |
-| 上下文压缩 | `internal/compaction/` | ✅ LLM 摘要 + 保留最近消息 |
-| JSONL 树状会话 | `internal/session/` | ✅ 分支 + MoveTo |
-| 扩展系统 | `internal/extensions/` | ✅ 工具/命令/事件钩子 |
-| 技能系统 | `internal/skill/` | ✅ Markdown 格式加载 |
+| Tool Lifecycle hooks | `sdk/agent/tool_lifecycle.go` | ✅ Before/After hook 接口 + PrepareArguments |
+| Operations 抽象 | `sdk/operations/` | ✅ Local + SSH 执行后端 |
+| 事件系统 + 流式输出 | `sdk/agent/` + SSE | ✅ |
+| 上下文压缩 | `sdk/compaction/` | ✅ LLM 摘要 + 保留最近消息 |
+| JSONL 树状会话 | `sdk/session/` | ✅ 分支 + MoveTo |
+| 扩展系统 | `sdk/extensions/` | ✅ 工具/命令/事件钩子 |
+| 技能系统 | `sdk/skill/` | ✅ Markdown 格式加载 |
 | HTTP API Server | `internal/server/` | ✅ REST + SSE |
 | 多执行模式 | app 层 | ✅ interactive/print/serve |
-| SSH 远程执行 | `internal/operations/ssh.go` | ✅ |
-| Slash Commands 框架 | `internal/slashcmd/` | ✅ 注册制 + 结构化 CommandResult + Session 交接 |
+| SSH 远程执行 | `sdk/operations/ssh.go` | ✅ |
+| Slash Commands 框架 | `sdk/slashcmd/` | ✅ 注册制 + 结构化 CommandResult + Session 交接 |
 | CLI 控制面 | `internal/agents/coding/commands/` + `cli/` | ✅ /new /switch /sessions /model /models /tools /profiles /profile /goal /context /clear |
 | Profile 机制 | `internal/agents/coding/profile/` | ✅ coding/review 双 profile，切换即重建 agent |
 | Session Goal | `runtime.AgentSession` + prompt builder | ✅ session 级目标注入 system prompt |
@@ -114,17 +122,17 @@ pi-go 是一个用 Go 实现的通用 Agent 框架，核心目标是：**可扩�
 
 | 文件 | 职责 |
 |------|------|
-| `internal/ai/stream.go` | 统一 LLM 流式 API 入口 |
-| `internal/agent/agent.go` | Agent 核心状态机 |
-| `internal/agent/loop.go` | Agent 双层循环实现 |
-| `internal/runtime/agent_session.go` | AgentSession 生命周期 |
-| `internal/runtime/application.go` | Application 接口定义 |
+| `sdk/ai/stream.go` | 统一 LLM 流式 API 入口 |
+| `sdk/agent/agent.go` | Agent 核心状态机 |
+| `sdk/agent/loop.go` | Agent 双层循环实现 |
+| `sdk/runtime/agent_session.go` | AgentSession 生命周期 |
+| `sdk/runtime/application.go` | Application 接口定义 |
 | `internal/agents/coding/application.go` | CodingApplication 实现 |
 | `internal/app/app.go` | 依赖组装 |
-| `internal/session/session.go` | 树状会话存储 |
-| `internal/compaction/compaction.go` | 上下文压缩策略 |
-| `internal/config/config.go` | 配置结构定义 |
-| `internal/slashcmd/registry.go` | Slash command 注册与执行框架 |
+| `sdk/session/session.go` | 树状会话存储 |
+| `sdk/compaction/compaction.go` | 上下文压缩策略 |
+| `sdk/config/config.go` | 配置结构定义 |
+| `sdk/slashcmd/registry.go` | Slash command 注册与执行框架 |
 | `internal/agents/coding/commands/builtins.go` | Coding-agent 内置命令（/new /switch /model /profile 等） |
 | `internal/agents/coding/profile/profile.go` | Profile 类型定义与 prompt 片段 |
 | `internal/agents/coding/cli/interactive.go` | CLI 交互模式（命令分发 + session 交接） |

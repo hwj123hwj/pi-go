@@ -1,7 +1,7 @@
 package musictools
 
 import (
-	"github.com/hwj123hwj/pi-go/internal/agent"
+	"github.com/hwj123hwj/pi-go/sdk/agent"
 	"github.com/hwj123hwj/pi-go/internal/music"
 	"github.com/hwj123hwj/pi-go/internal/music/pref"
 )

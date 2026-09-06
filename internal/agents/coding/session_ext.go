@@ -6,7 +6,7 @@ import (
 	"log/slog"
 
 	"github.com/hwj123hwj/pi-go/internal/agents/coding/profile"
-	"github.com/hwj123hwj/pi-go/internal/runtime"
+	"github.com/hwj123hwj/pi-go/sdk/runtime"
 )
 
 // CodingSessionExt implements runtime.SessionExt for the coding-agent.

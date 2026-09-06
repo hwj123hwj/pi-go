@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/hwj123hwj/pi-go/internal/scheduler"
-	"github.com/hwj123hwj/pi-go/internal/slashcmd"
+	"github.com/hwj123hwj/pi-go/sdk/slashcmd"
 )
 
 // RegisterLoopCommands registers /loop and /crontab slash commands.

@@ -8,7 +8,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/hwj123hwj/pi-go/internal/agent"
+	"github.com/hwj123hwj/pi-go/sdk/agent"
 )
 
 // ReadTool reads a file from the knowledge base repository.

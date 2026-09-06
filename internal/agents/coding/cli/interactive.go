@@ -7,10 +7,10 @@ import (
 	"os"
 	"time"
 
-	"github.com/hwj123hwj/pi-go/internal/agent"
+	"github.com/hwj123hwj/pi-go/sdk/agent"
 	"github.com/hwj123hwj/pi-go/internal/app"
-	"github.com/hwj123hwj/pi-go/internal/runtime"
-	"github.com/hwj123hwj/pi-go/internal/slashcmd"
+	"github.com/hwj123hwj/pi-go/sdk/runtime"
+	"github.com/hwj123hwj/pi-go/sdk/slashcmd"
 	"github.com/hwj123hwj/pi-go/internal/ui"
 )
 

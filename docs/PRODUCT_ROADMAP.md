@@ -161,7 +161,7 @@
 
 ### 4.1 Tool lifecycle ✅ **已完成**
 
-已在 `internal/agent/tool_lifecycle.go` 落地：
+已在 `sdk/agent/tool_lifecycle.go` 落地：
 - `BeforeToolCallHook` — 在工具执行前调用，可修改参数或阻止执行
 - `AfterToolCallHook` — 在工具执行后调用，可修改结果或标记失败
 - `ToolWithPrepareArguments` 可选接口 — 参数规范化和扩充
@@ -173,7 +173,7 @@
 
 ### 4.2 Operations 抽象 ✅ **已完成**
 
-已在 `internal/operations/` 落地：
+已在 `sdk/operations/` 落地：
 - `BashOperations` 接口 — 命令执行
 - `FileOperations` 接口 — 文件读写
 - `LocalOperations` — 本地实现

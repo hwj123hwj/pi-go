@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/hwj123hwj/pi-go/internal/agent"
-	"github.com/hwj123hwj/pi-go/internal/operations"
+	"github.com/hwj123hwj/pi-go/sdk/agent"
+	"github.com/hwj123hwj/pi-go/sdk/operations"
 	"github.com/stretchr/testify/assert"
 )
 

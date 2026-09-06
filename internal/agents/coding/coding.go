@@ -3,7 +3,7 @@ package coding
 import (
 	codingtools "github.com/hwj123hwj/pi-go/internal/agents/coding/tools"
 	codingcommands "github.com/hwj123hwj/pi-go/internal/agents/coding/commands"
-	"github.com/hwj123hwj/pi-go/internal/slashcmd"
+	"github.com/hwj123hwj/pi-go/sdk/slashcmd"
 )
 
 func BaseToolNames(enableBash bool) []string {

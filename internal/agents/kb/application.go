@@ -4,13 +4,13 @@ import (
 	"log/slog"
 	"path/filepath"
 
-	"github.com/hwj123hwj/pi-go/internal/agent"
+	"github.com/hwj123hwj/pi-go/sdk/agent"
 	kbprompt "github.com/hwj123hwj/pi-go/internal/agents/kb/prompt"
 	kbtools "github.com/hwj123hwj/pi-go/internal/agents/kb/tools"
-	"github.com/hwj123hwj/pi-go/internal/config"
+	"github.com/hwj123hwj/pi-go/sdk/config"
 	"github.com/hwj123hwj/pi-go/internal/kbvector"
 	"github.com/hwj123hwj/pi-go/internal/profile"
-	"github.com/hwj123hwj/pi-go/internal/runtime"
+	"github.com/hwj123hwj/pi-go/sdk/runtime"
 )
 
 // KBApplication implements runtime.Application for the knowledge-base agent.

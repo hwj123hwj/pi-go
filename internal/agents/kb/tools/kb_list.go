@@ -9,7 +9,7 @@ import (
 
 	"path/filepath"
 
-	"github.com/hwj123hwj/pi-go/internal/agent"
+	"github.com/hwj123hwj/pi-go/sdk/agent"
 )
 
 // ListTool browses and lists all entries in the knowledge base.
