@@ -8,7 +8,6 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/hwj123hwj/pi-go/sdk/agent"
-	modelsregistry "github.com/hwj123hwj/pi-go/internal/models"
 	"github.com/hwj123hwj/pi-go/sdk/runtime"
 	"github.com/hwj123hwj/pi-go/sdk/slashcmd"
 )
@@ -200,16 +199,16 @@ func (m *TuiModel) handleModelSelectKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				modelID := parts[1]
 				if err := m.session.SwitchModel(context.Background(), modelID, provider); err != nil {
 					m.messages = append(m.messages, ChatMessage{
-						Role:    "system",
-						Content: fmt.Sprintf("❌ Model switch failed: %v", err),
+						Role:      "system",
+						Content:   fmt.Sprintf("❌ Model switch failed: %v", err),
 						Timestamp: time.Now(),
 					})
 				} else {
 					m.provider = provider
 					m.modelID = modelID
 					m.messages = append(m.messages, ChatMessage{
-						Role:    "system",
-						Content: fmt.Sprintf("✅ Switched: %s/%s", provider, modelID),
+						Role:      "system",
+						Content:   fmt.Sprintf("✅ Switched: %s/%s", provider, modelID),
 						Timestamp: time.Now(),
 					})
 				}
@@ -436,16 +435,16 @@ func (m *TuiModel) handleSlashCommand(input string) (tea.Model, tea.Cmd) {
 }
 
 // getAvailableModels returns the list of models the user can switch to.
-// Uses the built-in default model catalog.
+// 从 App 的模型注册表取（内置清单 + 网关 /models 同步），不再直连内置目录——
+// 否则 TUI 切换器看不到网关模型（与 /models 命令不一致）。
 func (m *TuiModel) getAvailableModels() []ModelOption {
-	// Use the built-in default models from the models package
-	defaults := modelsregistry.DefaultModels()
-	result := make([]ModelOption, 0, len(defaults))
-	for _, dm := range defaults {
+	infos := m.app.AvailableModels()
+	result := make([]ModelOption, 0, len(infos))
+	for _, mi := range infos {
 		result = append(result, ModelOption{
-			Provider:    dm.Provider,
-			ModelID:     dm.ID,
-			Description: dm.Name,
+			Provider:    mi.Provider,
+			ModelID:     mi.ModelID,
+			Description: mi.ModelID,
 		})
 	}
 	return result

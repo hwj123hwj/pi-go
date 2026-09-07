@@ -184,6 +184,8 @@
 
 ### 4.3 模型注册表
 
+**已落地（2026-09-07）**：配置 OpenAI 兼容网关时启动即拉取 `{base_url}/models` 合并进注册表（`internal/models/gateway.go`），网关是可用性来源、本地清单提供元数据；TUI 模型切换器与 `/models` 命令统一走注册表。仍待补：
+
 建议从硬编码映射升级到集中 registry：
 
 - context window
