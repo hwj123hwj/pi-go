@@ -121,17 +121,9 @@ func (m *TuiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.viewport.Resize(msg.Width, viewportHeight)
 		return m, nil
 
-	// ── Mouse wheel ──
-	case tea.MouseMsg:
-		switch msg.Button {
-		case tea.MouseButtonWheelUp:
-			m.viewport.ScrollUp(3)
-		case tea.MouseButtonWheelDown:
-			m.viewport.ScrollDown(3)
-		}
-		return m, nil
-
 	// ── Key press ──
+	// 鼠标不捕获（对齐 pi/codex 的取舍）：捕获会接管终端原生划选，
+	// 用户无法复制内容——对内容生成器不可接受。滚动用 PageUp/PageDown。
 	case tea.KeyMsg:
 		return m.handleKeyPress(msg)
 
