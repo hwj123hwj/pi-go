@@ -11,6 +11,7 @@ import (
 	"github.com/hwj123hwj/pi-go/sdk/config"
 	"github.com/hwj123hwj/pi-go/sdk/runtime"
 	"github.com/hwj123hwj/pi-go/sdk/slashcmd"
+	"log/slog"
 	"time"
 )
 
@@ -26,13 +27,27 @@ func NewCodingApplication(cfg config.Config) CodingApplication {
 	modelConfigPath := modelsreg.ResolveConfigPath(cfg.DataDir)
 	reg := modelsreg.NewDefaultRegistry(modelConfigPath)
 
-	// 配置了 OpenAI 兼容网关时，拉取 /models 合并进注册表：
-	// 网关是可用性的真实来源，本地清单只提供元数据（上下文窗口等）。
-	// 拉取失败静默降级为本地清单——网关不在线不应阻塞启动。
+	// 网关模式以远端目录为准，本地清单只补充模型元数据。
+	// 拉取失败保留本地清单，并明确提示，避免把回退误认为同步成功。
 	if cfg.OpenAIBaseURL != "" {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		if ids, err := modelsreg.FetchGatewayModels(ctx, cfg.OpenAIBaseURL, cfg.OpenAIAPIKey); err == nil {
-			reg.MergeGateway("openai", ids)
+			if cfg.Provider == "openai" {
+				gatewayReg := modelsreg.NewRegistry()
+				for _, id := range ids {
+					def, ok := reg.Get(id)
+					if !ok {
+						def = modelsreg.ModelDef{ID: id, Name: id}
+					}
+					def.Provider = "openai"
+					gatewayReg.Register(def)
+				}
+				reg = gatewayReg
+			} else {
+				reg.MergeGateway("openai", ids)
+			}
+		} else {
+			slog.Warn("gateway model discovery failed; using local model catalog", "error", err)
 		}
 		cancel()
 	}

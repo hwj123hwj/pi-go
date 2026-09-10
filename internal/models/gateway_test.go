@@ -22,14 +22,16 @@ func TestFetchGatewayModels(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	ids, err := FetchGatewayModels(context.Background(), ts.URL+"/v1", "key")
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	// 空 ID 应被过滤
-	if len(ids) != 2 || ids[0] != "glm-4.7" || ids[1] != "claude-sonnet-4-6" {
-		t.Fatalf("got %v", ids)
+	for _, suffix := range []string{"", "/", "/v1", "/v1/"} {
+		t.Run(suffix, func(t *testing.T) {
+			ids, err := FetchGatewayModels(context.Background(), ts.URL+suffix, "key")
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if len(ids) != 2 || ids[0] != "glm-4.7" || ids[1] != "claude-sonnet-4-6" {
+				t.Fatalf("got %v", ids)
+			}
+		})
 	}
 }
 

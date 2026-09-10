@@ -20,6 +20,10 @@ PI_GO_BASE_URL=http://localhost:4001
 PI_GO_MODEL=longcat-opus
 ```
 
+网关模式（`PI_GO_PROVIDER=openai`）启动时从网关的 `/v1/models` 加载模型，`/models` 只显示该目录中的模型；本地模型文件用于补充元数据。加载失败时会输出警告并回退到本地目录。修改地址或凭据后需重启 pi-go，再执行 `/models` 验证，并从列表选择 `PI_GO_MODEL`，不要沿用网关已移除的模型。
+
+本地网关使用 `PI_GO_BASE_URL=http://localhost:4001`，`PI_GO_API_KEY` 填该网关的认证密钥。安装器中的 Base URL 提示需要输入完整地址或回车使用默认值，不能填菜单序号。
+
 使用 Anthropic Claude：
 ```env
 PI_GO_PROVIDER=anthropic
