@@ -8,10 +8,13 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/hwj123hwj/pi-go/sdk/agent"
 	"github.com/hwj123hwj/pi-go/sdk/runtime"
 	"github.com/hwj123hwj/pi-go/sdk/slashcmd"
 )
+
 // TuiModel is the root Bubble Tea model for pi-go's interactive TUI.
 type TuiModel struct {
 	// Dimensions
@@ -122,10 +125,27 @@ func (m *TuiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	// ── Key press ──
-	// 鼠标不捕获（对齐 pi/codex 的取舍）：捕获会接管终端原生划选，
-	// 用户无法复制内容——对内容生成器不可接受。滚动用 PageUp/PageDown。
 	case tea.KeyMsg:
 		return m.handleKeyPress(msg)
+	case tea.MouseMsg:
+		if m.confirmation.IsActive() {
+			return m, nil
+		}
+		switch msg.Button {
+		case tea.MouseButtonWheelUp:
+			if m.completion.IsActive() {
+				m.completion.Prev()
+			} else {
+				m.viewport.ScrollUp(3)
+			}
+		case tea.MouseButtonWheelDown:
+			if m.completion.IsActive() {
+				m.completion.Next()
+			} else {
+				m.viewport.ScrollDown(3)
+			}
+		}
+		return m, nil
 
 	// ── Agent events ──
 	case StreamTextMsg:
@@ -254,7 +274,7 @@ func (m *TuiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			Timestamp: time.Now(),
 		})
 		m.viewport.SetMessages(m.messages)
-	 return m, nil
+		return m, nil
 
 	case TickMsg:
 		if m.spinnerOn || m.streaming {
@@ -301,6 +321,18 @@ func (m *TuiModel) View() string {
 		return baseBuf.String() + strings.Repeat("\n", blankLines) + dialog
 	}
 
+	popupText := ""
+	if m.completion.IsActive() {
+		rows := maxInt(1, (m.height-m.inputHeight()-m.statusBarHeight())/2-3)
+		popupText = NewCompletionPopup().Render(&m.completion, m.width, rows)
+	}
+	viewportHeight := maxInt(1, m.height-m.inputHeight()-m.statusBarHeight()-lipgloss.Height(popupText))
+	if popupText == "" {
+		viewportHeight = maxInt(1, m.height-m.inputHeight()-m.statusBarHeight())
+	}
+	if m.viewport.height != viewportHeight {
+		m.viewport.Resize(m.width, viewportHeight)
+	}
 	var buf strings.Builder
 
 	// Message viewport
@@ -312,17 +344,8 @@ func (m *TuiModel) View() string {
 	buf.WriteString(sep)
 	buf.WriteByte('\n')
 
-	// Completion popup (rendered above the input area)
-	if m.completion.IsActive() {
-		popup := NewCompletionPopup()
-		buf.WriteString(popup.Render(&m.completion, m.width))
-		buf.WriteByte('\n')
-	}
-
-	// Model selector popup (Ctrl+P)
-	if m.modelSelect {
-		popup := NewCompletionPopup()
-		buf.WriteString(popup.Render(&m.completion, m.width))
+	if popupText != "" {
+		buf.WriteString(popupText)
 		buf.WriteByte('\n')
 	}
 
@@ -349,7 +372,12 @@ func (m *TuiModel) View() string {
 		m.inputTokens, m.outputTokens,
 	))
 
-	return buf.String()
+	// Prevent terminal line wrapping from pushing the footer outside the screen.
+	lines := strings.Split(buf.String(), "\n")
+	for i := range lines {
+		lines[i] = ansi.Truncate(lines[i], m.width, "")
+	}
+	return strings.Join(lines, "\n")
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

@@ -24,6 +24,11 @@ PI_GO_MODEL=longcat-opus
 
 本地网关使用 `PI_GO_BASE_URL=http://localhost:4001`，`PI_GO_API_KEY` 填该网关的认证密钥。安装器中的 Base URL 提示需要输入完整地址或回车使用默认值，不能填菜单序号。
 
+TUI 中输入 `/models` 后回车（或按 `Ctrl+P`）打开模型选择器，使用上下键选择、回车切换、`Esc` 取消。选择器默认定位当前模型，长列表随选中项滚动。旧的 `--legacy` 命令行模式仍输出文本列表。
+
+TUI 使用独立全屏缓冲区，鼠标滚轮用于滚动会话或选择模型，不再滚动到启动前的终端历史。也可用 PageUp/PageDown 滚动会话；原生文本划选需使用终端提供的鼠标报告绕过修饰键。退出后恢复原终端内容。
+
+
 使用 Anthropic Claude：
 ```env
 PI_GO_PROVIDER=anthropic
