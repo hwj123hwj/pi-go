@@ -25,14 +25,12 @@ func (m *TuiModel) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	// ── Priority 2: Completion popup active ──
-	if m.completion.IsActive() {
-		return m.handleCompletionKey(msg)
-	}
-
-	// ── Priority 3: Model selector popup (Ctrl+P) ──
+	// Model selection owns its keys before generic completion.
 	if m.modelSelect {
 		return m.handleModelSelectKey(msg)
+	}
+	if m.completion.IsActive() {
+		return m.handleCompletionKey(msg)
 	}
 
 	// ── Priority 4: Normal input context ──
@@ -87,17 +85,7 @@ func (m *TuiModel) handleInputKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case ActionOpenModelSelect: // Ctrl+P
-		if m.slashCmds == nil {
-			return m, nil
-		}
-		// Populate model list from session's available models
-		models := m.getAvailableModels()
-		if len(models) == 0 {
-			return m, nil
-		}
-		m.completion.TriggerModel(models)
-		m.modelSelect = true
-		return m, nil
+		return m.openModelSelector()
 
 	case ActionSubmit: // Enter
 		input := m.input.Text()
@@ -155,6 +143,11 @@ func (m *TuiModel) handleCompletionKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch action {
 	case ActionAcceptCompletion:
 		item := m.completion.SelectedItem()
+		if item != nil && msg.Type == tea.KeyEnter && item.InsertText == "/models" {
+			m.input.Reset()
+			m.completion.Close()
+			return m.openModelSelector()
+		}
 		if item != nil {
 			m.acceptCompletion(item.InsertText)
 		}
@@ -178,6 +171,24 @@ func (m *TuiModel) handleCompletionKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.checkTriggerCompletion()
 		return m, nil
 	}
+}
+
+// openModelSelector shares the same catalog and behavior for /models and Ctrl+P.
+func (m *TuiModel) openModelSelector() (tea.Model, tea.Cmd) {
+	if !m.completion.TriggerModel(m.getAvailableModels()) {
+		m.modelSelect = false
+		m.messages = append(m.messages, ChatMessage{Role: "system", Content: "No models available from the configured catalog."})
+		m.viewport.SetMessages(m.messages)
+		return m, nil
+	}
+	m.modelSelect = true
+	for i, item := range m.completion.Items() {
+		if item.InsertText == m.provider+"/"+m.modelID {
+			m.completion.selected = i
+			break
+		}
+	}
+	return m, nil
 }
 
 // handleModelSelectKey handles keys when the model selector popup is open.
@@ -386,6 +397,9 @@ func (m *TuiModel) startAgentStream(input string) tea.Cmd {
 // handleSlashCommand processes /commands locally.
 func (m *TuiModel) handleSlashCommand(input string) (tea.Model, tea.Cmd) {
 	m.input.Reset()
+	if strings.TrimSpace(input) == "/models" {
+		return m.openModelSelector()
+	}
 
 	cmdCtx := slashcmd.Context{
 		Ctx:     context.Background(),
@@ -438,13 +452,16 @@ func (m *TuiModel) handleSlashCommand(input string) (tea.Model, tea.Cmd) {
 // 从 App 的模型注册表取（内置清单 + 网关 /models 同步），不再直连内置目录——
 // 否则 TUI 切换器看不到网关模型（与 /models 命令不一致）。
 func (m *TuiModel) getAvailableModels() []ModelOption {
+	if m.app == nil {
+		return nil
+	}
 	infos := m.app.AvailableModels()
 	result := make([]ModelOption, 0, len(infos))
 	for _, mi := range infos {
 		result = append(result, ModelOption{
 			Provider:    mi.Provider,
 			ModelID:     mi.ModelID,
-			Description: mi.ModelID,
+			Description: "",
 		})
 	}
 	return result

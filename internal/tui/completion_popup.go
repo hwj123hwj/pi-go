@@ -10,10 +10,10 @@ import (
 // CompletionPopup renders the autocomplete dropdown as a floating panel.
 // It sits just above the input area.
 //
-//   ┌──────────────────────────┐
-//   │ /help    Show this help  │ ← highlighted (selected)
-//   │ /history  View history   │
-//   └──────────────────────────┘
+//	┌──────────────────────────┐
+//	│ /help    Show this help  │ ← highlighted (selected)
+//	│ /history  View history   │
+//	└──────────────────────────┘
 type CompletionPopup struct {
 	theme *Theme
 }
@@ -24,13 +24,22 @@ func NewCompletionPopup() *CompletionPopup {
 }
 
 // Render produces the popup string from a CompletionState.
-func (cp *CompletionPopup) Render(cm *CompletionState, width int) string {
+func (cp *CompletionPopup) Render(cm *CompletionState, width int, maxRows ...int) string {
 	if !cm.IsActive() {
 		return ""
 	}
 
 	items := cm.Items()
 	selected := cm.SelectedIndex()
+	rows := 8
+	if len(maxRows) > 0 {
+		rows = maxInt(1, maxRows[0])
+	}
+	start := maxInt(0, selected-rows+1)
+	end := start + rows
+	if end > len(items) {
+		end = len(items)
+	}
 
 	// Calculate column widths
 	maxLabel := 0
@@ -43,7 +52,8 @@ func (cp *CompletionPopup) Render(cm *CompletionState, width int) string {
 
 	// Build popup lines
 	var lines []string
-	for i, item := range items {
+	for i := start; i < end; i++ {
+		item := items[i]
 		label := item.Label
 		desc := item.Description
 
@@ -76,12 +86,16 @@ func (cp *CompletionPopup) Render(cm *CompletionState, width int) string {
 		lines = append(lines, line)
 	}
 
+	if cm.Kind() == CompletionModel {
+		lines = append(lines, fmt.Sprintf("%d/%d  ↑↓ Select · Enter Switch · Esc Cancel", selected+1, len(items)))
+	}
+
 	// Wrap in border
 	popupStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.AdaptiveColor{Light: "#0969DA", Dark: "#58A6FF"}).
 		Padding(0, 0).
-		Width(width - 2)
+		Width(maxInt(1, width-2)).MaxWidth(width)
 
 	content := strings.Join(lines, "\n")
 	return popupStyle.Render(content)
@@ -89,11 +103,11 @@ func (cp *CompletionPopup) Render(cm *CompletionState, width int) string {
 
 // ConfirmationPopup renders a yes/no confirmation dialog.
 //
-//   ┌─ ⚠️ Confirm ──────────────────────────────────┐
-//   │ Run: rm -rf /tmp/cache                         │
-//   │                                                │
-//   │   [Y] Yes    [N] No    [Esc] Cancel           │
-//   └────────────────────────────────────────────────┘
+//	┌─ ⚠️ Confirm ──────────────────────────────────┐
+//	│ Run: rm -rf /tmp/cache                         │
+//	│                                                │
+//	│   [Y] Yes    [N] No    [Esc] Cancel           │
+//	└────────────────────────────────────────────────┘
 type ConfirmationPopup struct {
 	theme *Theme
 }

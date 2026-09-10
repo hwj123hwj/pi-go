@@ -22,10 +22,11 @@ func Run(session *runtime.AgentSession, cmds *slashcmd.Registry, app slashcmd.Ap
 	}
 
 	// Use AltScreen for clean full-screen rendering.
-	// 不开鼠标捕获（对齐 pi / codex）：捕获会接管终端原生划选/复制。
-	// 滚动走键盘 PageUp/PageDown；终端滚轮滚到 scrollback 属可接受代价。
+	// Capture wheel events so scrolling stays inside the full-screen UI.
+	// Terminal-native selection uses the terminal's mouse-reporting override.
 	p := tea.NewProgram(m,
 		tea.WithAltScreen(),
+		tea.WithMouseCellMotion(),
 	)
 
 	// Wire program reference so callbacks can send messages

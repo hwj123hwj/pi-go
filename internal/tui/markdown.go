@@ -14,6 +14,7 @@ type MarkdownRenderer struct {
 	renderer *glamour.TermRenderer
 	cache    map[string]string
 	mu       sync.Mutex
+	style    string
 }
 
 var sharedMarkdown *MarkdownRenderer
@@ -24,8 +25,12 @@ func NewMarkdownRenderer(width int) *MarkdownRenderer {
 		width = 80
 	}
 
+	style := "light"
+	if lipgloss.HasDarkBackground() {
+		style = "dark"
+	}
 	r, err := glamour.NewTermRenderer(
-		glamour.WithAutoStyle(),
+		glamour.WithStandardStyle(style),
 		glamour.WithWordWrap(width),
 		glamour.WithEmoji(),
 	)
@@ -36,6 +41,7 @@ func NewMarkdownRenderer(width int) *MarkdownRenderer {
 	return &MarkdownRenderer{
 		renderer: r,
 		cache:    make(map[string]string),
+		style:    style,
 	}
 }
 
@@ -57,7 +63,7 @@ func (mr *MarkdownRenderer) SetWidth(width int) {
 	defer mr.mu.Unlock()
 
 	r, err := glamour.NewTermRenderer(
-		glamour.WithStandardStyle("dark"),
+		glamour.WithStandardStyle(mr.style),
 		glamour.WithWordWrap(width),
 		glamour.WithEmoji(),
 	)

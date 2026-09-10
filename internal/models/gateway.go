@@ -13,7 +13,11 @@ import (
 // 适配 LiteLLM / pi-go 网关等任何返回 {"data":[{"id":"..."}]} 的端点。
 // 网关不可达或响应异常时返回 error，调用方降级为本地清单，不阻塞启动。
 func FetchGatewayModels(ctx context.Context, baseURL, apiKey string) ([]string, error) {
-	url := strings.TrimRight(baseURL, "/") + "/models"
+	baseURL = strings.TrimRight(baseURL, "/")
+	if !strings.HasSuffix(baseURL, "/v1") {
+		baseURL += "/v1"
+	}
+	url := baseURL + "/models"
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
@@ -63,9 +67,9 @@ func (r *Registry) MergeGateway(provider string, ids []string) int {
 			continue
 		}
 		r.Register(ModelDef{
-			ID:      id,
+			ID:       id,
 			Provider: provider,
-			Name:    id,
+			Name:     id,
 		})
 		added++
 	}
