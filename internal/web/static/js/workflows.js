@@ -206,8 +206,8 @@ export class WorkflowsPage {
     // 顶部：名称 + 自动衔接开关
     const top = el('div', 'wf-top');
     const nameWrap = el('label', 'wf-top-name');
-    nameWrap.append(el('span', 'wf-top-label', '名称'));
     const nameInput = el('input', 'wf-input');
+    nameInput.placeholder = '流水线名称';
     nameInput.value = f.name;
     nameInput.oninput = () => { f.name = nameInput.value; this.hidePreview(); };
     nameWrap.appendChild(nameInput);
