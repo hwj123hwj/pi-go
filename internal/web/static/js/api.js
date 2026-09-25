@@ -23,6 +23,11 @@ export function authHeaders(extra = {}) {
   return headers;
 }
 
+// authFetch 保持原生 fetch 的 Response 接口，仅自动附带鉴权头
+export function authFetch(path, opts = {}) {
+  return fetch(path, { ...opts, headers: authHeaders(opts.headers) });
+}
+
 // wsURL 为 WebSocket 连接附加 ?token=（浏览器 WS 无法自定义 header）
 export function wsURL(baseUrl, path) {
   const token = getToken();

@@ -1,3 +1,4 @@
+import { authFetch } from './api.js';
 // Sidebar: session list, model selector, connection status
 
 export class Sidebar {
@@ -62,7 +63,7 @@ export class Sidebar {
 
   async loadSessions() {
     try {
-      const resp = await fetch(`${this.state.baseUrl}/sessions`);
+      const resp = await authFetch(`${this.state.baseUrl}/sessions`);
       if (!resp.ok) return;
       this.state.sessions = await resp.json();
       this._renderSessions();
@@ -73,7 +74,7 @@ export class Sidebar {
 
   async loadModels() {
     try {
-      const resp = await fetch(`${this.state.baseUrl}/models`);
+      const resp = await authFetch(`${this.state.baseUrl}/models`);
       if (!resp.ok) return;
       const data = await resp.json();
       this.state.models = data.models || [];
@@ -85,7 +86,7 @@ export class Sidebar {
 
   async createSession() {
     try {
-      const resp = await fetch(`${this.state.baseUrl}/sessions`, { method: 'POST' });
+      const resp = await authFetch(`${this.state.baseUrl}/sessions`, { method: 'POST' });
       if (!resp.ok) return;
       const data = await resp.json();
       this.state.sessions.unshift({
@@ -103,7 +104,7 @@ export class Sidebar {
 
   async deleteSession(sessionId) {
     try {
-      const resp = await fetch(`${this.state.baseUrl}/sessions/${sessionId}`, { method: 'DELETE' });
+      const resp = await authFetch(`${this.state.baseUrl}/sessions/${sessionId}`, { method: 'DELETE' });
       if (!resp.ok) return;
       this.state.sessions = this.state.sessions.filter(s => s.id !== sessionId);
       if (this.state.currentSessionId === sessionId) {

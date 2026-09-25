@@ -1,3 +1,4 @@
+import { authFetch } from './api.js';
 // Chat panel: messages, streaming, tool calls, input
 
 import { renderMarkdown } from './markdown.js';
@@ -101,7 +102,7 @@ export class ChatPanel {
 
   async loadHistory(sessionId) {
     try {
-      const resp = await fetch(`${this.state.baseUrl}/sessions/${sessionId}/messages`);
+      const resp = await authFetch(`${this.state.baseUrl}/sessions/${sessionId}/messages`);
       if (!resp.ok) return;
       const messages = await resp.json();
       this.clear();
