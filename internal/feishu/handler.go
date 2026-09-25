@@ -35,10 +35,11 @@ type ChatRoute struct {
 
 // Handler processes Feishu messages by calling the pi-agent HTTP API.
 type Handler struct {
-	piAgentURL string // e.g. "http://127.0.0.1:8080"
-	appID      string // Feishu app ID for permission links
-	client     *Client
-	gateway    *Gateway
+	piAgentURL    string // e.g. "http://127.0.0.1:8080"
+	piAgentAPIKey string // PI_GO_API_KEY，非空时对 pi-agent 请求带 Bearer
+	appID         string // Feishu app ID for permission links
+	client        *Client
+	gateway       *Gateway
 
 	routes     map[string]*ChatRoute // chatKey → route (session + project)
 	routesFile string                // persistent route config file path
@@ -56,14 +57,15 @@ type Handler struct {
 // NewHandler creates a new message handler.
 func NewHandler(piAgentURL, appID string, client *Client, workspace string) *Handler {
 	h := &Handler{
-		piAgentURL: piAgentURL,
-		appID:      appID,
-		client:     client,
-		routes:     make(map[string]*ChatRoute),
-		routesFile: defaultRoutesFile(),
-		httpClient: &http.Client{Timeout: 10 * time.Minute},
-		workspace:  workspace,
-		senders:    make(map[string]string),
+		piAgentURL:    piAgentURL,
+		piAgentAPIKey: os.Getenv("PI_GO_API_KEY"),
+		appID:         appID,
+		client:        client,
+		routes:        make(map[string]*ChatRoute),
+		routesFile:    defaultRoutesFile(),
+		httpClient:    &http.Client{Timeout: 10 * time.Minute},
+		workspace:     workspace,
+		senders:       make(map[string]string),
 	}
 	h.loadRoutes()
 	return h
@@ -173,6 +175,13 @@ func (h *Handler) cmdNew(ctx context.Context, chatKey string) string {
 	return "✅ 已开启新对话"
 }
 
+// setAgentAuth 为打向 pi-agent 的请求附加 Bearer（PI_GO_API_KEY，可空）。
+func setAgentAuth(req *http.Request, apiKey string) {
+	if apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+apiKey)
+	}
+}
+
 func (h *Handler) cmdCompact(ctx context.Context, chatKey string) string {
 	route := h.getRoute(chatKey)
 	if route == nil || route.SessionID == "" {
@@ -182,6 +191,7 @@ func (h *Handler) cmdCompact(ctx context.Context, chatKey string) string {
 	url := fmt.Sprintf("%s/sessions/%s/compact", h.piAgentURL, route.SessionID)
 	req, _ := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader([]byte("{}")))
 	req.Header.Set("Content-Type", "application/json")
+	setAgentAuth(req, h.piAgentAPIKey)
 
 	resp, err := h.httpClient.Do(req)
 	if err != nil {
@@ -543,6 +553,7 @@ func (h *Handler) streamChat(ctx context.Context, sessionID, prompt string, card
 		return "", fmt.Errorf("create request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
+	setAgentAuth(req, h.piAgentAPIKey)
 
 	resp, err := h.httpClient.Do(req)
 	if err != nil {
@@ -754,6 +765,7 @@ func (h *Handler) createSession(ctx context.Context, cwd string) (string, error)
 	body, _ := json.Marshal(map[string]string{"cwd": cwd})
 	req, _ := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
+	setAgentAuth(req, h.piAgentAPIKey)
 
 	resp, err := h.httpClient.Do(req)
 	if err != nil {
@@ -897,6 +909,7 @@ func (h *Handler) forwardCommand(ctx context.Context, chatKey, text string) stri
 
 	req, _ := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
+	setAgentAuth(req, h.piAgentAPIKey)
 
 	resp, err := h.httpClient.Do(req)
 	if err != nil {

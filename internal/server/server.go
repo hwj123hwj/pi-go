@@ -17,14 +17,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/hwj123hwj/pi-go/internal/app"
+	"github.com/hwj123hwj/pi-go/internal/scheduler"
+	"github.com/hwj123hwj/pi-go/internal/web"
 	"github.com/hwj123hwj/pi-go/sdk/agent"
 	"github.com/hwj123hwj/pi-go/sdk/ai"
-	"github.com/hwj123hwj/pi-go/internal/app"
 	"github.com/hwj123hwj/pi-go/sdk/runtime"
-	"github.com/hwj123hwj/pi-go/sdk/workflow"
-	"github.com/hwj123hwj/pi-go/internal/scheduler"
 	"github.com/hwj123hwj/pi-go/sdk/slashcmd"
-	"github.com/hwj123hwj/pi-go/internal/web"
+	"github.com/hwj123hwj/pi-go/sdk/workflow"
 )
 
 // Version is the server build version. Set by main.go via SetVersion().
@@ -43,11 +43,14 @@ type Server struct {
 	externalTools []agent.ExternalToolDef
 	toolMu        sync.Mutex
 	extraRoutes   *http.ServeMux // optional extra routes (e.g. music audio proxy)
-	apiKey        string          // if non-empty, requires Bearer token auth on all endpoints
+	apiKey        string         // if non-empty, requires Bearer token auth on all endpoints
 
 	wfMu      sync.Mutex
 	wfReg     *workflow.Registry
 	wfFactory workflow.RunnerFactory
+
+	allowNoAuth    bool     // PI_GO_ALLOW_NO_AUTH=1：未配 key 时完全开放（调试用）
+	allowedOrigins []string // PI_GO_ALLOWED_ORIGINS：显式 CORS 白名单；空 = 不返回 CORS 头
 }
 
 // SetExtraRoutes sets an additional ServeMux to be merged into the server's routes.
@@ -62,8 +65,8 @@ func (s *Server) SetAPIKey(key string) {
 	s.apiKey = key
 }
 
-// authMiddleware validates the Bearer token if an API key is configured.
-// If no API key is set, all requests pass through (backward compatible).
+// authMiddleware validates access on all REST endpoints.
+// 详见 auth.go 顶部的访问控制模型说明。/health 始终开放。
 func (s *Server) authMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Skip auth for health check endpoint (always open for monitoring)
@@ -72,28 +75,21 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		// Skip auth if no API key configured (backward compatible)
-		if s.apiKey == "" {
-			next.ServeHTTP(w, r)
-			return
-		}
-
-		// Validate Bearer token
-		auth := r.Header.Get("Authorization")
-		if auth == "" {
-			http.Error(w, `{"error":"missing Authorization header"}`, http.StatusUnauthorized)
-			return
-		}
-
-		const bearerPrefix = "Bearer "
-		if !strings.HasPrefix(auth, bearerPrefix) {
-			http.Error(w, `{"error":"invalid Authorization header, expected Bearer token"}`, http.StatusUnauthorized)
-			return
-		}
-
-		token := strings.TrimPrefix(auth, bearerPrefix)
-		if token != s.apiKey {
-			http.Error(w, `{"error":"invalid API key"}`, http.StatusUnauthorized)
+		if !s.authorized(r) {
+			if s.apiKey != "" {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusUnauthorized)
+				_ = json.NewEncoder(w).Encode(ErrorResponse{
+					Error: "unauthorized: set Authorization: Bearer <PI_GO_API_KEY>",
+				})
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusUnauthorized)
+			_ = json.NewEncoder(w).Encode(ErrorResponse{
+				Error: "unauthorized: non-loopback access requires PI_GO_API_KEY " +
+					"(or PI_GO_ALLOW_NO_AUTH=1 for open access)",
+			})
 			return
 		}
 
@@ -197,13 +193,14 @@ func (s *Server) Handler() http.Handler {
 	NewASRHandler(s.app.Config()).Register(restMux)
 
 	var restHandler http.Handler = restMux
-	restHandler = corsMiddleware(restHandler)
+	restHandler = corsMiddleware(s)(restHandler)
 	restHandler = s.authMiddleware(restHandler) // auth check after CORS, before recovery
 	restHandler = recoveryMiddleware(restHandler)
 	restHandler = loggingMiddleware(restHandler)
 
-	// WebSocket route — bypasses all middleware to avoid Hijack issues
-	wsHandler := corsMiddleware(http.HandlerFunc(s.handleWebSocket))
+	// WebSocket route — bypasses all middleware to avoid Hijack issues;
+	// 鉴权在 handleWebSocket 升级前自行校验
+	wsHandler := corsMiddleware(s)(http.HandlerFunc(s.handleWebSocket))
 
 	// Top-level mux: combines REST API + Web UI + WebSocket
 	topMux := http.NewServeMux()
@@ -439,13 +436,13 @@ func (s *Server) getSessionMessages(w http.ResponseWriter, r *http.Request) {
 	}
 
 	type messageEntry struct {
-		Role       string          `json:"role"`
-		Content    string          `json:"content"`
-		Thinking   string          `json:"thinking,omitempty"`
-		ToolCalls  []toolCallEntry `json:"tool_calls,omitempty"`
-		ToolCallID string          `json:"tool_call_id,omitempty"`
-		ToolDetails any            `json:"tool_details,omitempty"`
-		IsError    bool            `json:"is_error,omitempty"`
+		Role        string          `json:"role"`
+		Content     string          `json:"content"`
+		Thinking    string          `json:"thinking,omitempty"`
+		ToolCalls   []toolCallEntry `json:"tool_calls,omitempty"`
+		ToolCallID  string          `json:"tool_call_id,omitempty"`
+		ToolDetails any             `json:"tool_details,omitempty"`
+		IsError     bool            `json:"is_error,omitempty"`
 	}
 
 	var result []messageEntry
@@ -978,7 +975,18 @@ func (s *Server) getSessionFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data, err := os.ReadFile(path)
+	sess, err := s.resolveSession(r.Context(), r.PathValue("id"))
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	safePath, err := securePath(sess.Workspace(), path)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	data, err := os.ReadFile(safePath)
 	if err != nil {
 		writeError(w, http.StatusNotFound, "file not found: "+err.Error())
 		return
@@ -1007,14 +1015,25 @@ func (s *Server) writeFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	sess, err := s.resolveSession(r.Context(), r.PathValue("id"))
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	safePath, err := securePath(sess.Workspace(), path)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
 	// Ensure parent directory exists
-	dir := filepath.Dir(path)
+	dir := filepath.Dir(safePath)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to create directory: "+err.Error())
 		return
 	}
 
-	if err := os.WriteFile(path, []byte(req.Content), 0644); err != nil {
+	if err := os.WriteFile(safePath, []byte(req.Content), 0644); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to write file: "+err.Error())
 		return
 	}
@@ -1092,11 +1111,15 @@ type DirEntry struct {
 func (s *Server) listDir(w http.ResponseWriter, r *http.Request) {
 	dirPath := r.URL.Query().Get("path")
 	if dirPath == "" {
-		writeError(w, http.StatusBadRequest, "path is required")
+		dirPath = s.app.Config().Workspace
+	}
+	safePath, err := securePath(s.app.Config().Workspace, dirPath)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	entries, err := os.ReadDir(dirPath)
+	entries, err := os.ReadDir(safePath)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to read directory: "+err.Error())
 		return
@@ -1132,7 +1155,7 @@ func (s *Server) listDir(w http.ResponseWriter, r *http.Request) {
 		isDir := entry.IsDir()
 		result = append(result, DirEntry{
 			Name:  name,
-			Path:  filepath.Join(dirPath, name),
+			Path:  filepath.Join(safePath, name),
 			IsDir: isDir,
 		})
 	}
@@ -1150,7 +1173,11 @@ func (s *Server) listDir(w http.ResponseWriter, r *http.Request) {
 func (s *Server) searchFiles(w http.ResponseWriter, r *http.Request) {
 	rootPath := r.URL.Query().Get("path")
 	if rootPath == "" {
-		writeError(w, http.StatusBadRequest, "path is required")
+		rootPath = s.app.Config().Workspace
+	}
+	safeRoot, err := securePath(s.app.Config().Workspace, rootPath)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -1187,7 +1214,7 @@ func (s *Server) searchFiles(w http.ResponseWriter, r *http.Request) {
 			}
 
 			fullPath := filepath.Join(dir, name)
-			relPath, err := filepath.Rel(rootPath, fullPath)
+			relPath, err := filepath.Rel(safeRoot, fullPath)
 			if err != nil {
 				relPath = name
 			}
@@ -1203,7 +1230,7 @@ func (s *Server) searchFiles(w http.ResponseWriter, r *http.Request) {
 		return false
 	}
 
-	_ = walk(rootPath)
+	_ = walk(safeRoot)
 
 	if files == nil {
 		files = []string{}
@@ -1222,7 +1249,12 @@ func (s *Server) workspaceReadFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data, err := os.ReadFile(path)
+	safePath, err := securePath(s.app.Config().Workspace, path)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	data, err := os.ReadFile(safePath)
 	if err != nil {
 		writeError(w, http.StatusNotFound, "file not found: "+err.Error())
 		return
@@ -1241,7 +1273,12 @@ func (s *Server) workspaceReadFileBase64(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	data, err := os.ReadFile(path)
+	safePath, err := securePath(s.app.Config().Workspace, path)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	data, err := os.ReadFile(safePath)
 	if err != nil {
 		writeError(w, http.StatusNotFound, "file not found: "+err.Error())
 		return
@@ -1287,14 +1324,20 @@ func (s *Server) workspaceWriteFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	safePath, err := securePath(s.app.Config().Workspace, path)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
 	// Ensure parent directory exists
-	dir := filepath.Dir(path)
+	dir := filepath.Dir(safePath)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to create directory: "+err.Error())
 		return
 	}
 
-	if err := os.WriteFile(path, []byte(req.Content), 0644); err != nil {
+	if err := os.WriteFile(safePath, []byte(req.Content), 0644); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to write file: "+err.Error())
 		return
 	}
@@ -1303,17 +1346,30 @@ func (s *Server) workspaceWriteFile(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 }
 
-func corsMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-		if r.Method == http.MethodOptions {
-			w.WriteHeader(http.StatusNoContent)
-			return
-		}
-		next.ServeHTTP(w, r)
-	})
+func corsMiddleware(s *Server) func(next http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			origin := r.Header.Get("Origin")
+			// 默认不返回 CORS 头（同源 UI 与原生客户端不受影响）；
+			// 仅白名单内的 Origin 显式放行，不再使用 *。
+			if origin != "" && s != nil {
+				for _, allowed := range s.allowedOrigins {
+					if allowed == origin {
+						w.Header().Set("Access-Control-Allow-Origin", origin)
+						w.Header().Set("Vary", "Origin")
+						w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+						w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+						break
+					}
+				}
+			}
+			if r.Method == http.MethodOptions {
+				w.WriteHeader(http.StatusNoContent)
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
 }
 
 type responseWriter struct {

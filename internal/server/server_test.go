@@ -30,7 +30,7 @@ func TestServer_Health(t *testing.T) {
 	application := newTestApp(t)
 	srv := New(application, nil)
 
-	req := httptest.NewRequest(http.MethodGet, "/health", nil)
+	req := localReq(http.MethodGet, "/health", nil)
 	w := httptest.NewRecorder()
 
 	srv.Handler().ServeHTTP(w, req)
@@ -50,7 +50,7 @@ func TestServer_Chat_EmptyPrompt(t *testing.T) {
 	srv := New(application, nil)
 
 	body := bytes.NewReader([]byte(`{"prompt":""}`))
-	req := httptest.NewRequest(http.MethodPost, "/chat", body)
+	req := localReq(http.MethodPost, "/chat", body)
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 
@@ -64,7 +64,7 @@ func TestServer_Chat_InvalidJSON(t *testing.T) {
 	srv := New(application, nil)
 
 	body := bytes.NewReader([]byte(`invalid json`))
-	req := httptest.NewRequest(http.MethodPost, "/chat", body)
+	req := localReq(http.MethodPost, "/chat", body)
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 
@@ -77,7 +77,7 @@ func TestServer_Tools(t *testing.T) {
 	application := newTestApp(t)
 	srv := New(application, nil)
 
-	req := httptest.NewRequest(http.MethodGet, "/tools", nil)
+	req := localReq(http.MethodGet, "/tools", nil)
 	w := httptest.NewRecorder()
 
 	srv.Handler().ServeHTTP(w, req)
@@ -89,7 +89,7 @@ func TestServer_Sessions(t *testing.T) {
 	application := newTestApp(t)
 	srv := New(application, nil)
 
-	req := httptest.NewRequest(http.MethodGet, "/sessions", nil)
+	req := localReq(http.MethodGet, "/sessions", nil)
 	w := httptest.NewRecorder()
 
 	srv.Handler().ServeHTTP(w, req)
@@ -101,7 +101,7 @@ func TestServer_CreateSession(t *testing.T) {
 	application := newTestApp(t)
 	srv := New(application, nil)
 
-	req := httptest.NewRequest(http.MethodPost, "/sessions", nil)
+	req := localReq(http.MethodPost, "/sessions", nil)
 	w := httptest.NewRecorder()
 
 	srv.Handler().ServeHTTP(w, req)
@@ -117,7 +117,7 @@ func TestServer_DeleteSession(t *testing.T) {
 	srv := New(application, nil)
 
 	// Create first
-	req := httptest.NewRequest(http.MethodPost, "/sessions", nil)
+	req := localReq(http.MethodPost, "/sessions", nil)
 	w := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(w, req)
 	require.Equal(t, http.StatusOK, w.Code)
@@ -125,7 +125,7 @@ func TestServer_DeleteSession(t *testing.T) {
 	require.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
 
 	// Delete
-	req2 := httptest.NewRequest(http.MethodDelete, "/sessions/"+resp.ID, nil)
+	req2 := localReq(http.MethodDelete, "/sessions/"+resp.ID, nil)
 	w2 := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(w2, req2)
 	assert.Equal(t, http.StatusOK, w2.Code)
@@ -135,7 +135,7 @@ func TestServer_SessionMessages_NotFound(t *testing.T) {
 	application := newTestApp(t)
 	srv := New(application, nil)
 
-	req := httptest.NewRequest(http.MethodGet, "/sessions/nonexistent/messages", nil)
+	req := localReq(http.MethodGet, "/sessions/nonexistent/messages", nil)
 	w := httptest.NewRecorder()
 
 	srv.Handler().ServeHTTP(w, req)

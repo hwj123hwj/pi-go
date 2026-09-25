@@ -7,6 +7,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"os"
 	"time"
 )
 
@@ -53,7 +54,13 @@ func RegisterTool(piAgentURL, callbackURL string) error {
 	url := fmt.Sprintf("%s/tools/register", piAgentURL)
 
 	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Post(url, "application/json", bytes.NewReader(body))
+	req, err := http.NewRequest("POST", url, bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("register tool: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	setAgentAuth(req, os.Getenv("PI_GO_API_KEY"))
+	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("register tool: %w", err)
 	}

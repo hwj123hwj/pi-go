@@ -5,39 +5,60 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"sync"
 	"time"
 
-	"github.com/hwj123hwj/pi-go/sdk/agent"
 	"github.com/gorilla/websocket"
+	"github.com/hwj123hwj/pi-go/sdk/agent"
 )
 
-var upgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
-	CheckOrigin: func(r *http.Request) bool {
-		return true // Allow all origins for desktop use
-	},
+// newUpgrader 返回带同源校验的 upgrader：无 Origin（原生客户端）放行；
+// 同源放行；其余仅 PI_GO_ALLOWED_ORIGINS 白名单放行。防止恶意网页
+// 借用户浏览器连接受害者本机的 WS（鉴权之外的第二道防线）。
+func (s *Server) newUpgrader() *websocket.Upgrader {
+	return &websocket.Upgrader{
+		ReadBufferSize:  1024,
+		WriteBufferSize: 1024,
+		CheckOrigin: func(r *http.Request) bool {
+			origin := r.Header.Get("Origin")
+			if origin == "" {
+				return true
+			}
+			if s.allowedOrigins != nil {
+				for _, allowed := range s.allowedOrigins {
+					if allowed == origin {
+						return true
+					}
+				}
+			}
+			u, err := url.Parse(origin)
+			if err != nil {
+				return false
+			}
+			return u.Host == r.Host
+		},
+	}
 }
 
 // wsClientMessage represents a message from the client to the server.
 type wsClientMessage struct {
-	Type      string `json:"type"`                  // "prompt", "cancel", "switch_model", "ping"
-	SessionID string `json:"session_id"`            // Target session
+	Type      string `json:"type"`       // "prompt", "cancel", "switch_model", "ping"
+	SessionID string `json:"session_id"` // Target session
 	Prompt    string `json:"prompt,omitempty"`
 	Model     string `json:"model,omitempty"`
-	Provider  string `json:"provider,omitempty"`     // For switch_model: optional provider change
+	Provider  string `json:"provider,omitempty"` // For switch_model: optional provider change
 }
 
 // wsServerMessage represents a message from the server to the client.
 type wsServerMessage struct {
-	Type      string `json:"type"`                // "event", "session_id", "status", "model_info", "error", "pong"
+	Type      string `json:"type"` // "event", "session_id", "status", "model_info", "error", "pong"
 	SessionID string `json:"session_id,omitempty"`
-	Event     any    `json:"event,omitempty"`      // AgentStreamEvent when type="event"
-	Streaming bool   `json:"streaming,omitempty"`  // When type="status"
-	Provider  string `json:"provider,omitempty"`   // When type="model_info"
-	Model     string `json:"model,omitempty"`      // When type="model_info"
-	Message   string `json:"message,omitempty"`    // When type="error"
+	Event     any    `json:"event,omitempty"`     // AgentStreamEvent when type="event"
+	Streaming bool   `json:"streaming,omitempty"` // When type="status"
+	Provider  string `json:"provider,omitempty"`  // When type="model_info"
+	Model     string `json:"model,omitempty"`     // When type="model_info"
+	Message   string `json:"message,omitempty"`   // When type="error"
 }
 
 // wsConn wraps a WebSocket connection with a mutex for safe concurrent writes.
@@ -61,7 +82,13 @@ func (w *wsConn) close() error {
 
 // handleWebSocket handles the WebSocket connection at GET /ws.
 func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
-	conn, err := upgrader.Upgrade(w, r, nil)
+	// 升级前鉴权（WS 路由绕过 REST 中间件）；与 REST 同一访问控制模型
+	if !s.wsAuthorized(r) {
+		http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
+		return
+	}
+
+	conn, err := s.newUpgrader().Upgrade(w, r, nil)
 	if err != nil {
 		slog.Error("websocket upgrade failed", "error", err)
 		return

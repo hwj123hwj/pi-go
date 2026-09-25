@@ -57,7 +57,7 @@ func waitForRunStatus(t *testing.T, srv *Server, runID, want string) map[string]
 	t.Helper()
 	deadline := time.Now().Add(5 * time.Second)
 	for time.Now().Before(deadline) {
-		req := httptest.NewRequest(http.MethodGet, "/workflows/"+runID, nil)
+		req := localReq(http.MethodGet, "/workflows/"+runID, nil)
 		w := httptest.NewRecorder()
 		srv.Handler().ServeHTTP(w, req)
 		require.Equal(t, http.StatusOK, w.Code)
@@ -88,13 +88,15 @@ steps:
 func TestServer_WorkflowRunToEnd(t *testing.T) {
 	srv, f := newWorkflowTestServer(t)
 
-	req := httptest.NewRequest(http.MethodPost, "/workflows", strings.NewReader(chainYAML))
+	req := localReq(http.MethodPost, "/workflows", strings.NewReader(chainYAML))
 	req.Header.Set("Content-Type", "text/yaml")
 	w := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(w, req)
 	require.Equal(t, http.StatusAccepted, w.Code)
 
-	var startResp struct{ RunID string `json:"run_id"` }
+	var startResp struct {
+		RunID string `json:"run_id"`
+	}
 	require.NoError(t, json.NewDecoder(w.Body).Decode(&startResp))
 	require.NotEmpty(t, startResp.RunID)
 
@@ -102,7 +104,7 @@ func TestServer_WorkflowRunToEnd(t *testing.T) {
 	assert.Equal(t, 2, f.count())
 
 	// 列表可见
-	req = httptest.NewRequest(http.MethodGet, "/workflows", nil)
+	req = localReq(http.MethodGet, "/workflows", nil)
 	w = httptest.NewRecorder()
 	srv.Handler().ServeHTTP(w, req)
 	require.Equal(t, http.StatusOK, w.Code)
@@ -119,13 +121,15 @@ func TestServer_WorkflowJSONBodyWithVars(t *testing.T) {
 	srv, _ := newWorkflowTestServer(t)
 
 	body := fmt.Sprintf(`{"yaml": %q, "vars": {"thing": "gadget"}}`, chainYAML)
-	req := httptest.NewRequest(http.MethodPost, "/workflows", strings.NewReader(body))
+	req := localReq(http.MethodPost, "/workflows", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(w, req)
 	require.Equal(t, http.StatusAccepted, w.Code)
 
-	var startResp struct{ RunID string `json:"run_id"` }
+	var startResp struct {
+		RunID string `json:"run_id"`
+	}
 	require.NoError(t, json.NewDecoder(w.Body).Decode(&startResp))
 	res := waitForRunStatus(t, srv, startResp.RunID, workflow.StatusCompleted)
 
@@ -137,7 +141,7 @@ func TestServer_WorkflowJSONBodyWithVars(t *testing.T) {
 func TestServer_WorkflowInvalidSpec(t *testing.T) {
 	srv, _ := newWorkflowTestServer(t)
 
-	req := httptest.NewRequest(http.MethodPost, "/workflows", strings.NewReader("name: bad\nsteps: []"))
+	req := localReq(http.MethodPost, "/workflows", strings.NewReader("name: bad\nsteps: []"))
 	w := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(w, req)
 	assert.Equal(t, http.StatusBadRequest, w.Code)
@@ -155,17 +159,19 @@ steps:
     prompt: "publish {{steps.draft.output}}"
     confirm: true
 `
-	req := httptest.NewRequest(http.MethodPost, "/workflows", strings.NewReader(yamlSrc))
+	req := localReq(http.MethodPost, "/workflows", strings.NewReader(yamlSrc))
 	w := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(w, req)
 	require.Equal(t, http.StatusAccepted, w.Code)
-	var startResp struct{ RunID string `json:"run_id"` }
+	var startResp struct {
+		RunID string `json:"run_id"`
+	}
 	require.NoError(t, json.NewDecoder(w.Body).Decode(&startResp))
 
 	waitForRunStatus(t, srv, startResp.RunID, workflow.StatusWaiting)
 
 	// 审批放行（step 省略 → 唯一等待门）
-	req = httptest.NewRequest(http.MethodPost, "/workflows/"+startResp.RunID+"/approve", bytes.NewReader([]byte(`{}`)))
+	req = localReq(http.MethodPost, "/workflows/"+startResp.RunID+"/approve", bytes.NewReader([]byte(`{}`)))
 	w = httptest.NewRecorder()
 	srv.Handler().ServeHTTP(w, req)
 	require.Equal(t, http.StatusOK, w.Code)
@@ -185,16 +191,18 @@ steps:
     prompt: "risky"
     confirm: true
 `
-	req := httptest.NewRequest(http.MethodPost, "/workflows", strings.NewReader(yamlSrc))
+	req := localReq(http.MethodPost, "/workflows", strings.NewReader(yamlSrc))
 	w := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(w, req)
 	require.Equal(t, http.StatusAccepted, w.Code)
-	var startResp struct{ RunID string `json:"run_id"` }
+	var startResp struct {
+		RunID string `json:"run_id"`
+	}
 	require.NoError(t, json.NewDecoder(w.Body).Decode(&startResp))
 
 	waitForRunStatus(t, srv, startResp.RunID, workflow.StatusWaiting)
 
-	req = httptest.NewRequest(http.MethodPost, "/workflows/"+startResp.RunID+"/reject", bytes.NewReader([]byte(`{}`)))
+	req = localReq(http.MethodPost, "/workflows/"+startResp.RunID+"/reject", bytes.NewReader([]byte(`{}`)))
 	w = httptest.NewRecorder()
 	srv.Handler().ServeHTTP(w, req)
 	require.Equal(t, http.StatusOK, w.Code)
@@ -214,21 +222,23 @@ steps:
   - id: b
     prompt: "b"
 `
-	req := httptest.NewRequest(http.MethodPost, "/workflows", strings.NewReader(yamlSrc))
+	req := localReq(http.MethodPost, "/workflows", strings.NewReader(yamlSrc))
 	w := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(w, req)
 	require.Equal(t, http.StatusAccepted, w.Code)
-	var startResp struct{ RunID string `json:"run_id"` }
+	var startResp struct {
+		RunID string `json:"run_id"`
+	}
 	require.NoError(t, json.NewDecoder(w.Body).Decode(&startResp))
 
 	// 立即取消（运行可能已完成，两种终态都合法）
-	req = httptest.NewRequest(http.MethodPost, "/workflows/"+startResp.RunID+"/cancel", nil)
+	req = localReq(http.MethodPost, "/workflows/"+startResp.RunID+"/cancel", nil)
 	w = httptest.NewRecorder()
 	srv.Handler().ServeHTTP(w, req)
 	require.Equal(t, http.StatusOK, w.Code)
 
 	time.Sleep(100 * time.Millisecond)
-	req = httptest.NewRequest(http.MethodGet, "/workflows/"+startResp.RunID, nil)
+	req = localReq(http.MethodGet, "/workflows/"+startResp.RunID, nil)
 	w = httptest.NewRecorder()
 	srv.Handler().ServeHTTP(w, req)
 	require.Equal(t, http.StatusOK, w.Code)
@@ -241,13 +251,13 @@ steps:
 
 func TestServer_WorkflowGetUnknownID(t *testing.T) {
 	srv, _ := newWorkflowTestServer(t)
-	req := httptest.NewRequest(http.MethodGet, "/workflows/wf-99999999-deadbeef", nil)
+	req := localReq(http.MethodGet, "/workflows/wf-99999999-deadbeef", nil)
 	w := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(w, req)
 	assert.Equal(t, http.StatusNotFound, w.Code)
 
 	// 非法 ID（路径穿越防护）
-	req = httptest.NewRequest(http.MethodGet, "/workflows/..%2f..%2fetc", nil)
+	req = localReq(http.MethodGet, "/workflows/..%2f..%2fetc", nil)
 	w = httptest.NewRecorder()
 	srv.Handler().ServeHTTP(w, req)
 	assert.Equal(t, http.StatusNotFound, w.Code)
