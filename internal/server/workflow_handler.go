@@ -163,8 +163,12 @@ type gateRequest struct {
 	Step string `json:"step"`
 }
 
-func (s *Server) approveWorkflow(w http.ResponseWriter, r *http.Request) { s.resolveGateHTTP(w, r, true) }
-func (s *Server) rejectWorkflow(w http.ResponseWriter, r *http.Request)  { s.resolveGateHTTP(w, r, false) }
+func (s *Server) approveWorkflow(w http.ResponseWriter, r *http.Request) {
+	s.resolveGateHTTP(w, r, true)
+}
+func (s *Server) rejectWorkflow(w http.ResponseWriter, r *http.Request) {
+	s.resolveGateHTTP(w, r, false)
+}
 
 func (s *Server) resolveGateHTTP(w http.ResponseWriter, r *http.Request, approve bool) {
 	var req gateRequest
