@@ -64,30 +64,48 @@ func renderPrompt(prompt string, vars map[string]any, outputs map[string]StepOut
 	return buf.String(), nil
 }
 
-// resolveForeach 解析 foreach 字段为项目列表。两种写法：
-//  1. 纯变量名（不含 "{{"）：取 vars[name]，要求是数组，保留元素类型
-//  2. 模板字符串：渲染后先尝试 JSON 数组，否则按行切分（去空行）
-func resolveForeach(foreach string, vars map[string]any, outputs map[string]StepOutput) ([]any, error) {
-	if !strings.Contains(foreach, "{{") {
-		v, ok := vars[foreach]
-		if !ok {
-			return nil, fmt.Errorf("foreach: unknown var %q", foreach)
+// resolveForeach 解析 foreach 字段为项目列表。三种写法：
+//  1. 内联列表（YAML flow list）：直接使用
+//  2. 纯变量名（不含 "{{"）：取 vars[name]，要求是数组，保留元素类型
+//  3. 模板字符串：渲染后先尝试 JSON 数组，否则按行切分（去空行）
+func resolveForeach(foreach any, vars map[string]any, outputs map[string]StepOutput) ([]any, error) {
+	switch v := foreach.(type) {
+	case []any:
+		return v, nil
+	case []string:
+		out := make([]any, len(v))
+		for i, s := range v {
+			out[i] = s
 		}
-		switch list := v.(type) {
+		return out, nil
+	case nil:
+		return nil, fmt.Errorf("foreach: empty")
+	}
+	str, ok := v2s(foreach)
+	if !ok {
+		return nil, fmt.Errorf("foreach: unsupported type %T", foreach)
+	}
+
+	if !strings.Contains(str, "{{") {
+		list, ok := vars[str]
+		if !ok {
+			return nil, fmt.Errorf("foreach: unknown var %q", str)
+		}
+		switch l := list.(type) {
 		case []any:
-			return list, nil
+			return l, nil
 		case []string:
-			out := make([]any, len(list))
-			for i, s := range list {
+			out := make([]any, len(l))
+			for i, s := range l {
 				out[i] = s
 			}
 			return out, nil
 		default:
-			return nil, fmt.Errorf("foreach: var %q is %T, want list", foreach, v)
+			return nil, fmt.Errorf("foreach: var %q is %T, want list", str, list)
 		}
 	}
 
-	rendered, err := renderPrompt(foreach, vars, outputs, nil, 0)
+	rendered, err := renderPrompt(str, vars, outputs, nil, 0)
 	if err != nil {
 		return nil, fmt.Errorf("foreach: %w", err)
 	}
@@ -105,6 +123,11 @@ func resolveForeach(foreach string, vars map[string]any, outputs map[string]Step
 		}
 	}
 	return lines, nil
+}
+
+func v2s(v any) (string, bool) {
+	s, ok := v.(string)
+	return s, ok
 }
 
 // stepOutputSnapshot 返回已完成步骤产出的深拷贝。

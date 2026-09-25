@@ -209,7 +209,7 @@ func (r *run) runStep(st Step, deps []string) {
 		}
 	}
 
-	if st.Foreach != "" {
+	if st.hasForeach() {
 		r.runForeach(st)
 		return
 	}

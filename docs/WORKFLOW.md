@@ -63,7 +63,7 @@ curl -s -X POST http://localhost:8080/workflows/<run_id>/cancel
 | `id` | string | ✅ | 步骤 ID，`[a-z0-9_-]`，全局唯一 |
 | `prompt` | string | ✅ | 模板（见下） |
 | `depends_on` | list | | 依赖的步骤 ID；**省略时默认依赖上一个步骤**（顺序链） |
-| `foreach` | string | | fan-out：变量名（要求是数组）或模板（渲染成 JSON 数组或按行切分） |
+| `foreach` | string 或 list | | fan-out：**内联列表**（如 `["a", "b"]`）、变量名（要求是数组）或模板（渲染成 JSON 数组或按行切分） |
 | `concurrency` | int | | foreach 项并发上限（默认 `max_concurrency`） |
 | `model` | string | | 本步骤模型覆盖 |
 | `retries` | int | | 失败重试次数（0–10），退避为 n×基数 |

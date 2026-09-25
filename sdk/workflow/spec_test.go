@@ -110,3 +110,18 @@ func TestResolveForeach_NotList(t *testing.T) {
 	_, err := resolveForeach("scalar", map[string]any{"scalar": "str"}, nil)
 	assert.ErrorContains(t, err, "want list")
 }
+
+func TestParseSpec_ForeachInlineList(t *testing.T) {
+	spec, err := ParseSpec([]byte(`
+name: inline
+steps:
+  - id: a
+    prompt: "handle {{item}}"
+    foreach: ["x", "y"]
+`))
+	require.NoError(t, err)
+	items, err := resolveForeach(spec.Steps[0].Foreach, nil, nil)
+	require.NoError(t, err)
+	assert.Equal(t, []any{"x", "y"}, items)
+	assert.True(t, spec.Steps[0].hasForeach())
+}

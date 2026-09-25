@@ -41,8 +41,24 @@ type Step struct {
 	Retries     int    `yaml:"retries,omitempty" json:"retries,omitempty"`
 	Confirm     bool   `yaml:"confirm,omitempty" json:"confirm,omitempty"`   // 执行前等待人工审批
 	DependsOn   []string `yaml:"depends_on,omitempty" json:"depends_on,omitempty"` // 省略时默认依赖上一个步骤
-	Foreach     string `yaml:"foreach,omitempty" json:"foreach,omitempty"` // 变量名或模板 → 列表，fan-out
+	Foreach     any    `yaml:"foreach,omitempty" json:"foreach,omitempty"` // 变量名、模板或内联列表
 	Concurrency int    `yaml:"concurrency,omitempty" json:"concurrency,omitempty"` // foreach 并发上限
+}
+
+// hasForeach 报告步骤是否为 fan-out 步骤（foreach 为字符串或列表）。
+func (s Step) hasForeach() bool {
+	switch v := s.Foreach.(type) {
+	case string:
+		return v != ""
+	case []any:
+		return len(v) > 0
+	case []string:
+		return len(v) > 0
+	case nil:
+		return false
+	default:
+		return true
+	}
 }
 
 // ParseSpec 解析 YAML 并校验。
@@ -95,7 +111,7 @@ func (s *Spec) Validate() error {
 		if st.Concurrency < 0 || st.Concurrency > 64 {
 			return fmt.Errorf("step %q: concurrency must be in 1..64", st.ID)
 		}
-		if st.Confirm && st.Foreach != "" {
+		if st.hasForeach() && st.Confirm {
 			return fmt.Errorf("step %q: confirm is not supported on foreach steps", st.ID)
 		}
 	}

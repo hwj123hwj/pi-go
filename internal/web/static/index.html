@@ -91,12 +91,26 @@
         <section class="wf-submit">
           <div class="panel-header">
             <h3>提交工作流</h3>
-            <button id="wf-example-btn" class="btn btn-ghost" title="填入示例">示例</button>
+            <div class="wf-mode-switch">
+              <button id="wf-mode-form" class="btn btn-sm active">表单</button>
+              <button id="wf-mode-yaml" class="btn btn-sm">YAML</button>
+            </div>
           </div>
-          <textarea id="wf-yaml" class="wf-yaml" spellcheck="false"
-            placeholder="name: my-pipeline&#10;vars:&#10;  topic: hello&#10;steps:&#10;  - id: draft&#10;    prompt: &quot;写一个关于 {{vars.topic}} 的大纲&quot;&#10;  - id: publish&#10;    prompt: &quot;扩写：\n{{steps.draft.output}}&quot;&#10;    confirm: true"></textarea>
+          <div class="wf-templates">
+            <span class="wf-templates-label">模板</span>
+            <div id="wf-template-chips" class="wf-template-chips"></div>
+          </div>
+
+          <div id="wf-form" class="wf-form"></div>
+
+          <textarea id="wf-yaml" class="wf-yaml" spellcheck="false" hidden
+            placeholder="name: my-pipeline&#10;steps:&#10;  - id: draft&#10;    prompt: &quot;写一个大纲&quot;"></textarea>
+
+          <pre id="wf-yaml-preview" class="wf-yaml-preview" hidden></pre>
+
           <div class="wf-submit-actions">
             <span id="wf-submit-msg" class="wf-msg"></span>
+            <button id="wf-preview-btn" class="btn btn-ghost">预览 YAML</button>
             <button id="wf-submit-btn" class="btn btn-primary">运行</button>
           </div>
         </section>
