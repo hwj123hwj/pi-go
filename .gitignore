@@ -27,3 +27,6 @@ docs/reviews/
 data/
 *.log
 bin/
+
+# Promo video workspace (large media + local .env)
+.video-promo-v011/
