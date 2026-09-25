@@ -283,8 +283,9 @@ func (h *Handler) cmdProjectCreate(ctx context.Context, chatKey, senderOpenID, c
 	h.setRoute(chatID, route)
 
 	// Send welcome message to the new group
-	welcome := fmt.Sprintf("👋 项目群已创建！\n%s\n\n请在本群中直接发送消息与 AI Agent 对话。", formatProjectWorkspace(route, workspaceNote))
+	welcome := fmt.Sprintf("👋 项目群已创建！\n%s\n\n请在本群中直接发送消息与 AI Agent 对话。若群内普通消息没有响应，请先 @ 机器人；开通免 @ 权限后可直接发消息。", formatProjectWorkspace(route, workspaceNote))
 	_, _ = h.client.SendMessage(ctx, chatID, welcome, "")
+	h.sendProjectGroupPermissionReminder(ctx, senderOpenID, groupName)
 
 	return fmt.Sprintf("✅ 项目群创建成功！\n📌 群名: %s\n%s\n🆔 Chat ID: %s\n\n已在群中发送欢迎消息，请切换到新群开始使用。", groupName, formatProjectWorkspace(route, workspaceNote), chatID)
 }

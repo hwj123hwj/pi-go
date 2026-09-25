@@ -126,11 +126,14 @@ func (h *Handler) HandleToolCallback(w http.ResponseWriter, r *http.Request) {
 	h.setRoute(chatID, route)
 
 	// Send welcome message to the new group
-	welcome := fmt.Sprintf("👋 项目群已创建！\n%s\n\n请在本群中直接发送消息与 AI Agent 对话。", formatProjectWorkspace(route, workspaceNote))
+	welcome := fmt.Sprintf("👋 项目群已创建！\n%s\n\n请在本群中直接发送消息与 AI Agent 对话。若群内普通消息没有响应，请先 @ 机器人；开通免 @ 权限后可直接发消息。", formatProjectWorkspace(route, workspaceNote))
 	_, _ = h.client.SendMessage(r.Context(), chatID, welcome, "")
+	if senderOpenID != "" {
+		h.sendProjectGroupPermissionReminder(r.Context(), senderOpenID, params.GroupName)
+	}
 
 	// Build result with permission link
-	permLink := fmt.Sprintf("https://open.feishu.cn/app/%s/auth?q=im%%3Amessage.group_msg&op_from=pi-go&token_type=tenant", h.appID)
+	permLink := buildScopeApplyURL(h.appID, []string{sensitiveGroupMessageScope})
 	result := fmt.Sprintf("✅ 项目群创建成功！\n📌 群名: %s\n%s\n🆔 Chat ID: %s", params.GroupName, formatProjectWorkspace(route, workspaceNote), chatID)
 	if h.appID != "" {
 		result += fmt.Sprintf("\n\n⚠️ 如群内消息需要 @ 机器人，请先开通免 @ 权限（只需开通一次，后续所有群自动生效）：\n%s", permLink)
