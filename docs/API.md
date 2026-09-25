@@ -131,6 +131,26 @@ POST /sessions/{id}/model
 | `GET` | `/workspace/search-files` | 模糊搜索文件 |
 | `GET` | `/workspace/read-file` | 读取文件内容 |
 | `PUT` | `/workspace/write-file` | 写入文件内容 |
+---
+
+## 工作流
+
+多步骤 Agent 编排（DAG、fan-out、重试、人工确认门、步骤缓存）。YAML 规范与模板语法见 [WORKFLOW.md](WORKFLOW.md)。
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| `POST` | `/workflows` | 提交工作流并启动运行（body 为 YAML 原文，或 `{"yaml":"...","vars":{...}}`），返回 `run_id` |
+| `GET` | `/workflows` | 列出全部运行（活跃 + 历史） |
+| `GET` | `/workflows/{id}` | 运行详情：`meta`（状态、各步骤、产出）+ `events`（journal） |
+| `POST` | `/workflows/{id}/cancel` | 取消运行；也用于清理重启后残留的孤儿运行 |
+| `POST` | `/workflows/{id}/approve` | 放行确认门（body 可选 `{"step":"..."}`，省略时须只有一个等待门） |
+| `POST` | `/workflows/{id}/reject` | 拒绝确认门，运行终态 `rejected` |
+
+```bash
+curl -s -X POST http://localhost:8080/workflows -H 'Content-Type: text/yaml' --data-binary @workflow.yaml
+# 202 {"run_id":"wf-1790344371-2333d68c","status":"running"}
+curl -s http://localhost:8080/workflows/wf-1790344371-2333d68c | jq .meta.status
+```
 
 ---
 

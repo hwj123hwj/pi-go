@@ -21,6 +21,7 @@ import (
 	"github.com/hwj123hwj/pi-go/sdk/ai"
 	"github.com/hwj123hwj/pi-go/internal/app"
 	"github.com/hwj123hwj/pi-go/sdk/runtime"
+	"github.com/hwj123hwj/pi-go/sdk/workflow"
 	"github.com/hwj123hwj/pi-go/internal/scheduler"
 	"github.com/hwj123hwj/pi-go/sdk/slashcmd"
 	"github.com/hwj123hwj/pi-go/internal/web"
@@ -43,6 +44,10 @@ type Server struct {
 	toolMu        sync.Mutex
 	extraRoutes   *http.ServeMux // optional extra routes (e.g. music audio proxy)
 	apiKey        string          // if non-empty, requires Bearer token auth on all endpoints
+
+	wfMu      sync.Mutex
+	wfReg     *workflow.Registry
+	wfFactory workflow.RunnerFactory
 }
 
 // SetExtraRoutes sets an additional ServeMux to be merged into the server's routes.
@@ -182,6 +187,9 @@ func (s *Server) Handler() http.Handler {
 	// Knowledge base browser endpoints
 	s.registerKBRoutes(restMux)
 
+	// Workflow orchestration endpoints
+	s.registerWorkflowRoutes(restMux)
+
 	// User profile endpoints
 	s.registerProfileRoutes(restMux)
 
@@ -211,6 +219,8 @@ func (s *Server) Handler() http.Handler {
 	topMux.Handle("/applications", restHandler)
 	topMux.Handle("/workspace/", restHandler)
 	topMux.Handle("/kb/", restHandler)
+	topMux.Handle("/workflows", restHandler)
+	topMux.Handle("/workflows/", restHandler)
 	topMux.Handle("/profile", restHandler)
 	topMux.Handle("/asr/", restHandler)
 
