@@ -1,0 +1,136 @@
+// 会话管理页：列表、消息回看、删除
+
+import { api } from './api.js';
+import { renderMarkdown } from './markdown.js';
+
+export class SessionsPage {
+  constructor(state) {
+    this.state = state;
+    this.sessions = [];
+
+    this.$table = document.getElementById('sess-table');
+    this.$messages = document.getElementById('sess-messages');
+    this.$msgList = document.getElementById('sess-msg-list');
+    this.$msgTitle = document.getElementById('sess-msg-title');
+
+    document.getElementById('sess-refresh-btn').onclick = () => this.load();
+    document.getElementById('sess-close-btn').onclick = () => { this.$messages.hidden = true; };
+  }
+
+  activate() {
+    this.load();
+  }
+
+  async load() {
+    let sessions;
+    try {
+      sessions = await api.get('/sessions');
+    } catch (e) {
+      return;
+    }
+    this.sessions = sessions || [];
+    this.render();
+  }
+
+  render() {
+    this.$table.innerHTML = '';
+    if (!this.sessions.length) {
+      this.$table.innerHTML = '<div class="wf-empty">没有会话</div>';
+      return;
+    }
+    const table = document.createElement('table');
+    table.className = 'data-table';
+    table.innerHTML = `
+      <thead><tr>
+        <th>会话 ID</th><th>标题 / 工作区</th><th>消息数</th><th>最近活跃</th><th>操作</th>
+      </tr></thead>`;
+    const tbody = document.createElement('tbody');
+    for (const s of this.sessions) {
+      const tr = document.createElement('tr');
+      const title = s.title || s.workspace || '-';
+      tr.innerHTML = `
+        <td class="mono">${shortID(s.id)}</td>
+        <td>${escapeHTML(title)}</td>
+        <td>${s.message_count ?? '-'}</td>
+        <td>${formatTime(s.last_active || s.created_at)}</td>`;
+      const actions = document.createElement('td');
+      const viewBtn = document.createElement('button');
+      viewBtn.className = 'btn btn-ghost btn-sm';
+      viewBtn.textContent = '查看';
+      viewBtn.onclick = () => this.viewMessages(s.id);
+      const delBtn = document.createElement('button');
+      delBtn.className = 'btn btn-danger btn-sm';
+      delBtn.textContent = '删除';
+      delBtn.onclick = () => this.deleteSession(s.id);
+      actions.append(viewBtn, delBtn);
+      tr.appendChild(actions);
+      tbody.appendChild(tr);
+    }
+    table.appendChild(tbody);
+    this.$table.appendChild(table);
+  }
+
+  async viewMessages(sessionID) {
+    let messages;
+    try {
+      messages = await api.get(`/sessions/${sessionID}/messages`);
+    } catch (e) {
+      alert('加载失败：' + e.message);
+      return;
+    }
+    this.$msgTitle.textContent = `会话消息 · ${shortID(sessionID)}`;
+    this.$msgList.innerHTML = '';
+    for (const msg of messages || []) {
+      const item = document.createElement('div');
+      item.className = 'sess-msg sess-msg-' + msg.role;
+
+      const head = document.createElement('div');
+      head.className = 'sess-msg-head';
+      head.textContent = msg.role + (msg.is_error ? ' (error)' : '');
+      item.appendChild(head);
+
+      const body = document.createElement('div');
+      body.className = 'sess-msg-body';
+      if (msg.role === 'assistant' && msg.content) {
+        body.innerHTML = renderMarkdown(msg.content);
+      } else if (msg.tool_calls?.length) {
+        const pre = document.createElement('pre');
+        pre.textContent = msg.tool_calls.map(tc => `🔧 ${tc.name}(${tc.args})`).join('\n');
+        body.appendChild(pre);
+      } else if (msg.content) {
+        const pre = document.createElement('pre');
+        pre.textContent = msg.content;
+        body.appendChild(pre);
+      }
+      if (body.childNodes.length) item.appendChild(body);
+      this.$msgList.appendChild(item);
+    }
+    this.$messages.hidden = false;
+  }
+
+  async deleteSession(sessionID) {
+    if (!confirm('确认删除会话 ' + shortID(sessionID) + '？此操作不可恢复。')) return;
+    try {
+      await api.del('/sessions/' + sessionID);
+      await this.load();
+    } catch (e) {
+      alert('删除失败：' + e.message);
+    }
+  }
+}
+
+function escapeHTML(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  }[c]));
+}
+
+function shortID(id) {
+  return String(id || '').slice(0, 12);
+}
+
+function formatTime(unix) {
+  if (!unix) return '-';
+  const d = new Date(unix * 1000);
+  return isNaN(d) ? '-' : d.toLocaleString();
+}

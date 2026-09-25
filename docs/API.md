@@ -13,7 +13,13 @@ pi-go serve
 
 ### 认证
 
-如果设置了 `PI_GO_API_KEY` 环境变量，所有请求需要 Bearer token：
+三级访问控制模型（`/health` 始终开放）：
+
+1. **设置了 `PI_GO_API_KEY`** → 所有请求必须带 `Authorization: Bearer <key>`；WebSocket 用 `?token=<key>` 查询参数。
+2. **未设置（默认）** → 仅放行 loopback 来源；非回环请求返回 401。本机消费方（网页 UI、飞书 bridge、桌面端）零配置可用。
+3. **`PI_GO_ALLOW_NO_AUTH=1`** → 完全开放（仅限本机调试，切勿暴露端口）。
+
+CORS 默认不返回跨域头；需要浏览器跨域访问时配置 `PI_GO_ALLOWED_ORIGINS`（逗号分隔白名单）。
 
 ```bash
 curl -H "Authorization: Bearer $PI_GO_API_KEY" http://127.0.0.1:8080/health
@@ -151,6 +157,18 @@ curl -s -X POST http://localhost:8080/workflows -H 'Content-Type: text/yaml' --d
 # 202 {"run_id":"wf-1790344371-2333d68c","status":"running"}
 curl -s http://localhost:8080/workflows/wf-1790344371-2333d68c | jq .meta.status
 ```
+
+---
+
+## Web 控制台
+
+serve 模式内嵌网页控制台（浏览器打开 `http://<host>:<port>/`），无需独立前端：
+
+- **对话**：原有聊天界面（WebSocket 流式 + 会话侧栏 + 模型切换）。
+- **工作流**：YAML 提交运行、运行列表与详情（步骤状态、产出、事件流、确认门批准/拒绝/取消）。运行中每 1.5s 轮询详情，列表每 5s 刷新。
+- **会话**：会话列表、消息回看（含工具调用）、删除。
+
+需要令牌时（非本机访问或已配置 `PI_GO_API_KEY`），页面会弹出登录框，令牌保存在浏览器 localStorage；WebSocket 连接自动附带 `?token=`。
 
 ---
 

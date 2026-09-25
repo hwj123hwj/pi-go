@@ -1,5 +1,7 @@
 // WebSocket client with auto-reconnect and event dispatch
 
+import { wsURL } from './api.js';
+
 export class PiWebSocket {
   constructor(baseUrl) {
     this.baseUrl = baseUrl;
@@ -19,7 +21,7 @@ export class PiWebSocket {
       return;
     }
 
-    const wsUrl = this.baseUrl.replace(/^http/, 'ws') + '/ws';
+    const wsUrl = wsURL(this.baseUrl, '/ws');
     this.connecting = true;
     this._notifyStatus();
 

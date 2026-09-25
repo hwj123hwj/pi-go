@@ -1,8 +1,11 @@
-// Main application — initializes all modules
+// Main application — initializes all modules and page navigation
 
 import { PiWebSocket } from './websocket.js';
 import { ChatPanel } from './chat.js';
 import { Sidebar } from './sidebar.js';
+import { WorkflowsPage } from './workflows.js';
+import { SessionsPage } from './sessions.js';
+import { api, getToken, showLogin } from './api.js';
 
 // Determine base URL (same host serving this page)
 const baseUrl = window.location.protocol + '//' + window.location.host;
@@ -20,6 +23,8 @@ const state = {
 const ws = new PiWebSocket(baseUrl);
 const chat = new ChatPanel(ws, state);
 const sidebar = new Sidebar(ws, state, onSessionChange);
+const workflowsPage = new WorkflowsPage(state);
+const sessionsPage = new SessionsPage(state);
 
 // Connect WebSocket
 ws.connect();
@@ -27,6 +32,7 @@ ws.connect();
 // Load initial data
 sidebar.loadSessions();
 sidebar.loadModels();
+refreshAuthBadge();
 
 // Handle session change
 function onSessionChange(sessionId) {
@@ -43,3 +49,42 @@ function onSessionChange(sessionId) {
 setInterval(() => {
   if (ws.connected) ws.sendPing();
 }, 30000);
+
+// ─── 页面导航 ────────────────────────────────────────────────────────────────
+
+const pages = { 'page-chat': null, 'page-workflows': workflowsPage, 'page-sessions': sessionsPage };
+
+document.querySelectorAll('.nav-tab').forEach(tab => {
+  tab.onclick = () => switchPage(tab.dataset.page);
+});
+
+function switchPage(pageID) {
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.toggle('active', t.dataset.page === pageID));
+  document.querySelectorAll('.page').forEach(p => {
+    const active = p.id === pageID;
+    p.hidden = !active;
+    p.classList.toggle('active', active);
+  });
+  const page = pages[pageID];
+  if (page && page.activate) page.activate();
+  // 离开工作流页时停掉详情轮询由 deactivate 控制；此处简化：仅聊天页外的页不处理
+  if (pageID !== 'page-workflows') workflowsPage.deactivate();
+}
+
+// 登录浮层入口：点右上角角标可重新填写令牌
+document.getElementById('nav-auth').onclick = () => showLogin();
+
+async function refreshAuthBadge() {
+  const badge = document.getElementById('nav-auth');
+  if (!getToken()) {
+    // 探测是否需要登录：访问一个受保护端点
+    try {
+      await api.get('/sessions');
+      badge.textContent = '本机模式';
+    } catch (e) {
+      badge.textContent = '未登录';
+    }
+    return;
+  }
+  badge.textContent = '已登录';
+}

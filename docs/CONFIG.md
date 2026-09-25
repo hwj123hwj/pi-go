@@ -73,6 +73,8 @@ ANTHROPIC_MODEL=claude-sonnet-4-20250514
 | `PI_GO_MAX_OUTPUT_LEN` | `30000` | 工具输出最大字符数 |
 | `PI_GO_WORKSPACE` | 当前目录 | 工作目录 |
 | `PI_GO_ALLOWED_TOOLS` | - | 工具白名单（逗号分隔） |
+| `PI_GO_ALLOW_NO_AUTH` | - | `1` 时未配置 API key 也完全开放（仅限本机调试） |
+| `PI_GO_ALLOWED_ORIGINS` | - | CORS 白名单（逗号分隔 Origin；默认不返回跨域头） |
 | `PI_GO_BLOCKED_TOOLS` | - | 工具黑名单（逗号分隔） |
 
 ### 执行后端
