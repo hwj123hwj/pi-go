@@ -71,6 +71,10 @@ function switchPage(pageID) {
   if (pageID !== 'page-workflows') workflowsPage.deactivate();
 }
 
+// 深链接：?page=page-workflows 直达指定页签
+const initialPage = new URLSearchParams(location.search).get('page');
+if (initialPage && pages[initialPage]) switchPage(initialPage);
+
 // 登录浮层入口：点右上角角标可重新填写令牌
 document.getElementById('nav-auth').onclick = () => showLogin();
 
