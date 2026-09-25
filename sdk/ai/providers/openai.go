@@ -12,7 +12,6 @@ import (
 	"net/http"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/hwj123hwj/pi-go/sdk/ai"
 )
@@ -37,7 +36,7 @@ func NewOpenAIProvider(apiKey, baseURL string) *OpenAIProvider {
 	return &OpenAIProvider{
 		apiKey:  apiKey,
 		baseURL: baseURL,
-		client:  &http.Client{Timeout: 120 * time.Second},
+		client:  newStreamHTTPClient(),
 	}
 }
 
@@ -105,7 +104,10 @@ type openAIStreamChoice struct {
 type openAIStreamDelta struct {
 	Role      string                 `json:"role,omitempty"`
 	Content   string                 `json:"content,omitempty"`
-	ToolCalls []openAIStreamToolCall `json:"tool_calls,omitempty"`
+	// 推理内容：deepseek 系用 reasoning_content，OpenRouter 用 reasoning
+	ReasoningContent string                 `json:"reasoning_content,omitempty"`
+	Reasoning        string                 `json:"reasoning,omitempty"`
+	ToolCalls        []openAIStreamToolCall `json:"tool_calls,omitempty"`
 }
 
 type openAIStreamToolCall struct {
@@ -136,8 +138,12 @@ func (p *OpenAIProvider) Stream(ctx context.Context, req ai.StreamRequest) (*ai.
 		return nil, fmt.Errorf("marshal request: %w", err)
 	}
 
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, p.baseURL+"v1/chat/completions", bytes.NewReader(body))
+	// 流式请求绑定可取消的派生 context：空闲看门狗超时触发 cancel，
+	// 中止停滞的上游连接（总时长不受 http.Client.Timeout 限制）
+	streamCtx, cancel := context.WithCancel(ctx)
+	httpReq, err := http.NewRequestWithContext(streamCtx, http.MethodPost, p.baseURL+"v1/chat/completions", bytes.NewReader(body))
 	if err != nil {
+		cancel()
 		return nil, fmt.Errorf("create request: %w", err)
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
@@ -145,6 +151,7 @@ func (p *OpenAIProvider) Stream(ctx context.Context, req ai.StreamRequest) (*ai.
 
 	go func() {
 		defer stream.Close()
+		defer cancel()
 
 		partial := ai.StreamAssistantMessage{}
 
@@ -168,7 +175,8 @@ func (p *OpenAIProvider) Stream(ctx context.Context, req ai.StreamRequest) (*ai.
 			return
 		}
 
-		p.handleSSE(ctx, stream, resp.Body, &partial)
+		wd := startStreamWatchdog(streamCtx, streamIdleTimeout, cancel)
+		p.handleSSE(streamCtx, stream, resp.Body, &partial, wd)
 	}()
 
 	return stream, nil
@@ -176,11 +184,12 @@ func (p *OpenAIProvider) Stream(ctx context.Context, req ai.StreamRequest) (*ai.
 
 // ─── SSE 解析 ────────────────────────────────────────────────────────────────────
 
-func (p *OpenAIProvider) handleSSE(ctx context.Context, stream *ai.EventStream, body io.Reader, partial *ai.StreamAssistantMessage) {
+func (p *OpenAIProvider) handleSSE(ctx context.Context, stream *ai.EventStream, body io.Reader, partial *ai.StreamAssistantMessage, wd *streamWatchdog) {
 	_ = stream.Push(ctx, ai.EventStart{Partial: *partial})
 
 	scanner := bufio.NewScanner(body)
-	scanner.Buffer(make([]byte, 256*1024), 256*1024)
+	// 超长单行真实存在（巨型工具参数、长推理文本），初始小、按需增长到大上限
+	scanner.Buffer(make([]byte, 64*1024), 16<<20)
 
 	// 用于增量拼装 tool_calls（key = index）
 	type toolCallAccum struct {
@@ -195,11 +204,16 @@ func (p *OpenAIProvider) handleSSE(ctx context.Context, stream *ai.EventStream, 
 
 	for scanner.Scan() {
 		line := scanner.Text()
-		if !strings.HasPrefix(line, "data: ") {
+		wd.Kick()
+		// 兼容 data: 不带空格 / 多空格的网关（对齐 new-api stream_scanner 的容错）
+		if !strings.HasPrefix(line, "data:") {
 			continue
 		}
-		payload := strings.TrimPrefix(line, "data: ")
-		if payload == "[DONE]" {
+		payload := strings.TrimSpace(line[len("data:"):])
+		if payload == "" {
+			continue
+		}
+		if strings.HasPrefix(payload, "[DONE]") {
 			break
 		}
 
@@ -213,6 +227,14 @@ func (p *OpenAIProvider) handleSSE(ctx context.Context, stream *ai.EventStream, 
 
 		choice := chunk.Choices[0]
 		delta := choice.Delta
+
+		// --- 推理内容（不发事件，累积进最终消息，与 anthropic.go 的 thinking 处理对齐）---
+		if delta.ReasoningContent != "" {
+			partial.Thinking += delta.ReasoningContent
+		}
+		if delta.Reasoning != "" {
+			partial.Thinking += delta.Reasoning
+		}
 
 		// --- 文本内容 ---
 		if delta.Content != "" {
@@ -266,6 +288,12 @@ func (p *OpenAIProvider) handleSSE(ctx context.Context, stream *ai.EventStream, 
 		indices = append(indices, idx)
 	}
 	sort.Ints(indices)
+	// 上游 index 只用作累积 key，不透传：1-based 网关叠加文本 block 会留下
+	// ContentIndex 空洞，输出序号在这里重新分配
+	nextIdx := 0
+	if textBlockStarted {
+		nextIdx = 1
+	}
 	for _, i := range indices {
 		acc := toolCalls[i]
 		tc := ai.ToolCall{
@@ -274,21 +302,29 @@ func (p *OpenAIProvider) handleSSE(ctx context.Context, stream *ai.EventStream, 
 			Args: acc.arguments.String(),
 		}
 		partial.ToolCalls = append(partial.ToolCalls, tc)
-		// 工具 index 在文本之后
-		toolIdx := i
-		if textBlockStarted {
-			toolIdx = i + 1
-		}
-		_ = stream.Push(ctx, ai.EventToolCallStart{ContentIndex: toolIdx, Partial: *partial})
-		_ = stream.Push(ctx, ai.EventToolCallDelta{ContentIndex: toolIdx, Delta: tc.Args, Partial: *partial})
-		_ = stream.Push(ctx, ai.EventToolCallEnd{ContentIndex: toolIdx, ToolCall: tc, Partial: *partial})
+		_ = stream.Push(ctx, ai.EventToolCallStart{ContentIndex: nextIdx, Partial: *partial})
+		_ = stream.Push(ctx, ai.EventToolCallDelta{ContentIndex: nextIdx, Delta: tc.Args, Partial: *partial})
+		_ = stream.Push(ctx, ai.EventToolCallEnd{ContentIndex: nextIdx, ToolCall: tc, Partial: *partial})
+		nextIdx++
 	}
 
-	if partial.StopReason == "" {
-		partial.StopReason = ai.StopReasonStop
+	// 流异常结束（含空闲超时）：报错而非伪装成正常完成
+	resultErr := scanner.Err()
+	if resultErr != nil {
+		if wd.Tripped() {
+			resultErr = idleTimeoutError(streamIdleTimeout)
+		}
+		partial.StopReason = ai.StopReasonError
+		partial.ErrorMsg = resultErr.Error()
+		// ctx 可能已被看门狗取消，终止事件用独立 context 保证送达
+		_ = stream.Push(context.Background(), ai.EventError{Reason: "error", Error: resultErr.Error()})
+	} else {
+		if partial.StopReason == "" {
+			partial.StopReason = ai.StopReasonStop
+		}
+		_ = stream.Push(ctx, ai.EventDone{Reason: partial.StopReason, Message: *partial})
 	}
-	_ = stream.Push(ctx, ai.EventDone{Reason: partial.StopReason, Message: *partial})
-	stream.SetResult(*partial, scanner.Err())
+	stream.SetResult(*partial, resultErr)
 }
 
 // ─── 消息转换 ────────────────────────────────────────────────────────────────────

@@ -11,7 +11,6 @@ import (
 	"io"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/hwj123hwj/pi-go/sdk/ai"
 )
@@ -33,7 +32,7 @@ func NewAnthropicProvider(apiKey, baseURL string) *AnthropicProvider {
 	return &AnthropicProvider{
 		apiKey:  apiKey,
 		baseURL: baseURL,
-		client:  &http.Client{Timeout: 120 * time.Second},
+		client:  newStreamHTTPClient(),
 	}
 }
 
@@ -101,8 +100,12 @@ func (p *AnthropicProvider) Stream(ctx context.Context, req ai.StreamRequest) (*
 		return nil, fmt.Errorf("marshal request: %w", err)
 	}
 
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, p.baseURL+"v1/messages", bytes.NewReader(body))
+	// 流式请求绑定可取消的派生 context：空闲看门狗超时触发 cancel，
+	// 中止停滞的上游连接（总时长不受 http.Client.Timeout 限制）
+	streamCtx, cancel := context.WithCancel(ctx)
+	httpReq, err := http.NewRequestWithContext(streamCtx, http.MethodPost, p.baseURL+"v1/messages", bytes.NewReader(body))
 	if err != nil {
+		cancel()
 		return nil, fmt.Errorf("create request: %w", err)
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
@@ -111,6 +114,7 @@ func (p *AnthropicProvider) Stream(ctx context.Context, req ai.StreamRequest) (*
 
 	go func() {
 		defer stream.Close()
+		defer cancel()
 
 		partial := ai.StreamAssistantMessage{}
 
@@ -134,7 +138,8 @@ func (p *AnthropicProvider) Stream(ctx context.Context, req ai.StreamRequest) (*
 			return
 		}
 
-		p.handleSSE(ctx, stream, resp.Body, &partial)
+		wd := startStreamWatchdog(streamCtx, streamIdleTimeout, cancel)
+		p.handleSSE(streamCtx, stream, resp.Body, &partial, wd)
 	}()
 
 	return stream, nil
@@ -142,11 +147,12 @@ func (p *AnthropicProvider) Stream(ctx context.Context, req ai.StreamRequest) (*
 
 // ─── SSE 解析 ────────────────────────────────────────────────────────────────────
 
-func (p *AnthropicProvider) handleSSE(ctx context.Context, stream *ai.EventStream, body io.Reader, partial *ai.StreamAssistantMessage) {
+func (p *AnthropicProvider) handleSSE(ctx context.Context, stream *ai.EventStream, body io.Reader, partial *ai.StreamAssistantMessage, wd *streamWatchdog) {
 	_ = stream.Push(ctx, ai.EventStart{Partial: *partial})
 
 	scanner := bufio.NewScanner(body)
-	scanner.Buffer(make([]byte, 256*1024), 256*1024)
+	// 超长单行真实存在（长思考/长参数），初始小、按需增长到大上限
+	scanner.Buffer(make([]byte, 64*1024), 16<<20)
 
 	var currentEvent string
 	// 追踪每个 content block index → 类型 ("text" | "tool_use" | "thinking")
@@ -157,6 +163,7 @@ func (p *AnthropicProvider) handleSSE(ctx context.Context, stream *ai.EventStrea
 
 	for scanner.Scan() {
 		line := scanner.Text()
+		wd.Kick()
 		if strings.HasPrefix(line, "event: ") {
 			currentEvent = strings.TrimPrefix(line, "event: ")
 			continue
@@ -168,7 +175,19 @@ func (p *AnthropicProvider) handleSSE(ctx context.Context, stream *ai.EventStrea
 		}
 	}
 
-	// 兜底：如果流异常结束但没收到 message_stop
+	// 兜底：流结束时未收到 message_stop。异常结束（含空闲超时）必须报错，
+	// 不能把已收到的部分内容伪装成正常完成
+	if err := scanner.Err(); err != nil {
+		if wd.Tripped() {
+			err = idleTimeoutError(streamIdleTimeout)
+		}
+		partial.StopReason = ai.StopReasonError
+		partial.ErrorMsg = err.Error()
+		// ctx 可能已被看门狗取消，终止事件用独立 context 保证送达
+		_ = stream.Push(context.Background(), ai.EventError{Reason: "error", Error: err.Error()})
+		stream.SetResult(*partial, err)
+		return
+	}
 	if partial.StopReason == "" {
 		partial.StopReason = ai.StopReasonStop
 		_ = stream.Push(ctx, ai.EventDone{Reason: partial.StopReason, Message: *partial})
