@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/hwj123hwj/pi-go/sdk/agent"
@@ -107,6 +108,12 @@ func (m *TuiModel) handleInputKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m.sendMessage(input)
 
+	case ActionAcceptCompletion: // Tab
+		// No popup visible — offer completions for whatever is typed
+		// (slash command, its subcommands, or @file).
+		m.checkTriggerCompletion()
+		return m, nil
+
 	case ActionNewline: // Ctrl+J
 		m.input.newLine()
 		// Resize viewport to account for new input line
@@ -150,8 +157,14 @@ func (m *TuiModel) handleCompletionKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		if item != nil {
 			m.acceptCompletion(item.InsertText)
+			if m.completion.Kind() == CompletionSlash {
+				// Accepting a command ("/feishu") should immediately offer
+				// its subcommands.
+				m.checkTriggerCompletion()
+			} else {
+				m.completion.Close()
+			}
 		}
-		m.completion.Close()
 		return m, nil
 
 	case ActionHistoryNext:
@@ -252,6 +265,9 @@ func (m *TuiModel) checkTriggerCompletion() {
 	if m.completion.TriggerSlash(input, cursorX, m.slashCmds) {
 		return
 	}
+	if m.completion.TriggerSub(input, cursorX, m.slashCmds) {
+		return
+	}
 	if m.completion.TriggerFile(input, cursorX, m.workspace) {
 		return
 	}
@@ -285,6 +301,20 @@ func (m *TuiModel) acceptCompletion(insertText string) {
 		newText := beforeCursor[:atIdx] + insertText + afterCursor
 		m.input.lines = []string{newText}
 		m.input.cursorX = atIdx + len(insertText)
+		m.input.cursorY = 0
+
+	case CompletionSub:
+		fullText := m.input.Text()
+		beforeCursor := substringBefore(fullText, m.input.cursorX)
+		runes := []rune(beforeCursor)
+		qs := m.completion.queryStart
+		if qs > len(runes) {
+			return
+		}
+		afterCursor := string([]rune(fullText)[m.input.cursorX:])
+		newText := string(runes[:qs]) + insertText + " " + afterCursor
+		m.input.lines = []string{newText}
+		m.input.cursorX = qs + utf8.RuneCountInString(insertText) + 1
 		m.input.cursorY = 0
 	}
 }

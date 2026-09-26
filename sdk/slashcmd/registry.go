@@ -18,10 +18,18 @@ type CommandResult struct {
 	ShouldQuery     bool           // true means auto-trigger an agent query after command
 }
 
+// Subcommand describes an argument-level subcommand of a slash command,
+// offered by the TUI autocomplete (e.g. "start" under "/feishu").
+type Subcommand struct {
+	Name        string
+	Description string
+}
+
 // Command defines a slash command.
 type Command struct {
 	Name        string
 	Description string
+	Subcommands []Subcommand
 	Handler     func(ctx Context, args string) (CommandResult, error)
 }
 

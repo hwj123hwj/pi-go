@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/hwj123hwj/pi-go/sdk/slashcmd"
 )
@@ -15,6 +16,7 @@ type CompletionKind int
 const (
 	CompletionNone    CompletionKind = iota
 	CompletionSlash                  // /command
+	CompletionSub                    // /command <subcommand>
 	CompletionFile                   // @filepath
 	CompletionModel                  // Ctrl+P model selector
 )
@@ -133,6 +135,59 @@ func (cm *CompletionState) TriggerSlash(input string, cursorX int, registry *sla
 		return items[i].Label < items[j].Label
 	})
 
+	cm.items = items
+	cm.selected = 0
+	cm.visible = true
+	return true
+}
+
+// TriggerSub detects "/cmd …" input where cmd declares subcommands, and offers
+// them for the first argument word (e.g. "/feishu st" → start/stop/status).
+// Returns true if the popup was activated.
+func (cm *CompletionState) TriggerSub(input string, cursorX int, registry *slashcmd.Registry) bool {
+	if registry == nil {
+		return false
+	}
+
+	beforeCursor := substringBefore(input, cursorX)
+	if !strings.HasPrefix(beforeCursor, "/") || strings.Contains(beforeCursor, "\n") {
+		return false
+	}
+
+	// "/name rest…" — bare "/name" is TriggerSlash's territory.
+	parts := strings.SplitN(beforeCursor[1:], " ", 2)
+	if len(parts) < 2 {
+		return false
+	}
+	cmd := registry.Command(parts[0])
+	if len(cmd.Subcommands) == 0 {
+		return false
+	}
+
+	// Subcommands only fill the first argument slot; past it the command
+	// takes its own flags/args (e.g. "setup --manual …") and we stay quiet.
+	filter := parts[1]
+	if strings.Contains(filter, " ") {
+		return false
+	}
+
+	var items []CompletionItem
+	for _, sc := range cmd.Subcommands {
+		if filter == "" || strings.HasPrefix(sc.Name, filter) {
+			items = append(items, CompletionItem{
+				Label:       sc.Name,
+				Description: sc.Description,
+				InsertText:  sc.Name,
+			})
+		}
+	}
+	if len(items) == 0 {
+		return false
+	}
+
+	cm.kind = CompletionSub
+	cm.query = filter
+	cm.queryStart = 1 + utf8.RuneCountInString(parts[0]) + 1
 	cm.items = items
 	cm.selected = 0
 	cm.visible = true

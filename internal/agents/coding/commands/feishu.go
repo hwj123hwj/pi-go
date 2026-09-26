@@ -20,12 +20,22 @@ func registerFeishuCommand(registry *slashcmd.Registry, name string) {
 	registry.Register(slashcmd.Command{
 		Name:        name,
 		Description: "Manage Feishu bot integration (setup, start, stop, status)",
+		Subcommands: []slashcmd.Subcommand{
+			{Name: "setup", Description: "Scan QR to login (or --manual <AppId> <AppSecret>)"},
+			{Name: "start", Description: "Start the bot (credentials required)"},
+			{Name: "stop", Description: "Stop the bot"},
+			{Name: "status", Description: "Show current status"},
+			{Name: "logout", Description: "Clear credentials and disconnect"},
+		},
 		Handler: func(ctx slashcmd.Context, args string) (slashcmd.CommandResult, error) {
 			args = strings.TrimSpace(args)
 			subCmd := strings.Fields(args)
 
 			switch {
-			case len(subCmd) == 0 || subCmd[0] == "setup":
+			case len(subCmd) == 0:
+				return handleFeishuSetup(ctx, nil)
+
+			case subCmd[0] == "setup":
 				return handleFeishuSetup(ctx, subCmd[1:])
 
 			case subCmd[0] == "start":
