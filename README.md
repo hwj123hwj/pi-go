@@ -147,6 +147,8 @@ npm run electron:build    # 打包
 
 通过 `pi-feishu-bridge` 独立服务，可以将 AI Agent 接入飞书群聊，在群里直接和 AI 对话、执行 Slash 命令。
 
+长连接成功后，机器人会私聊完成扫码注册的账号，发送欢迎语、默认工作目录、`/help` 用法和权限体检结果。手动配置凭据时，可设置 `FEISHU_OWNER_OPEN_ID` 指定接收欢迎语的飞书用户。`/feishu start` 会检查凭据并提示启动方式；真正建立长连接仍需运行 `pi-feishu-bridge`。
+
 详见 [飞书集成文档](docs/references/feishu-integration-ref.md)。
 
 ---

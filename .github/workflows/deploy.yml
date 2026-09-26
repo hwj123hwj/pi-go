@@ -93,4 +93,4 @@ jobs:
       - name: Health check
         run: |
           ssh -p "${{ secrets.DEPLOY_PORT || '22' }}" "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
-            "curl --fail --silent http://127.0.0.1:8080/health >/dev/null"
+            "curl --fail --silent http://127.0.0.1:8081/health >/dev/null"

@@ -4,7 +4,70 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 )
+
+// BuildStartupWelcome creates the private message sent to the setup owner when
+// the Feishu WebSocket connection becomes ready.
+func BuildStartupWelcome(appID, workspace string, grantedScopes []string, scopesKnown bool) string {
+	lines := []string{
+		"👋 **Pi-go 飞书 Bot 已连接，随时待命。**",
+		"",
+		"**💡 快速开始**",
+		"- 私聊直接发送任务即可。",
+		"- 在私聊中发送 `/project create <项目路径> <群名称>` 创建项目协作群。",
+		"- 发送 `/help` 查看可用命令。",
+		"",
+		"**📂 默认工作目录**",
+	}
+	if workspace != "" {
+		lines = append(lines, "`"+workspace+"`")
+	} else {
+		lines = append(lines, "跟随 pi-agent 服务端工作目录；可设置 `PI_GO_WORKSPACE` 指定目录。")
+	}
+
+	if scopesKnown {
+		missing := missingScopes(grantedScopes, requiredAppScopes)
+		missingGroupMsg := !hasScope(grantedScopes, sensitiveGroupMessageScope)
+		if len(missing) == 0 && !missingGroupMsg {
+			lines = append(lines, "", "✅ **应用权限完整**，私聊、群聊、卡片、文件和群管理能力均已授权。")
+		} else {
+			if len(missing) > 0 {
+				lines = append(lines,
+					"",
+					fmt.Sprintf("⚠️ **缺少 %d 项基础权限**，部分接收、回复、卡片或文件能力会受限：", len(missing)),
+				)
+				for _, scope := range missing {
+					lines = append(lines, "- `"+scope+"`")
+				}
+				lines = append(lines, "👉 一键申请："+buildScopeApplyURL(appID, missing))
+			}
+			if missingGroupMsg {
+				lines = append(lines,
+					"",
+					"💬 群消息默认需要 @机器人。若希望群内普通消息也能触发，可申请敏感权限 `"+sensitiveGroupMessageScope+"`：",
+					"👉 "+buildScopeApplyURL(appID, []string{sensitiveGroupMessageScope}),
+				)
+			}
+			lines = append(lines, "🔄 权限申请后需发布应用版本使其生效：", "👉 "+buildPermissionPageURL(appID))
+		}
+	} else {
+		lines = append(lines,
+			"",
+			"ℹ️ 暂时无法读取应用权限清单。请确认已开通 `application:application:self_manage`，并检查权限和事件订阅配置。",
+			"👉 基础权限申请："+buildScopeApplyURL(appID, requiredAppScopes),
+			"👉 权限管理："+buildPermissionPageURL(appID),
+		)
+	}
+
+	lines = append(lines,
+		"",
+		"**🔌 事件接收检查**",
+		"确认已启用长连接并订阅 `im.message.receive_v1`：",
+		"👉 "+buildEventSubURL(appID),
+	)
+	return strings.Join(lines, "\n")
+}
 
 func (h *Handler) sendProjectGroupPermissionReminder(ctx context.Context, recipientOpenID, groupName string) {
 	if h == nil || h.client == nil || recipientOpenID == "" || h.appID == "" {
