@@ -285,5 +285,10 @@ func countMessages(path string) (int, int64, string, error) {
 			lastTS = entry.TS
 		}
 	}
+	// 会话条目时间戳是毫秒（session.UnixMilli），归一化为秒，
+	// 与 List 中目录 ModTime().Unix() 保持同一单位
+	if lastTS > 1e12 {
+		lastTS /= 1000
+	}
 	return count, lastTS, firstUserMsg, scanner.Err()
 }

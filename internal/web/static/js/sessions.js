@@ -42,18 +42,19 @@ export class SessionsPage {
     table.className = 'data-table';
     table.innerHTML = `
       <thead><tr>
-        <th>会话 ID</th><th>标题 / 工作区</th><th>消息数</th><th>最近活跃</th><th>操作</th>
+        <th>标题</th><th class="col-nowrap">消息数</th><th class="col-nowrap">最近活跃</th><th class="col-nowrap">操作</th>
       </tr></thead>`;
     const tbody = document.createElement('tbody');
     for (const s of this.sessions) {
       const tr = document.createElement('tr');
-      const title = s.title || s.workspace || '-';
+      const title = (s.title || '').trim() || '新对话';
+      const short = title.length > 40 ? title.slice(0, 40) + '…' : title;
       tr.innerHTML = `
-        <td class="mono">${shortID(s.id)}</td>
-        <td>${escapeHTML(title)}</td>
-        <td>${s.message_count ?? '-'}</td>
-        <td>${formatTime(s.last_active || s.created_at)}</td>`;
+        <td class="sess-title-cell"><span title="${escapeHTML(title)}">${escapeHTML(short)}</span></td>
+        <td class="col-nowrap">${s.message_count ?? '-'}</td>
+        <td class="col-nowrap">${formatTime(s.last_active || s.created_at)}</td>`;
       const actions = document.createElement('td');
+      actions.className = 'sess-actions col-nowrap';
       const viewBtn = document.createElement('button');
       viewBtn.className = 'btn btn-ghost btn-sm';
       viewBtn.textContent = '查看';
@@ -131,6 +132,8 @@ function shortID(id) {
 
 function formatTime(unix) {
   if (!unix) return '-';
-  const d = new Date(unix * 1000);
-  return isNaN(d) ? '-' : d.toLocaleString();
+  // 兼容秒/毫秒两种口径
+  const ms = unix > 1e12 ? unix : unix * 1000;
+  const d = new Date(ms);
+  return isNaN(d) ? '-' : d.toLocaleString('zh-CN', { hour12: false });
 }

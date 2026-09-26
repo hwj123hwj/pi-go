@@ -706,6 +706,16 @@ textarea.wf-prompt { font-size: 13.5px; line-height: 1.6; resize: vertical; min-
 .data-table tbody tr { transition: background var(--transition-fast); }
 .data-table tbody tr:hover { background: var(--bg-hover); }
 .data-table .mono { font-family: var(--font-mono); font-size: 12px; color: var(--text-secondary); }
+.data-table th.col-nowrap, .data-table td.col-nowrap { white-space: nowrap; }
+.data-table td.sess-title-cell { max-width: 520px; }
+.data-table td.sess-title-cell span {
+  display: inline-block; max-width: 100%;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  vertical-align: middle;
+}
+.data-table td.sess-actions { white-space: nowrap; }
+.data-table td.sess-actions .btn { display: inline-block; margin-right: 8px; }
+.data-table td.sess-actions .btn:last-child { margin-right: 0; }
 .sess-messages { margin-top: 20px; }
 .sess-msg-list { display: flex; flex-direction: column; gap: 14px; padding: 14px 0 48px; }
 .sess-msg {
