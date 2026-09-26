@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -74,10 +75,10 @@ func StartOAuthFlow(ctx context.Context) (*OAuthResult, error) {
 	authorizeURL := fmt.Sprintf("%s/open-apis/authen/v1/authorize?%s",
 		FeishuDomain,
 		url.Values{
-			"app_id":         {BuiltinAppID},
-			"redirect_uri":   {redirectURI},
-			"response_type":  {"code"},
-			"state":          {"pi-go"},
+			"app_id":        {BuiltinAppID},
+			"redirect_uri":  {redirectURI},
+			"response_type": {"code"},
+			"state":         {"pi-go"},
 		}.Encode(),
 	)
 
@@ -172,11 +173,11 @@ func exchangeCodeForToken(code string) OAuthResult {
 // ── API calls ──────────────────────────────────────────────────────────────
 
 type tokenResponse struct {
-	AccessToken    string `json:"access_token"`
-	TokenType      string `json:"token_type"`
-	ExpiresIn      int    `json:"expires_in"`
-	RefreshToken   string `json:"redirect_uri"`
-	OpenID         string `json:"open_id"`
+	AccessToken  string `json:"access_token"`
+	TokenType    string `json:"token_type"`
+	ExpiresIn    int    `json:"expires_in"`
+	RefreshToken string `json:"redirect_uri"`
+	OpenID       string `json:"open_id"`
 }
 
 // getAppAccessToken retrieves the app_access_token using app_id + app_secret.
@@ -199,8 +200,8 @@ func getAppAccessToken(appID, appSecret string) (string, error) {
 
 	data, _ := io.ReadAll(resp.Body)
 	var result struct {
-		Code         int    `json:"code"`
-		Msg          string `json:"msg"`
+		Code           int    `json:"code"`
+		Msg            string `json:"msg"`
 		AppAccessToken string `json:"app_access_token"`
 	}
 	if err := json.Unmarshal(data, &result); err != nil {
@@ -340,6 +341,19 @@ func NewGatewayManager() *GatewayManager {
 
 // StartWithCredentials starts the feishu gateway using saved or provided credentials.
 func (gm *GatewayManager) StartWithCredentials(creds Credentials, client *Client, handler MessageHandler) error {
+	return gm.start(creds, client, handler, nil, nil)
+}
+
+// StartWithHandler starts the gateway with the full Feishu handler, including
+// card actions and callback routing.
+func (gm *GatewayManager) StartWithHandler(creds Credentials, client *Client, handler *Handler) error {
+	if handler == nil {
+		return fmt.Errorf("feishu handler is required")
+	}
+	return gm.start(creds, client, handler.Handle, handler.HandleCardAction, handler.SetGateway)
+}
+
+func (gm *GatewayManager) start(creds Credentials, client *Client, handler MessageHandler, cardHandler CardActionHandler, attach func(*Gateway)) error {
 	gm.mu.Lock()
 	defer gm.mu.Unlock()
 
@@ -349,6 +363,17 @@ func (gm *GatewayManager) StartWithCredentials(creds Credentials, client *Client
 
 	ctx, cancel := context.WithCancel(context.Background())
 	gw := NewGateway(creds.AppID, creds.AppSecret, client, handler)
+	if cardHandler != nil {
+		gw.SetCardActionHandler(cardHandler)
+	}
+	if attach != nil {
+		attach(gw)
+	}
+	ownerOpenID := strings.TrimSpace(os.Getenv("FEISHU_OWNER_OPEN_ID"))
+	if ownerOpenID == "" {
+		ownerOpenID = creds.UserOpenID
+	}
+	ConfigureStartupWelcome(gw, creds.AppID, ownerOpenID, os.Getenv("PI_GO_WORKSPACE"), client)
 
 	gm.gateway = gw
 	gm.cancel = cancel
