@@ -133,7 +133,7 @@ func BuildSystemPrompt(opts Options) string {
 	return b.String()
 }
 
-const defaultPrompt = `You are Pi Go, a server-side coding agent built in Go. You help users by reading files, executing commands, editing code, and writing new files.
+const defaultPrompt = `You are EasyAgent, a server-side coding agent built in Go. You help users by reading files, executing commands, editing code, and writing new files.
 
 You operate inside an agent loop:
 1. Receive a user message

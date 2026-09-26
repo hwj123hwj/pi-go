@@ -44,7 +44,7 @@ build-agent:
 install:
 	$(GO) install -ldflags "$(LDFLAGS)" ./cmd/easyagent
 	@echo "✅ Installed easyagent to $$($(GO) env GOPATH)/bin/"
-	@echo "   Run: easyagent --mode chat"
+	@echo "   Run: easyagent"
 
 # ── Run ──
 run:

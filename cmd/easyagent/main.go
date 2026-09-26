@@ -93,8 +93,10 @@ func main() {
 		return
 	}
 
-	// Parse remaining flags
-	modeFlag := flag.String("mode", "run", "run, chat, interactive, or serve")
+	// No subcommand starts the interactive TUI. Prompt flags preserve the
+	// one-shot behavior for `easyagent -p ...` and `easyagent --prompt ...`.
+	args := os.Args[1:]
+	modeFlag := flag.String("mode", inferredDefaultMode(args), "run, chat, interactive, or serve (default: chat; prompt flags select run)")
 	listen := flag.String("listen", fmt.Sprintf("%s:%d", cfg.Host, cfg.Port), "HTTP listen address")
 	input := "hello"
 	flag.StringVar(&input, "prompt", input, "prompt for run mode")
@@ -103,20 +105,8 @@ func main() {
 	skillDir := flag.String("skill-dir", "", "directory containing skills (SKILL.md files)")
 	legacyTUI := flag.Bool("legacy", false, "Use legacy linear CLI instead of Bubble Tea TUI")
 	yolo := flag.Bool("y", false, "全权模式：初始跳过危险工具确认（会话内 /confirm on|off 随时切换）")
-	args := os.Args[1:]
-	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
-		mode := ""
-		switch args[0] {
-		case "chat", "interactive":
-			mode = "chat"
-		case "serve", "server":
-			mode = "serve"
-		case "run":
-			mode = "run"
-		}
-		if mode != "" {
-			os.Args = append([]string{os.Args[0], "--mode", mode}, args[1:]...)
-		}
+	if mode := modeForSubcommand(args); mode != "" {
+		os.Args = append([]string{os.Args[0], "--mode", mode}, args[1:]...)
 	}
 	flag.Parse()
 
@@ -225,6 +215,36 @@ func main() {
 	default:
 		fmt.Fprintf(os.Stderr, "unknown mode %q\n", *modeFlag)
 		os.Exit(2)
+	}
+}
+
+func inferredDefaultMode(args []string) string {
+	if mode := modeForSubcommand(args); mode != "" {
+		return mode
+	}
+	for _, arg := range args {
+		switch {
+		case arg == "-p", arg == "-prompt", arg == "--prompt",
+			strings.HasPrefix(arg, "-p="), strings.HasPrefix(arg, "-prompt="), strings.HasPrefix(arg, "--prompt="):
+			return "run"
+		}
+	}
+	return "chat"
+}
+
+func modeForSubcommand(args []string) string {
+	if len(args) == 0 {
+		return ""
+	}
+	switch args[0] {
+	case "chat", "interactive":
+		return "chat"
+	case "serve", "server":
+		return "serve"
+	case "run":
+		return "run"
+	default:
+		return ""
 	}
 }
 

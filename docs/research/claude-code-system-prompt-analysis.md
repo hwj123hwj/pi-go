@@ -257,7 +257,7 @@ buildAgent()
 
 ```
 1. 基础提示（默认或 EA_PROMPT_TEMPLATE）
-   └─ "You are Pi Go, a server-side coding agent..."
+   └─ "You are EasyAgent, a server-side coding agent..."
 
 2. ## Tool Summary
    └─ 每个工具一行摘要

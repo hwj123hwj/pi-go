@@ -80,6 +80,8 @@ curl -fsSL https://raw.githubusercontent.com/hwj123hwj/easyagent/main/scripts/in
 ### 使用
 
 ```bash
+easyagent                   # 💬 交互式聊天
+easyagent -y                # 💬 交互式聊天并启用全权模式
 easyagent chat              # 💬 交互式聊天（推荐）
 easyagent run -p "你好"      # ⚡ 单次提问
 easyagent serve             # 🌐 HTTP 服务模式

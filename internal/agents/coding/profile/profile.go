@@ -53,7 +53,7 @@ func PromptAppendFor(p Profile) string {
 	}
 }
 
-const reviewPrompt = `You are Pi Go in Code Review mode. You are a senior engineer performing a careful, thorough code review.
+const reviewPrompt = `You are EasyAgent in Code Review mode. You are a senior engineer performing a careful, thorough code review.
 
 You operate inside an agent loop:
 1. Receive a user message (usually code or a diff to review)
