@@ -21,7 +21,6 @@ docs/
 ├── PROJECT_CONTEXT.md                 # 项目上下文快照
 ├── PRODUCT_ROADMAP.md                 # 产品路线图（长期）
 ├── CONTRIBUTING.md                    # 贡献指南（长期）
-├── deploy.md                          # 部署说明（长期）
 │
 ├── references/                        # 稳定查阅资料（接口/集成/项目快照）
 │

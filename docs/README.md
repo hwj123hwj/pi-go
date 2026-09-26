@@ -12,7 +12,6 @@ docs/
 ├── PROJECT_CONTEXT.md                 # 项目上下文快照
 ├── PRODUCT_ROADMAP.md                 # 产品路线图
 ├── CONTRIBUTING.md                    # 贡献指南
-├── deploy.md                          # 部署说明
 │
 ├── references/                        # 稳定查阅资料（接口/集成/项目快照）
 │   ├── feishu-integration-ref.md      # 飞书接入参考
@@ -75,7 +74,6 @@ docs/
 | [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md) | 项目架构、核心能力、技术栈快照。调研 agent 和维护 agent 的对比基准 |
 | [PRODUCT_ROADMAP.md](PRODUCT_ROADMAP.md) | 产品与技术主路线图 |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | 贡献和开发协作说明 |
-| [deploy.md](deploy.md) | 自动部署说明 |
 
 ## 参考资料
 

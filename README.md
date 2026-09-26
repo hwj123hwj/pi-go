@@ -194,7 +194,7 @@ reply, err := ag.Prompt(ctx, ai.NewTextUserMessage("..."))
 | [贡献指南](docs/CONTRIBUTING.md) | 项目结构、开发流程、代码规范 |
 | [项目上下文](docs/PROJECT_CONTEXT.md) | 高层架构快照 |
 | [产品路线图](docs/PRODUCT_ROADMAP.md) | 未来规划 |
-| [部署指南](docs/deploy.md) | 自动部署说明 |
+| 部署 | 服务器自动部署已下线（2026-09），现以本机/Mini PC 运行为主 |
 
 ---
 

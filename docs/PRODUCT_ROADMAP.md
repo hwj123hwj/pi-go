@@ -152,7 +152,7 @@
 
 - ~~`go test ./...` 持续稳定~~ ✅ **已达到** — 全部 PASS，无 fail
 - ~~Desktop 主链路可用~~ ✅ **已达到** — `internal/desktop/` 存在，完整 Electron + Vite 项目结构
-- ~~服务端可自动部署~~ ✅ **已达到** — `.github/workflows/deploy.yml` 完整链路
+- ~~服务端可自动部署~~ ✅ 已达到（2026-09 随服务器退役下线）
 
 ## Phase 1：加厚共用运行时内核
 
