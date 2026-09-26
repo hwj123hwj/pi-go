@@ -8,7 +8,7 @@ Type=simple
 User=root
 WorkingDirectory=__DEPLOY_PATH__/current
 EnvironmentFile=__DEPLOY_PATH__/shared/.env
-ExecStart=__DEPLOY_PATH__/current/pi-feishu-bridge
+ExecStart=/usr/bin/env PI_AGENT_URL=http://127.0.0.1:8081 __DEPLOY_PATH__/current/pi-feishu-bridge
 Restart=always
 RestartSec=5
 StandardOutput=journal
