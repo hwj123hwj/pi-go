@@ -27,7 +27,10 @@ related: [[config-system]], [[feishu-integration]], [[server-websocket]], [[tui-
 
 **Used by**: `scripts/install.sh` downloads these pre-compiled binaries for one-line installation. See [[tui-bubbletea]] for installer details.
 
-## Deploy Workflow — `.github/workflows/deploy.yml`
+## Deploy Workflow — `.github/workflows/deploy.yml`（已下线）
+
+> **2026-09 起服务器退役**：该 workflow 与 `docs/deploy.md` 已删除，`/opt/pi-go` systemd 部署不再维护。
+> 当前以本机 launchd 与 Mini PC 运行为主。以下为历史记录。
 
 **Trigger**: Push to `main` branch or manual `workflow_dispatch`.
 
@@ -89,8 +92,8 @@ Service files use `__DEPLOY_PATH__` placeholder, replaced at deploy time via `se
 ## Source
 
 - `.github/workflows/release.yml` — Cross-platform release binary workflow
-- `.github/workflows/deploy.yml` — Server deployment workflow
-- [docs/deploy.md](../../docs/deploy.md) — Deployment documentation
+- ~~`.github/workflows/deploy.yml`~~ — Server deployment workflow（2026-09 已删除）
+- ~~[docs/deploy.md](../../docs/deploy.md)~~ — Deployment documentation（已删除）
 - `deploy/` directory — Systemd service file templates
 - `scripts/install.sh` — One-line installer (downloads release binaries)
 - `scripts/install_release.sh` — Server-side installation script
