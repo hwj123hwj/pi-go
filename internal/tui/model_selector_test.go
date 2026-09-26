@@ -36,7 +36,7 @@ func newSelectorTestModel(t *testing.T) *TuiModel {
 		t.Fatal("TUI must open selector, not print catalog")
 		return slashcmd.CommandResult{}, nil
 	}})
-	m := New(session, reg)
+	m := New(session, reg, false)
 	var models []slashcmd.ModelInfo
 	for i := 0; i < 21; i++ {
 		models = append(models, slashcmd.ModelInfo{Provider: "openai", ModelID: fmt.Sprintf("model-%02d", i)})

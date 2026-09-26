@@ -7,11 +7,11 @@ import (
 	"os"
 	"time"
 
-	"github.com/hwj123hwj/pi-go/sdk/agent"
 	"github.com/hwj123hwj/pi-go/internal/app"
+	"github.com/hwj123hwj/pi-go/internal/ui"
+	"github.com/hwj123hwj/pi-go/sdk/agent"
 	"github.com/hwj123hwj/pi-go/sdk/runtime"
 	"github.com/hwj123hwj/pi-go/sdk/slashcmd"
-	"github.com/hwj123hwj/pi-go/internal/ui"
 )
 
 // clearScreen clears the terminal display using ANSI escape sequences.
@@ -47,11 +47,14 @@ func (m *InteractiveMode) Run(ctx context.Context) error {
 
 	// 注入危险工具确认回调：交互模式下弹 y/n 确认。
 	// 仅在交互式入口注入；serve/feishu 不注入（默认放行）。
+	// auto_approve（pi-go.yaml 或 PI_GO_AUTO_APPROVE）开启时同样放行。
 	// 时机安全：ConfirmFunc 仅在 Agent 等待确认时被调，此时主循环阻塞在
 	// range stream 上、不在读 stdin，故此处独立读 os.Stdin 不会与主 scanner 抢占。
-	m.session.SetConfirmFunc(func(ctx context.Context, req agent.ConfirmationRequest) agent.ConfirmDecision {
-		return promptConfirm(os.Stdout, os.Stdin, req.Description)
-	})
+	if !m.app.Config().AutoApprove {
+		m.session.SetConfirmFunc(func(ctx context.Context, req agent.ConfirmationRequest) agent.ConfirmDecision {
+			return promptConfirm(os.Stdout, os.Stdin, req.Description)
+		})
+	}
 
 	// Print banner
 	ui.PrintBanner(os.Stdout)

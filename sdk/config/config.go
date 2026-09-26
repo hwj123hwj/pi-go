@@ -44,12 +44,12 @@ func sanitizeConfigString(s string) string {
 }
 
 type Config struct {
-	Name        string
-	Host        string
-	Port        int
-	DataDir     string
-	MaxTurns    int
-	Timeout     time.Duration
+	Name     string
+	Host     string
+	Port     int
+	DataDir  string
+	MaxTurns int
+	Timeout  time.Duration
 
 	// Provider
 	Provider string // anthropic / openai
@@ -65,11 +65,12 @@ type Config struct {
 	OpenAIBaseURL string
 
 	// Tool sandbox
-	Workspace          string
-	EnableBash         bool
-	EnableWeb          bool
-	WebTimeoutSeconds  int
-	EnableWebSearch    bool
+	Workspace         string
+	EnableBash        bool
+	AutoApprove       bool // 全权模式：跳过危险工具的 y/n 确认（信得过自己环境再开）
+	EnableWeb         bool
+	WebTimeoutSeconds int
+	EnableWebSearch   bool
 
 	// Execution backend
 	ExecutionMode string // "local" (default) or "ssh"
@@ -87,13 +88,12 @@ type Config struct {
 	// Prompt
 	PromptTemplate string
 
-
 	// Knowledge base (second-brain)
 	KBRepoPath string // path to the personal knowledge repo (default: ~/agent-lessons)
 
 	// KB vector search (optional, for semantic search)
-	KBEmbeddingAPIKey string // API key for embedding provider (e.g. SiliconFlow)
-	KBEmbeddingModel  string // embedding model name (e.g. BAAI/bge-m3)
+	KBEmbeddingAPIKey  string // API key for embedding provider (e.g. SiliconFlow)
+	KBEmbeddingModel   string // embedding model name (e.g. BAAI/bge-m3)
 	KBEmbeddingBaseURL string // embedding API base URL
 
 	// ASR (speech-to-text)
@@ -107,12 +107,12 @@ type Config struct {
 
 func Default() Config {
 	return Config{
-		Name:        "pi-go",
-		Host:        "127.0.0.1",
-		Port:        8080,
-		DataDir:     "./data",
-		MaxTurns:    200,
-		Timeout:     5 * time.Minute,
+		Name:     "pi-go",
+		Host:     "127.0.0.1",
+		Port:     8080,
+		DataDir:  "./data",
+		MaxTurns: 200,
+		Timeout:  5 * time.Minute,
 
 		Provider: "",
 
@@ -122,14 +122,13 @@ func Default() Config {
 		OpenAIBaseURL: "http://localhost:4001",
 		OpenAIModel:   "longcat-opus",
 
-		Workspace:          "", // empty = use cwd
-		EnableBash:         false,
-		EnableWeb:          false,
-		WebTimeoutSeconds:  30,
-		EnableWebSearch:    false,
+		Workspace:         "", // empty = use cwd
+		EnableBash:        false,
+		EnableWeb:         false,
+		WebTimeoutSeconds: 30,
+		EnableWebSearch:   false,
 
 		MaxOutputLen: 30000,
-
 
 		KBRepoPath: "", // empty → defaults to ~/agent-lessons at runtime
 	}
@@ -156,6 +155,9 @@ func (c *Config) LoadFromEnv() {
 	}
 	if v := os.Getenv("PI_GO_ENABLE_BASH"); v != "" {
 		c.EnableBash = strings.ToLower(v) == "true" || v == "1"
+	}
+	if v := os.Getenv("PI_GO_AUTO_APPROVE"); v != "" {
+		c.AutoApprove = strings.ToLower(v) == "true" || v == "1"
 	}
 	if v := os.Getenv("PI_GO_ENABLE_WEB"); v != "" {
 		c.EnableWeb = strings.ToLower(v) == "true" || v == "1"
@@ -305,10 +307,10 @@ func LoadDotEnv(path string) error {
 // yamlConfig is the YAML representation of Config for file-based configuration.
 // Uses yaml tags so users can write pi-go.yaml instead of 30+ env vars.
 type yamlConfig struct {
-	Name        string `yaml:"name,omitempty"`
-	Host        string `yaml:"host,omitempty"`
-	Port        int    `yaml:"port,omitempty"`
-	DataDir     string `yaml:"data_dir,omitempty"`
+	Name    string `yaml:"name,omitempty"`
+	Host    string `yaml:"host,omitempty"`
+	Port    int    `yaml:"port,omitempty"`
+	DataDir string `yaml:"data_dir,omitempty"`
 
 	Provider string `yaml:"provider,omitempty"`
 
@@ -320,11 +322,12 @@ type yamlConfig struct {
 	OpenAIModel   string `yaml:"openai_model,omitempty"`
 	OpenAIBaseURL string `yaml:"openai_base_url,omitempty"`
 
-	Workspace          string `yaml:"workspace,omitempty"`
-	EnableBash         bool   `yaml:"enable_bash,omitempty"`
-	EnableWeb          bool   `yaml:"enable_web,omitempty"`
-	WebTimeoutSeconds  int    `yaml:"web_timeout_seconds,omitempty"`
-	EnableWebSearch    bool   `yaml:"enable_web_search,omitempty"`
+	Workspace         string `yaml:"workspace,omitempty"`
+	EnableBash        bool   `yaml:"enable_bash,omitempty"`
+	AutoApprove       bool   `yaml:"auto_approve,omitempty"`
+	EnableWeb         bool   `yaml:"enable_web,omitempty"`
+	WebTimeoutSeconds int    `yaml:"web_timeout_seconds,omitempty"`
+	EnableWebSearch   bool   `yaml:"enable_web_search,omitempty"`
 
 	ExecutionMode string `yaml:"execution_mode,omitempty"`
 	SSHHost       string `yaml:"ssh_host,omitempty"`
@@ -338,7 +341,7 @@ type yamlConfig struct {
 	MaxTurns int           `yaml:"max_turns,omitempty"`
 	Timeout  time.Duration `yaml:"timeout,omitempty"`
 
-	APIKey    string `yaml:"api_key,omitempty"`
+	APIKey string `yaml:"api_key,omitempty"`
 
 	KBRepoPath         string `yaml:"kb_repo_path,omitempty"`
 	KBEmbeddingAPIKey  string `yaml:"kb_embedding_api_key,omitempty"`
@@ -403,6 +406,9 @@ func (c *Config) LoadFromYAML(path string) error {
 	}
 	if yc.EnableBash {
 		c.EnableBash = true
+	}
+	if yc.AutoApprove {
+		c.AutoApprove = true
 	}
 	if yc.EnableWeb {
 		c.EnableWeb = true

@@ -16,16 +16,16 @@ import (
 	kbapp "github.com/hwj123hwj/pi-go/internal/agents/kb"
 	musicapp "github.com/hwj123hwj/pi-go/internal/agents/music"
 	"github.com/hwj123hwj/pi-go/internal/app"
-	"github.com/hwj123hwj/pi-go/sdk/config"
 	"github.com/hwj123hwj/pi-go/internal/mode"
 	music "github.com/hwj123hwj/pi-go/internal/music"
 	"github.com/hwj123hwj/pi-go/internal/music/bilibili"
 	"github.com/hwj123hwj/pi-go/internal/music/netease"
 	userprofile "github.com/hwj123hwj/pi-go/internal/profile"
-	"github.com/hwj123hwj/pi-go/sdk/runtime"
 	"github.com/hwj123hwj/pi-go/internal/scheduler"
-	"github.com/hwj123hwj/pi-go/sdk/slashcmd"
 	"github.com/hwj123hwj/pi-go/internal/tui"
+	"github.com/hwj123hwj/pi-go/sdk/config"
+	"github.com/hwj123hwj/pi-go/sdk/runtime"
+	"github.com/hwj123hwj/pi-go/sdk/slashcmd"
 )
 
 // version is the build version, injected via -ldflags during release builds.
@@ -151,7 +151,6 @@ func main() {
 	}
 	defer application.Close()
 
-
 	switch *modeFlag {
 	case "interactive", "chat":
 		sess, err := application.LoadOrCreateSession(context.Background(), *sessionFlag)
@@ -160,7 +159,7 @@ func main() {
 		if *legacyTUI {
 			must(mode.NewInteractiveMode(sess, cmds, application).Run(context.Background()))
 		} else {
-			must(tui.Run(sess, cmds, application))
+			must(tui.Run(sess, cmds, application, cfg.AutoApprove))
 		}
 
 	case "run":
