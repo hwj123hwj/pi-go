@@ -420,7 +420,18 @@ func (s *AgentSession) buildAgent(ctx context.Context, registry *providers.Regis
 // 供交互式入口（chat TUI）调用以启用确认；serve/feishu 等单向流入口不调用，保持默认放行。
 // 在首次 PromptStream 之前调用即可生效；若 agent 已构建则会触发重建。
 func (s *AgentSession) SetConfirmFunc(fn agent.ConfirmFunc) {
+	wasUnset := s.confirmFunc == nil
 	s.confirmFunc = fn
+	if wasUnset && fn != nil {
+		// Installing an interactive callback enables confirmations by default.
+		// Callers such as `easyagent -y` can immediately override this below.
+		s.confirmEnabled.Store(true)
+	}
+	if s.agent != nil {
+		if _, err := s.rebuildAgent(context.Background(), s.deps.Registry, s.skillDirs); err != nil {
+			slog.Error("failed to rebuild agent after updating confirmation handler", "error", err)
+		}
+	}
 }
 
 // wrapConfirm 给确认回调套上运行时开关：/confirm off 时直接放行，不再进对话框。
@@ -429,7 +440,6 @@ func (s *AgentSession) wrapConfirm(fn agent.ConfirmFunc) agent.ConfirmFunc {
 	if fn == nil {
 		return nil
 	}
-	s.confirmEnabled.Store(true)
 	return func(ctx context.Context, req agent.ConfirmationRequest) agent.ConfirmDecision {
 		if !s.confirmEnabled.Load() {
 			return agent.ConfirmDecision{Approved: true, Reason: "全权模式（/confirm on 可恢复确认）"}
