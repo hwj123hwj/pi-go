@@ -3,7 +3,7 @@ package session
 import (
 	"context"
 
-	"github.com/hwj123hwj/pi-go/sdk/ai"
+	"github.com/hwj123hwj/easyagent/sdk/ai"
 )
 
 type EntryType string

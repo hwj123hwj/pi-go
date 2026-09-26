@@ -17,11 +17,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/hwj123hwj/pi-go/internal/worktree"
+	"github.com/hwj123hwj/easyagent/internal/worktree"
+	"github.com/hwj123hwj/easyagent/sdk/config"
 	"github.com/larksuite/oapi-sdk-go/v3/event/dispatcher/callback"
 )
 
-// ChatRoute binds a Feishu chat to a local project and pi-agent session.
+// ChatRoute binds a Feishu chat to a local project and easyagent session.
 type ChatRoute struct {
 	SessionID         string `json:"session_id"`
 	ProjectRoot       string `json:"project_root,omitempty"`
@@ -33,10 +34,10 @@ type ChatRoute struct {
 	ChatName          string `json:"chat_name,omitempty"`
 }
 
-// Handler processes Feishu messages by calling the pi-agent HTTP API.
+// Handler processes Feishu messages by calling the easyagent HTTP API.
 type Handler struct {
 	piAgentURL    string // e.g. "http://127.0.0.1:8080"
-	piAgentAPIKey string // PI_GO_API_KEY，非空时对 pi-agent 请求带 Bearer
+	piAgentAPIKey string // EA_API_KEY，非空时对 easyagent 请求带 Bearer
 	appID         string // Feishu app ID for permission links
 	client        *Client
 	gateway       *Gateway
@@ -58,7 +59,7 @@ type Handler struct {
 func NewHandler(piAgentURL, appID string, client *Client, workspace string) *Handler {
 	h := &Handler{
 		piAgentURL:    piAgentURL,
-		piAgentAPIKey: os.Getenv("PI_GO_API_KEY"),
+		piAgentAPIKey: config.Env("EA_API_KEY"),
 		appID:         appID,
 		client:        client,
 		routes:        make(map[string]*ChatRoute),
@@ -72,8 +73,7 @@ func NewHandler(piAgentURL, appID string, client *Client, workspace string) *Han
 }
 
 func defaultRoutesFile() string {
-	home, _ := os.UserHomeDir()
-	dir := filepath.Join(home, ".pi-go")
+	dir := config.HomeDir()
 	_ = os.MkdirAll(dir, 0o755)
 	return filepath.Join(dir, "feishu-routes.json")
 }
@@ -135,12 +135,12 @@ func (h *Handler) Handle(ctx context.Context, msg Message) {
 		return
 	}
 
-	// Regular message: call pi-agent
+	// Regular message: call easyagent
 	h.handleAgentMessage(ctx, chatKey, messageID, text)
 }
 
 // handleSlashCommand processes slash commands.
-// Known commands are handled locally; unknown ones are forwarded to pi-agent.
+// Known commands are handled locally; unknown ones are forwarded to easyagent.
 func (h *Handler) handleSlashCommand(ctx context.Context, chatKey, senderOpenID, chatType, messageID, text string) string {
 	cmd := strings.Fields(text)[0]
 	switch cmd {
@@ -175,7 +175,7 @@ func (h *Handler) cmdNew(ctx context.Context, chatKey string) string {
 	return "✅ 已开启新对话"
 }
 
-// setAgentAuth 为打向 pi-agent 的请求附加 Bearer（PI_GO_API_KEY，可空）。
+// setAgentAuth 为打向 easyagent 的请求附加 Bearer（EA_API_KEY，可空）。
 func setAgentAuth(req *http.Request, apiKey string) {
 	if apiKey != "" {
 		req.Header.Set("Authorization", "Bearer "+apiKey)
@@ -284,7 +284,7 @@ func (h *Handler) cmdProjectCreate(ctx context.Context, chatKey, senderOpenID, c
 	}
 
 	// Create group chat
-	chatID, err := h.client.CreateGroupChat(ctx, groupName, "Pi Agent 项目协作群", []string{senderOpenID})
+	chatID, err := h.client.CreateGroupChat(ctx, groupName, "EasyAgent 项目协作群", []string{senderOpenID})
 	if err != nil {
 		return fmt.Sprintf("❌ 创建群失败: %v", err)
 	}
@@ -451,7 +451,7 @@ func (h *Handler) HandleCardAction(ctx context.Context, event *callback.CardActi
 	}
 }
 
-// handleAgentMessage sends a message to pi-agent and streams the response back.
+// handleAgentMessage sends a message to easyagent and streams the response back.
 // Prefers CardKit streaming card; falls back to plain text PATCH if card creation fails.
 func (h *Handler) handleAgentMessage(ctx context.Context, chatKey, messageID, text string) {
 	// Get or create session
@@ -895,7 +895,7 @@ func cardToast(toastType, content string) *callback.CardActionTriggerResponse {
 	}
 }
 
-// forwardCommand sends an unrecognized slash command to pi-agent for execution.
+// forwardCommand sends an unrecognized slash command to easyagent for execution.
 // This enables all 14 built-in commands (model, goal, tools, etc.) without
 // the bridge needing to know about each one.
 func (h *Handler) forwardCommand(ctx context.Context, chatKey, text string) string {

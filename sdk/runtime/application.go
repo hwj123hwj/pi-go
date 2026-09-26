@@ -3,10 +3,10 @@ package runtime
 import (
 	"context"
 
-	"github.com/hwj123hwj/pi-go/sdk/agent"
-	"github.com/hwj123hwj/pi-go/sdk/operations"
-	"github.com/hwj123hwj/pi-go/sdk/prompt"
-	"github.com/hwj123hwj/pi-go/sdk/skill"
+	"github.com/hwj123hwj/easyagent/sdk/agent"
+	"github.com/hwj123hwj/easyagent/sdk/operations"
+	"github.com/hwj123hwj/easyagent/sdk/prompt"
+	"github.com/hwj123hwj/easyagent/sdk/skill"
 )
 
 // Application is the interface that an agent application must implement.

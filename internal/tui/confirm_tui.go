@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/hwj123hwj/pi-go/sdk/agent"
+	"github.com/hwj123hwj/easyagent/sdk/agent"
 )
 
 // ConfirmationState manages the yes/no confirmation dialog overlay.

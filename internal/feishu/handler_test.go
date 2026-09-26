@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	wtpkg "github.com/hwj123hwj/pi-go/internal/worktree"
+	wtpkg "github.com/hwj123hwj/easyagent/internal/worktree"
 	"github.com/larksuite/oapi-sdk-go/v3/event/dispatcher/callback"
 )
 
@@ -27,12 +27,12 @@ func TestLoadSaveRoutes(t *testing.T) {
 	// Save some routes
 	h.setRoute("oc_chat1", &ChatRoute{
 		SessionID:         "sess_1",
-		ProjectRoot:       "/tmp/project-a/.pi-go/worktrees/project-a",
+		ProjectRoot:       "/tmp/project-a/.easyagent/worktrees/project-a",
 		SourceProjectRoot: "/tmp/project-a",
 		SourceRepoRoot:    "/tmp/project-a",
-		WorktreeRoot:      "/tmp/project-a/.pi-go/worktrees/project-a",
-		WorktreeBranch:    "pi-go/project-a",
-		TaskPath:          "/tmp/project-a/.pi-go/worktrees/project-a/TASK.md",
+		WorktreeRoot:      "/tmp/project-a/.easyagent/worktrees/project-a",
+		WorktreeBranch:    "easyagent/project-a",
+		TaskPath:          "/tmp/project-a/.easyagent/worktrees/project-a/TASK.md",
 		ChatName:          "Project A",
 	})
 	h.setRoute("ou_user1", &ChatRoute{
@@ -58,13 +58,13 @@ func TestLoadSaveRoutes(t *testing.T) {
 	if r1.SessionID != "sess_1" {
 		t.Errorf("sessionID = %q, want %q", r1.SessionID, "sess_1")
 	}
-	if r1.ProjectRoot != "/tmp/project-a/.pi-go/worktrees/project-a" {
+	if r1.ProjectRoot != "/tmp/project-a/.easyagent/worktrees/project-a" {
 		t.Errorf("projectRoot = %q", r1.ProjectRoot)
 	}
 	if r1.SourceProjectRoot != "/tmp/project-a" {
 		t.Errorf("sourceProjectRoot = %q", r1.SourceProjectRoot)
 	}
-	if r1.WorktreeBranch != "pi-go/project-a" {
+	if r1.WorktreeBranch != "easyagent/project-a" {
 		t.Errorf("worktreeBranch = %q", r1.WorktreeBranch)
 	}
 	if r1.TaskPath == "" {
@@ -399,8 +399,8 @@ func initGitRepo(t *testing.T) string {
 
 	repo := t.TempDir()
 	runGit(t, repo, "init")
-	runGit(t, repo, "config", "user.email", "pi-go@example.com")
-	runGit(t, repo, "config", "user.name", "pi-go")
+	runGit(t, repo, "config", "user.email", "easyagent@example.com")
+	runGit(t, repo, "config", "user.name", "easyagent")
 	if err := os.WriteFile(filepath.Join(repo, "README.md"), []byte("# repo\n"), 0o644); err != nil {
 		t.Fatalf("write README: %v", err)
 	}

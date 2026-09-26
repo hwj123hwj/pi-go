@@ -1,5 +1,5 @@
 /**
- * rest.ts — REST API request helper for Pi-Go mobile
+ * rest.ts — REST API request helper for EasyAgent mobile
  *
  * Split from api/index.ts to avoid barrel exports (bundle-barrel-exports).
  */

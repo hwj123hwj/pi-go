@@ -1,6 +1,6 @@
 {
   "appId": "com.ezycode.pigo",
-  "appName": "Pi-Go",
+  "appName": "EasyAgent",
   "webDir": "dist/renderer",
   "server": {
     "androidScheme": "http",

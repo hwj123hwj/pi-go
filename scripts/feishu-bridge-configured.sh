@@ -5,7 +5,7 @@ if [ -n "${FEISHU_APP_ID:-}" ] && [ -n "${FEISHU_APP_SECRET:-}" ]; then
 	 exit 0
 fi
 
-if [ -s /root/.pi-go/feishu-credentials.json ]; then
+if [ -s /root/.easyagent/feishu-credentials.json ] || [ -s /root/.pi-go/feishu-credentials.json ]; then
 	 exit 0
 fi
 

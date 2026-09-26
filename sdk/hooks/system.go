@@ -6,7 +6,7 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/hwj123hwj/pi-go/sdk/agent"
+	"github.com/hwj123hwj/easyagent/sdk/agent"
 )
 
 // System is the main hook system entry point that coordinates

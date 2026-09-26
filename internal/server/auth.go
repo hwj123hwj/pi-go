@@ -4,14 +4,15 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/hwj123hwj/easyagent/sdk/config"
 )
 
 // 访问控制模型（默认安全，本地零配置可用）：
-//   1. 配置了 API key（PI_GO_API_KEY）→ 所有请求必须带 Bearer token（/health 除外）；
-//   2. 未配置且 PI_GO_ALLOW_NO_AUTH=1 → 完全开放（旧行为，仅建议本机调试）；
+//   1. 配置了 API key（EA_API_KEY）→ 所有请求必须带 Bearer token（/health 除外）；
+//   2. 未配置且 EA_ALLOW_NO_AUTH=1 → 完全开放（旧行为，仅建议本机调试）；
 //   3. 未配置（默认）→ 仅放行 loopback 请求；外部访问返回 401，
 //      本机消费方（网页 UI、飞书 bridge、桌面端）零配置继续可用。
 
@@ -115,11 +116,11 @@ func resolveExistingSymlinks(p string) string {
 
 // env 配置在构造期读取；与 config 包风格一致（服务级开关不进 per-session 配置）。
 func envAllowNoAuth() bool {
-	return os.Getenv("PI_GO_ALLOW_NO_AUTH") == "1"
+	return config.Env("EA_ALLOW_NO_AUTH") == "1"
 }
 
 func envAllowedOrigins() []string {
-	v := os.Getenv("PI_GO_ALLOWED_ORIGINS")
+	v := config.Env("EA_ALLOWED_ORIGINS")
 	if v == "" {
 		return nil
 	}

@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/hwj123hwj/pi-go/sdk/util"
+	"github.com/hwj123hwj/easyagent/sdk/util"
 )
 
 // ExternalToolDef holds the registration payload for an external tool.

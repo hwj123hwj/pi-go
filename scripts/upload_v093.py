@@ -5,13 +5,13 @@ import sys
 import urllib.request
 import urllib.error
 
-REPO = "hwj123hwj/pi-go"
+REPO = "hwj123hwj/easyagent"
 TOKEN = open("/tmp/gh_token.txt").read().strip()
 
 release_data = json.dumps({
     "tag_name": "v0.9.3",
     "target_commitish": "main",
-    "name": "Pi-Go Mobile v0.9.3 — Connection Hang Fix",
+    "name": "EasyAgent Mobile v0.9.3 — Connection Hang Fix",
     "body": "## 🔧 Fix: 连接转圈后卡住\n\n"
             "**Root cause:** `/models` API 返回的是 `{ models: [...], current: {...} }` 字典，"
             "但客户端代码把它当数组处理，调 `.map()` 时抛异常。"

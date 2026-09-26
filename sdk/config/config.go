@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -105,9 +106,12 @@ type Config struct {
 	APIKey string // Bearer token for HTTP API auth (empty = no auth, backward compatible)
 }
 
+// HomeDirName is the directory name used for persistent EasyAgent user data.
+const HomeDirName = ".easyagent"
+
 func Default() Config {
 	return Config{
-		Name:     "pi-go",
+		Name:     "easyagent",
 		Host:     "127.0.0.1",
 		Port:     8080,
 		DataDir:  "./data",
@@ -134,42 +138,80 @@ func Default() Config {
 	}
 }
 
+// HomeDir returns the user's persistent EasyAgent data directory.
+func HomeDir() string {
+	if dir := os.Getenv("EA_HOME"); dir != "" {
+		return dir
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return HomeDirName
+	}
+	if legacyDir := os.Getenv("PI_GO_HOME"); legacyDir != "" && filepath.Clean(legacyDir) != filepath.Join(home, ".pi-go") {
+		return legacyDir
+	}
+	return filepath.Join(home, HomeDirName)
+}
+
+// Env reads an EasyAgent-prefixed environment variable, preferring EA_* and
+// falling back to its PI_GO_* name for existing installations.
+func Env(name string) string {
+	const newPrefix, legacyPrefix = "EA_", "PI_GO_"
+	if strings.HasPrefix(name, legacyPrefix) {
+		name = newPrefix + strings.TrimPrefix(name, legacyPrefix)
+	}
+	legacyName := legacyPrefix + strings.TrimPrefix(name, newPrefix)
+	if value, ok := os.LookupEnv(name); ok {
+		return value
+	}
+	return os.Getenv(legacyName)
+}
+
+func getEnv(name, fallback string) string {
+	if value := Env(name); value != "" {
+		return value
+	}
+	return fallback
+}
+
+func getEnvBool(name string, fallback bool) bool {
+	value := Env(name)
+	if value == "" {
+		return fallback
+	}
+	return strings.EqualFold(value, "true") || value == "1"
+}
+
+func getEnvInt(name string, fallback int) int {
+	value := Env(name)
+	if parsed, err := strconv.Atoi(value); value != "" && err == nil {
+		return parsed
+	}
+	return fallback
+}
+
 // LoadFromEnv 从环境变量中加载配置，覆盖默认值。
 func (c *Config) LoadFromEnv() {
-	if v := os.Getenv("PI_GO_PROVIDER"); v != "" {
+	if v := getEnv("EA_PROVIDER", ""); v != "" {
 		c.Provider = v
 	}
-	if v := os.Getenv("PI_GO_HOST"); v != "" {
+	if v := getEnv("EA_HOST", ""); v != "" {
 		c.Host = v
 	}
-	if v := os.Getenv("PI_GO_PORT"); v != "" {
-		if p, err := strconv.Atoi(v); err == nil {
-			c.Port = p
-		}
+	if v := getEnvInt("EA_PORT", 0); v > 0 {
+		c.Port = v
 	}
-	if v := os.Getenv("PI_GO_DATA_DIR"); v != "" {
+	if v := getEnv("EA_DATA_DIR", ""); v != "" {
 		c.DataDir = v
 	}
-	if v := os.Getenv("PI_GO_WORKSPACE"); v != "" {
+	if v := getEnv("EA_WORKSPACE", ""); v != "" {
 		c.Workspace = v
 	}
-	if v := os.Getenv("PI_GO_ENABLE_BASH"); v != "" {
-		c.EnableBash = strings.ToLower(v) == "true" || v == "1"
-	}
-	if v := os.Getenv("PI_GO_AUTO_APPROVE"); v != "" {
-		c.AutoApprove = strings.ToLower(v) == "true" || v == "1"
-	}
-	if v := os.Getenv("PI_GO_ENABLE_WEB"); v != "" {
-		c.EnableWeb = strings.ToLower(v) == "true" || v == "1"
-	}
-	if v := os.Getenv("PI_GO_WEB_TIMEOUT_SECONDS"); v != "" {
-		if t, err := strconv.Atoi(v); err == nil {
-			c.WebTimeoutSeconds = t
-		}
-	}
-	if v := os.Getenv("PI_GO_ENABLE_WEB_SEARCH"); v != "" {
-		c.EnableWebSearch = strings.ToLower(v) == "true" || v == "1"
-	}
+	c.EnableBash = getEnvBool("EA_ENABLE_BASH", c.EnableBash)
+	c.AutoApprove = getEnvBool("EA_AUTO_APPROVE", c.AutoApprove)
+	c.EnableWeb = getEnvBool("EA_ENABLE_WEB", c.EnableWeb)
+	c.WebTimeoutSeconds = getEnvInt("EA_WEB_TIMEOUT_SECONDS", c.WebTimeoutSeconds)
+	c.EnableWebSearch = getEnvBool("EA_ENABLE_WEB_SEARCH", c.EnableWebSearch)
 
 	// Anthropic
 	if v := os.Getenv("ANTHROPIC_API_KEY"); v != "" {
@@ -183,61 +225,57 @@ func (c *Config) LoadFromEnv() {
 	}
 
 	// OpenAI-compatible gateway
-	// PI_GO_API_KEY is the preferred name; OPENAI_API_KEY is also accepted (fallback)
-	if v := os.Getenv("PI_GO_API_KEY"); v != "" {
+	// EA_API_KEY is preferred; PI_GO_API_KEY and OPENAI_API_KEY remain accepted.
+	if v := getEnv("EA_API_KEY", ""); v != "" {
 		c.OpenAIAPIKey = sanitizeConfigString(v)
 	} else if v := os.Getenv("OPENAI_API_KEY"); v != "" {
 		c.OpenAIAPIKey = sanitizeConfigString(v)
 	}
-	if v := os.Getenv("PI_GO_MODEL"); v != "" {
+	if v := getEnv("EA_MODEL", ""); v != "" {
 		c.OpenAIModel = sanitizeConfigString(v)
 	} else if v := os.Getenv("OPENAI_MODEL"); v != "" {
 		c.OpenAIModel = sanitizeConfigString(v)
 	}
-	if v := os.Getenv("PI_GO_BASE_URL"); v != "" {
+	if v := getEnv("EA_BASE_URL", ""); v != "" {
 		c.OpenAIBaseURL = sanitizeConfigString(v)
 	} else if v := os.Getenv("OPENAI_BASE_URL"); v != "" {
 		c.OpenAIBaseURL = sanitizeConfigString(v)
 	}
 
 	// Tool output
-	if v := os.Getenv("PI_GO_MAX_OUTPUT_LEN"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n > 0 {
-			c.MaxOutputLen = n
-		}
+	if n := getEnvInt("EA_MAX_OUTPUT_LEN", c.MaxOutputLen); n > 0 {
+		c.MaxOutputLen = n
 	}
 
 	// Execution backend
-	if v := os.Getenv("PI_GO_EXECUTION_MODE"); v != "" {
+	if v := getEnv("EA_EXECUTION_MODE", ""); v != "" {
 		c.ExecutionMode = v
 	}
-	if v := os.Getenv("PI_GO_SSH_HOST"); v != "" {
+	if v := getEnv("EA_SSH_HOST", ""); v != "" {
 		c.SSHHost = v
 	}
-	if v := os.Getenv("PI_GO_SSH_PORT"); v != "" {
-		if p, err := strconv.Atoi(v); err == nil && p > 0 {
-			c.SSHPort = p
-		}
+	if p := getEnvInt("EA_SSH_PORT", c.SSHPort); p > 0 {
+		c.SSHPort = p
 	}
-	if v := os.Getenv("PI_GO_SSH_WORKDIR"); v != "" {
+	if v := getEnv("EA_SSH_WORKDIR", ""); v != "" {
 		c.SSHWorkDir = v
 	}
 
 	// Tool filtering
-	if v := os.Getenv("PI_GO_ALLOWED_TOOLS"); v != "" {
+	if v := getEnv("EA_ALLOWED_TOOLS", ""); v != "" {
 		c.AllowedTools = strings.Split(v, ",")
 	}
-	if v := os.Getenv("PI_GO_BLOCKED_TOOLS"); v != "" {
+	if v := getEnv("EA_BLOCKED_TOOLS", ""); v != "" {
 		c.BlockedTools = strings.Split(v, ",")
 	}
 
 	// Prompt
-	if v := os.Getenv("PI_GO_PROMPT_TEMPLATE"); v != "" {
+	if v := getEnv("EA_PROMPT_TEMPLATE", ""); v != "" {
 		c.PromptTemplate = v
 	}
 
 	// Knowledge base
-	if v := os.Getenv("PI_GO_KB_REPO_PATH"); v != "" {
+	if v := getEnv("EA_KB_REPO_PATH", ""); v != "" {
 		c.KBRepoPath = v
 	}
 
@@ -270,7 +308,7 @@ func (c *Config) LoadFromEnv() {
 	}
 
 	// Server security
-	if v := os.Getenv("PI_GO_API_KEY"); v != "" {
+	if v := getEnv("EA_API_KEY", ""); v != "" {
 		c.APIKey = sanitizeConfigString(v)
 	}
 }
@@ -305,7 +343,7 @@ func LoadDotEnv(path string) error {
 }
 
 // yamlConfig is the YAML representation of Config for file-based configuration.
-// Uses yaml tags so users can write pi-go.yaml instead of 30+ env vars.
+// Uses yaml tags so users can write easyagent.yaml (legacy pi-go.yaml is still accepted).
 type yamlConfig struct {
 	Name    string `yaml:"name,omitempty"`
 	Host    string `yaml:"host,omitempty"`

@@ -1,6 +1,8 @@
 # 配置参考
 
-> pi-go 的完整配置项说明。配置优先级：**环境变量 > .env 文件 > YAML > 默认值**。
+> EasyAgent 的完整配置项说明。配置优先级：**环境变量 > .env 文件 > YAML > 默认值**。
+
+新配置使用 `EA_*` 环境变量；已有的 `PI_GO_*` 环境变量和 `PI_GO_ENV_FILE` 仍会作为兼容回退读取。
 
 ---
 
@@ -9,20 +11,20 @@
 安装后编辑配置文件：
 
 ```bash
-nano ~/.pi-go/.env
+nano ~/.easyagent/.env
 ```
 
 最简配置（OpenAI 兼容）：
 ```env
-PI_GO_PROVIDER=openai
-PI_GO_API_KEY=your-api-key
-PI_GO_BASE_URL=http://localhost:4001
-PI_GO_MODEL=longcat-opus
+EA_PROVIDER=openai
+EA_API_KEY=your-api-key
+EA_BASE_URL=http://localhost:4001
+EA_MODEL=longcat-opus
 ```
 
-网关模式（`PI_GO_PROVIDER=openai`）启动时从网关的 `/v1/models` 加载模型，`/models` 只显示该目录中的模型；本地模型文件用于补充元数据。加载失败时会输出警告并回退到本地目录。修改地址或凭据后需重启 pi-go，再执行 `/models` 验证，并从列表选择 `PI_GO_MODEL`，不要沿用网关已移除的模型。
+网关模式（`EA_PROVIDER=openai`）启动时从网关的 `/v1/models` 加载模型，`/models` 只显示该目录中的模型；本地模型文件用于补充元数据。加载失败时会输出警告并回退到本地目录。修改地址或凭据后需重启 EasyAgent，再执行 `/models` 验证，并从列表选择 `EA_MODEL`，不要沿用网关已移除的模型。
 
-本地网关使用 `PI_GO_BASE_URL=http://localhost:4001`，`PI_GO_API_KEY` 填该网关的认证密钥。安装器中的 Base URL 提示需要输入完整地址或回车使用默认值，不能填菜单序号。
+本地网关使用 `EA_BASE_URL=http://localhost:4001`，`EA_API_KEY` 填该网关的认证密钥。安装器中的 Base URL 提示需要输入完整地址或回车使用默认值，不能填菜单序号。
 
 TUI 中输入 `/models` 后回车（或按 `Ctrl+P`）打开模型选择器，使用上下键选择、回车切换、`Esc` 取消。选择器默认定位当前模型，长列表随选中项滚动。旧的 `--legacy` 命令行模式仍输出文本列表。
 
@@ -31,7 +33,7 @@ TUI 使用独立全屏缓冲区，鼠标滚轮用于滚动会话或选择模型�
 
 使用 Anthropic Claude：
 ```env
-PI_GO_PROVIDER=anthropic
+EA_PROVIDER=anthropic
 ANTHROPIC_API_KEY=your-key
 ANTHROPIC_MODEL=claude-sonnet-4-20250514
 ```
@@ -44,12 +46,12 @@ ANTHROPIC_MODEL=claude-sonnet-4-20250514
 
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
-| `PI_GO_PROVIDER` | _(必填)_ | LLM Provider：`anthropic` / `openai` |
-| `PI_GO_API_KEY` | - | Provider API Key（优先） |
+| `EA_PROVIDER` | _(必填)_ | LLM Provider：`anthropic` / `openai` |
+| `EA_API_KEY` | - | Provider API Key（优先） |
 | `OPENAI_API_KEY` | - | OpenAI API Key（后备） |
-| `PI_GO_MODEL` | - | 模型名称（优先） |
+| `EA_MODEL` | - | 模型名称（优先） |
 | `OPENAI_MODEL` | - | OpenAI 模型名称（后备） |
-| `PI_GO_BASE_URL` | - | API 地址（优先） |
+| `EA_BASE_URL` | - | API 地址（优先） |
 | `OPENAI_BASE_URL` | `https://api.openai.com/v1` | OpenAI API 地址（后备） |
 | `ANTHROPIC_API_KEY` | - | Anthropic API Key |
 | `ANTHROPIC_MODEL` | - | Anthropic 模型名称 |
@@ -59,38 +61,38 @@ ANTHROPIC_MODEL=claude-sonnet-4-20250514
 
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
-| `PI_GO_HOST` | `127.0.0.1` | HTTP 监听地址 |
-| `PI_GO_PORT` | `8080` | HTTP 监听端口 |
-| `PI_GO_DATA_DIR` | `./data` | 数据目录 |
+| `EA_HOST` | `127.0.0.1` | HTTP 监听地址 |
+| `EA_PORT` | `8080` | HTTP 监听端口 |
+| `EA_DATA_DIR` | `./data` | 数据目录 |
 
 ### 工具
 
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
-| `PI_GO_ENABLE_BASH` | `false` | 是否启用 Bash 工具 |
-| `PI_GO_ENABLE_WEB` | `false` | 是否启用 Web Fetch 工具 |
-| `PI_GO_WEB_TIMEOUT_SECONDS` | `30` | Web Fetch 超时（秒） |
-| `PI_GO_MAX_OUTPUT_LEN` | `30000` | 工具输出最大字符数 |
-| `PI_GO_WORKSPACE` | 当前目录 | 工作目录 |
-| `PI_GO_ALLOWED_TOOLS` | - | 工具白名单（逗号分隔） |
-| `PI_GO_ALLOW_NO_AUTH` | - | `1` 时未配置 API key 也完全开放（仅限本机调试） |
-| `PI_GO_ALLOWED_ORIGINS` | - | CORS 白名单（逗号分隔 Origin；默认不返回跨域头） |
-| `PI_GO_BLOCKED_TOOLS` | - | 工具黑名单（逗号分隔） |
+| `EA_ENABLE_BASH` | `false` | 是否启用 Bash 工具 |
+| `EA_ENABLE_WEB` | `false` | 是否启用 Web Fetch 工具 |
+| `EA_WEB_TIMEOUT_SECONDS` | `30` | Web Fetch 超时（秒） |
+| `EA_MAX_OUTPUT_LEN` | `30000` | 工具输出最大字符数 |
+| `EA_WORKSPACE` | 当前目录 | 工作目录 |
+| `EA_ALLOWED_TOOLS` | - | 工具白名单（逗号分隔） |
+| `EA_ALLOW_NO_AUTH` | - | `1` 时未配置 API key 也完全开放（仅限本机调试） |
+| `EA_ALLOWED_ORIGINS` | - | CORS 白名单（逗号分隔 Origin；默认不返回跨域头） |
+| `EA_BLOCKED_TOOLS` | - | 工具黑名单（逗号分隔） |
 
 ### 执行后端
 
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
-| `PI_GO_EXECUTION_MODE` | `local` | 执行后端：`local` 或 `ssh` |
-| `PI_GO_SSH_HOST` | - | SSH 模式目标主机 |
-| `PI_GO_SSH_PORT` | `22` | SSH 端口 |
-| `PI_GO_SSH_WORKDIR` | - | SSH 模式远程工作目录 |
+| `EA_EXECUTION_MODE` | `local` | 执行后端：`local` 或 `ssh` |
+| `EA_SSH_HOST` | - | SSH 模式目标主机 |
+| `EA_SSH_PORT` | `22` | SSH 端口 |
+| `EA_SSH_WORKDIR` | - | SSH 模式远程工作目录 |
 
 ### 个人助手
 
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
-| `PI_GO_KB_REPO_PATH` | `~/agent-lessons` | 知识库仓库路径 |
+| `EA_KB_REPO_PATH` | `~/agent-lessons` | 知识库仓库路径 |
 | `SILICONFLOW_API_KEY` | - | KB 向量搜索 API Key |
 | `SILICONFLOW_EMBEDDING_MODEL` | `bge-m3` | KB Embedding 模型 |
 | `SILICONFLOW_BASE_URL` | - | Embedding API 地址 |
@@ -99,7 +101,7 @@ ANTHROPIC_MODEL=claude-sonnet-4-20250514
 
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
-| `PI_GO_PROMPT_TEMPLATE` | - | 自定义提示模板路径 |
+| `EA_PROMPT_TEMPLATE` | - | 自定义提示模板路径 |
 
 ---
 
@@ -124,6 +126,6 @@ max_turns: 200
 ## 安全提示
 
 - ✅ v0.10.3+ 会自动清洗配置值中的 ANSI 转义码
-- ✅ `.env` 文件应设置权限：`chmod 600 ~/.pi-go/.env`
+- ✅ `.env` 文件应设置权限：`chmod 600 ~/.easyagent/.env`
 - ✅ 不要把 API Key 提交到 Git
-- ✅ 生产环境使用 `PI_GO_API_KEY` 环境变量做 HTTP API 认证
+- ✅ 生产环境使用 `EA_API_KEY` 环境变量做 HTTP API 认证

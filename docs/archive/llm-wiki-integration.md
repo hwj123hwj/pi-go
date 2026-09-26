@@ -1,3 +1,5 @@
+> 历史文档：本文保留更名前的 pi-go 项目记录；项目现名为 EasyAgent。
+
 # LLM Wiki 集成设计
 
 > 将 pi-go 的 llm-wiki 能力从"手动维护的个人知识库"升级为"内置的 slash 命令系统"，使 pi-go 具备给任意项目生成、查询、维护 wiki 的能力。

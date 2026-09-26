@@ -9,8 +9,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/hwj123hwj/pi-go/sdk/agent"
-	"github.com/hwj123hwj/pi-go/sdk/operations"
+	"github.com/hwj123hwj/easyagent/sdk/agent"
+	"github.com/hwj123hwj/easyagent/sdk/operations"
 )
 
 // GrepTool 在文件中搜索正则表达式模式。

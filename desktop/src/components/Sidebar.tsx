@@ -202,8 +202,8 @@ export function Sidebar() {
     <aside className="sidebar">
       <div className="sidebar-head">
         <div className="brand">
-          <img className="brand-mark" src={appIcon} alt="Pi-Go" />
-          Pi-Go
+          <img className="brand-mark" src={appIcon} alt="EasyAgent" />
+          EasyAgent
         </div>
         <div className="sidebar-head-actions">
           <div className="new-session-wrap">
@@ -307,7 +307,7 @@ export function Sidebar() {
           <Icon name="cpu" size={14} />
         </span>
         <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          Pi-Go
+          EasyAgent
         </span>
         {/* Mobile: check-for-update button */}
         {Capacitor.isNativePlatform() && (
@@ -323,10 +323,10 @@ export function Sidebar() {
                 if (info) {
                   window.dispatchEvent(new CustomEvent('pi-go-show-update', { detail: info }));
                 } else {
-                  alert(`当前版本 v${ver}\nGitHub 最新版检查完毕，可能已是最新或网络受限。\n如需手动更新，请用浏览器访问:\ngithub.com/hwj123hwj/pi-go/releases`);
+                  alert(`当前版本 v${ver}\nGitHub 最新版检查完毕，可能已是最新或网络受限。\n如需手动更新，请用浏览器访问:\ngithub.com/hwj123hwj/easyagent/releases`);
                 }
               } catch (e) {
-                alert('检查更新失败: ' + (e instanceof Error ? e.message : '未知错误') + '\n请用浏览器访问 github.com/hwj123hwj/pi-go/releases');
+                alert('检查更新失败: ' + (e instanceof Error ? e.message : '未知错误') + '\n请用浏览器访问 github.com/hwj123hwj/easyagent/releases');
               }
               if (btn) { btn.textContent = '↻'; btn.disabled = false; }
             }}

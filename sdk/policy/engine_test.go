@@ -290,7 +290,7 @@ func TestEngine_AllowDenySwitch(t *testing.T) {
 
 func TestEngine_Persistence(t *testing.T) {
 	tmpDir := t.TempDir()
-	policyPath := filepath.Join(tmpDir, ".pi-go", "policy.json")
+	policyPath := filepath.Join(tmpDir, ".easyagent", "policy.json")
 
 	engine := NewEngine()
 	err := engine.AllowPersist("bash", policyPath)
@@ -311,7 +311,7 @@ func TestEngine_Persistence(t *testing.T) {
 
 func TestEngine_Persistence_Deny(t *testing.T) {
 	tmpDir := t.TempDir()
-	policyPath := filepath.Join(tmpDir, ".pi-go", "policy.json")
+	policyPath := filepath.Join(tmpDir, ".easyagent", "policy.json")
 
 	engine := NewEngine()
 	err := engine.DenyPersist("rm", policyPath)
@@ -448,12 +448,12 @@ func TestUpdater_ClearSession(t *testing.T) {
 
 func TestDefaultPolicyPath(t *testing.T) {
 	path := DefaultPolicyPath("/home/user/project")
-	assert.Equal(t, "/home/user/project/.pi-go/policy.json", path)
+	assert.Equal(t, "/home/user/project/.easyagent/policy.json", path)
 }
 
 func TestUpdater_LoadFromDisk(t *testing.T) {
 	tmpDir := t.TempDir()
-	policyPath := filepath.Join(tmpDir, ".pi-go", "policy.json")
+	policyPath := filepath.Join(tmpDir, ".easyagent", "policy.json")
 
 	// Write a policy file
 	pf := &PolicyFile{Allowed: []string{"git"}}

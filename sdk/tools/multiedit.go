@@ -7,8 +7,8 @@ import (
 	"log/slog"
 	"strings"
 
-	"github.com/hwj123hwj/pi-go/sdk/agent"
-	"github.com/hwj123hwj/pi-go/sdk/operations"
+	"github.com/hwj123hwj/easyagent/sdk/agent"
+	"github.com/hwj123hwj/easyagent/sdk/operations"
 )
 
 // MultiEditTool performs multiple edits sequentially on the same file or across multiple files.

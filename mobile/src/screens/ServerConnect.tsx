@@ -1,7 +1,7 @@
 /**
  * ServerConnect.tsx — First-run server configuration screen
  *
- * On mobile, the Pi-Go app connects to a remote server. The user must
+ * On mobile, the EasyAgent app connects to a remote server. The user must
  * enter the server URL on first launch (stored in SecureStore).
  */
 
@@ -89,7 +89,7 @@ export function ServerConnect({ navigation }: ServerConnectProps) {
     >
       <View style={styles.inner}>
         <Text style={styles.logo}>🚀</Text>
-        <Text style={styles.title}>Pi-Go</Text>
+        <Text style={styles.title}>EasyAgent</Text>
         <Text style={styles.subtitle}>连接到你的服务器</Text>
 
         <TextInput

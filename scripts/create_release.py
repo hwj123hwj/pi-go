@@ -6,14 +6,14 @@ import sys
 import urllib.request
 import urllib.error
 
-REPO = "hwj123hwj/pi-go"
+REPO = "hwj123hwj/easyagent"
 TOKEN = open("/tmp/gh_token.txt").read().strip()
 
 # 1. Create release
 release_data = json.dumps({
     "tag_name": "v0.9.1",
     "target_commitish": "main",
-    "name": "Pi-Go Mobile v0.9.1 — Cleartext Traffic Fix",
+    "name": "EasyAgent Mobile v0.9.1 — Cleartext Traffic Fix",
     "body": "## 🔧 Fix: 无法连接服务器 (Network request failed)\n\n"
             "**Root cause:** Android 9+ 默认禁止所有 HTTP 明文流量。"
             "你的服务器 `http://8.141.97.21:8080` 使用 HTTP，"

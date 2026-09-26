@@ -2,7 +2,7 @@
 
 > 调研日期：2026-05-24
 > 来源：https://github.com/can1357/oh-my-pi
-> 调研目标：分析 omp 作为 pi-mono 最强 fork 的架构设计、功能特性、工程质量，评估对 pi-go 的借鉴价值
+> 调研目标：分析 omp 作为 pi-mono 最强 fork 的架构设计、功能特性、工程质量，评估对 EasyAgent 的借鉴价值
 
 ---
 
@@ -13,14 +13,14 @@
 | 项目 | 角色 | 技术栈 | 定位 |
 |------|------|--------|------|
 | **oh-my-pi (omp)** | 编码 Agent CLI | TypeScript + Rust (N-API) + Bun | "The most capable agent surface that ships" — 40+ provider, 32 内置工具, 13 LSP ops, 27 DAP ops, ~27k 行 Rust 核心 |
-| **pi-go** | 通用 Agent 框架 | Go | 可扩展 Agent 底座 + 可插拔应用层，当前 coding-agent |
+| **EasyAgent** | 通用 Agent 框架 | Go | 可扩展 Agent 底座 + 可插拔应用层，当前 coding-agent |
 
 ### 核心发现摘要
 
 1. **omp 是 pi-mono 的最大最强 fork**，在原 pi-mono 基础上增加了海量功能：Rust native 绑定、32 工具、LSP/DAP 集成、子 Agent 系统、Hashline 编辑、TTSR 流规则、Hindsight 记忆等。
 2. **Rust N-API 原生模块**是其最关键的架构决策：将 grep/find/glob/shell/PTY/text 处理等性能敏感操作下沉到 Rust，通过 napi-rs 暴露给 TypeScript，避免了 fork-exec 开销和平台差异。
-3. **omp 的扩展系统（Extension/Hook）比 pi-go 更成熟**：支持事件订阅、生命周期钩子、自定义工具、斜杠命令注册、Marketplace 插件管理，而 pi-go 的扩展系统还是 MVP 阶段。
-4. **创新功能密集度极高**：Hashline 编辑、TTSR 流规则、Subagent 任务系统、Hindsight 记忆、Internal URL 协议族、ACP 编辑器协议——这些都是 pi-go 完全没有的领域。
+3. **omp 的扩展系统（Extension/Hook）比 EasyAgent 更成熟**：支持事件订阅、生命周期钩子、自定义工具、斜杠命令注册、Marketplace 插件管理，而 EasyAgent 的扩展系统还是 MVP 阶段。
+4. **创新功能密集度极高**：Hashline 编辑、TTSR 流规则、Subagent 任务系统、Hindsight 记忆、Internal URL 协议族、ACP 编辑器协议——这些都是 EasyAgent 完全没有的领域。
 5. **工程质量优秀**：完善的 CI/CD、详细的文档（每个子系统都有独立文档）、规范的代码风格、约 27k 行 Rust + 大量 TypeScript 的代码量级。
 
 ---
@@ -48,7 +48,7 @@
 │  ├─ capability/ → 规则/提示/指令/工具能力发现                     │
 │  └─ discovery/ → 多 Agent 配置发现 (Cursor/Cline/Codex 等)      │
 ├──────────────────────────────────────────────────────────────┤
-│                    pi-agent-core                              │
+│                    easyagent-core                              │
 │  packages/agent/                                              │
 │  ├─ agent-loop.ts → 双层 Agent 循环                            │
 │  ├─ agent.ts → Agent 状态机                                   │
@@ -266,13 +266,13 @@ Agent 在运行时写入记忆（`retain`），跨会话读取（`recall`）：
 
 ---
 
-## 4. 与 pi-go 对比
+## 4. 与 EasyAgent 对比
 
 ### 架构理念对比
 
-| 维度 | oh-my-pi | pi-go | 评价 |
+| 维度 | oh-my-pi | EasyAgent | 评价 |
 |------|----------|-------|------|
-| 架构分层 | 扁平化，packages 按功能分 | 严格四层：Core → Platform → Application → Entrypoints | pi-go 更清晰，omp 更灵活 |
+| 架构分层 | 扁平化，packages 按功能分 | 严格四层：Core → Platform → Application → Entrypoints | EasyAgent 更清晰，omp 更灵活 |
 | 语言 | TypeScript + Rust (核心性能) | Go | 不同语言的架构权衡 |
 | 扩展系统 | Extension + Hook 双系统 | Extension 接口（MVP） | omp 更成熟 |
 | 工具数量 | 32 内置工具 | 7 内置工具 | omp 远超 |
@@ -285,7 +285,7 @@ Agent 在运行时写入记忆（`retain`），跨会话读取（`recall`）：
 
 ### 功能覆盖对比
 
-| 功能 | oh-my-pi | pi-go | 差距评估 |
+| 功能 | oh-my-pi | EasyAgent | 差距评估 |
 |------|----------|-------|----------|
 | 基础 7 工具 | ✅ 全部 + 扩展 | ✅ read/write/edit/bash/grep/find/ls | ✅ 基础对齐 |
 | 语义搜索 | ✅ `search` 工具 | ❌ 无 | **大差距** |
@@ -316,7 +316,7 @@ Agent 在运行时写入记忆（`retain`），跨会话读取（`recall`）：
 | OAuth 认证 | ✅ | ❌ 无 | **大差距** |
 | 待办事项 | ✅ todo-write | ❌ 无 | **大差距** |
 
-### pi-go 的优势
+### EasyAgent 的优势
 
 1. **架构更清晰**：严格的四层架构（Core → Platform → Application → Entrypoints），关注点分离更好。omp 的 packages 之间依赖关系更松散，但也更容易产生循环依赖。
 
@@ -326,11 +326,11 @@ Agent 在运行时写入记忆（`retain`），跨会话读取（`recall`）：
 
 4. **层间解耦更规范**：`runtime.Application` 接口实现了 Platform 与 Application 的严格分离。omp 的 sdk.ts 是过程式组装，没有接口约束。
 
-5. **依赖极简**：pi-go 以标准库为主，外部依赖少。omp 有大量 npm 依赖和 Rust crate 依赖。
+5. **依赖极简**：EasyAgent 以标准库为主，外部依赖少。omp 有大量 npm 依赖和 Rust crate 依赖。
 
-6. **跨语言桥接成本**：omp 需要维护 napi-rs 绑定层 + TypeScript 声明生成，构建链复杂（tsc → bun build → napi build）。pi-go 只需 `go build`。
+6. **跨语言桥接成本**：omp 需要维护 napi-rs 绑定层 + TypeScript 声明生成，构建链复杂（tsc → bun build → napi build）。EasyAgent 只需 `go build`。
 
-7. **Operations 抽象**：pi-go 的 `operations.Operations` 接口统一了本地/SSH 文件操作，比 omp 的工具直接操作文件系统更灵活。
+7. **Operations 抽象**：EasyAgent 的 `operations.Operations` 接口统一了本地/SSH 文件操作，比 omp 的工具直接操作文件系统更灵活。
 
 ---
 
@@ -340,14 +340,14 @@ Agent 在运行时写入记忆（`retain`），跨会话读取（`recall`）：
 
 | 优先级 | 特性/设计 | 迁移难度 | 预期收益 | 实现路径 |
 |--------|----------|----------|----------|---------|
-| **P0** | **语义搜索 (`search` 工具)** | 低 | **极高** | 在现有 `grep` + `find` 基础上，增加 BM25/向量搜索。实际 omp 的 search 工具就是 `src/tools/search.ts` + `src/tools/search-tool-bm25.ts`。pi-go 可以先用简单的 TF-IDF 实现，后续接入向量数据库 |
-| **P0** | **子 Agent 系统 (`task`)** | 中 | **极高** | 这是核心基础设施。pi-go 的 AgentSession 已经支持多会话，可以创建子 AgentSession 在独立 worktree 中运行。需要实现：Agent 定义发现、worktree 隔离、结构化输出合并 |
+| **P0** | **语义搜索 (`search` 工具)** | 低 | **极高** | 在现有 `grep` + `find` 基础上，增加 BM25/向量搜索。实际 omp 的 search 工具就是 `src/tools/search.ts` + `src/tools/search-tool-bm25.ts`。EasyAgent 可以先用简单的 TF-IDF 实现，后续接入向量数据库 |
+| **P0** | **子 Agent 系统 (`task`)** | 中 | **极高** | 这是核心基础设施。EasyAgent 的 AgentSession 已经支持多会话，可以创建子 AgentSession 在独立 worktree 中运行。需要实现：Agent 定义发现、worktree 隔离、结构化输出合并 |
 | **P1** | **Hashline 编辑** | 中 | **高** | 核心算法不复杂：计算每行哈希 → 模型引用哈希 → 应用到文件。关键文件 `hashline/hash.ts` + `hashline/apply.ts` 逻辑可移植。重点在于 prompt 设计和模型适配 |
-| **P1** | **Internal URL 协议** | 中 | **高** | pi-go 可以定义类似 `pi://` 协议族，用 Router 模式统一资源访问。对于已实现的 skill、session、artifact 等功能，提供统一 URL 接口 |
-| **P1** | **扩展系统完善** | 中 | **高** | pi-go 已有 Extension 接口 MVP，但缺少事件钩子（`beforeToolCall`/`afterToolCall`/`context` 等）、Marketplace 插件管理、能力发现机制。逐步补齐 |
-| **P1** | **MCP 客户端** | 中 | **高** | MCP 是 Agent 工具标准化协议。pi-go 需要实现 MCP JSON-RPC 传输层 + 工具桥接。可以参考 omp 的 `packages/coding-agent/src/mcp/` |
+| **P1** | **Internal URL 协议** | 中 | **高** | EasyAgent 可以定义类似 `pi://` 协议族，用 Router 模式统一资源访问。对于已实现的 skill、session、artifact 等功能，提供统一 URL 接口 |
+| **P1** | **扩展系统完善** | 中 | **高** | EasyAgent 已有 Extension 接口 MVP，但缺少事件钩子（`beforeToolCall`/`afterToolCall`/`context` 等）、Marketplace 插件管理、能力发现机制。逐步补齐 |
+| **P1** | **MCP 客户端** | 中 | **高** | MCP 是 Agent 工具标准化协议。EasyAgent 需要实现 MCP JSON-RPC 传输层 + 工具桥接。可以参考 omp 的 `packages/coding-agent/src/mcp/` |
 | **P2** | **配置发现兼容性** | 低 | **中** | 读取 `.claude/`、`.cursor/`、`.clinerules` 等已有配置。每个格式一个 provider，注册到能力发现系统 |
-| **P2** | **TTSR 流规则** | 中 | **中** | 需要在 Agent 循环的流式输出中插入监控点。pi-go 的 `Stream` 事件流已经支持事件，可以添加流监控钩子 |
+| **P2** | **TTSR 流规则** | 中 | **中** | 需要在 Agent 循环的流式输出中插入监控点。EasyAgent 的 `Stream` 事件流已经支持事件，可以添加流监控钩子 |
 | **P2** | **LSP 集成** | 高 | **高** | 需要 LSP 协议客户端实现（jsonrpc over stdio）、language server 管理、13 个操作的 tool 封装。工程量较大 |
 | **P2** | **代码执行沙箱** | 中 | **中** | Python REPL + Bun worker 的双执行引擎。可以通过 `bash` 工具 + 持久化会话实现基础版本 |
 | **P3** | **DAP 调试器** | 高 | **低-中** | 实现成本高，使用场景相对窄。可以作为长期储备 |
@@ -359,7 +359,7 @@ Agent 在运行时写入记忆（`retain`），跨会话读取（`recall`）：
 
 #### 第一阶段：基础设施补齐（1-2 个月）
 
-**目标**：让 pi-go 具备与 omp 竞争的基础能力集
+**目标**：让 EasyAgent 具备与 omp 竞争的基础能力集
 
 1. **语义搜索**（2 周）
    - 基于现有 grep 工具，增加 BM25 相关性排序

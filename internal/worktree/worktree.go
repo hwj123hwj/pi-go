@@ -10,6 +10,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/hwj123hwj/easyagent/sdk/config"
 )
 
 var ErrNotGitRepository = errors.New("not a git repository")
@@ -75,10 +77,10 @@ type DiscardResult struct {
 	BranchDeleted bool
 }
 
-// NewManager returns a manager with pi-go defaults.
+// NewManager returns a manager with easyagent defaults.
 func NewManager() *Manager {
 	return &Manager{
-		BranchPrefix: "pi-go/",
+		BranchPrefix: "easyagent/",
 		now:          time.Now,
 	}
 }
@@ -127,7 +129,7 @@ func (m *Manager) Create(ctx context.Context, opts CreateOptions) (*Info, error)
 
 	baseDir := m.BaseDir
 	if baseDir == "" {
-		baseDir = filepath.Join(sourceRoot, ".pi-go", "worktrees")
+		baseDir = filepath.Join(sourceRoot, config.HomeDirName, "worktrees")
 	}
 	if err := os.MkdirAll(baseDir, 0o755); err != nil {
 		return nil, fmt.Errorf("create worktree base dir: %w", err)
@@ -269,7 +271,7 @@ func (m *Manager) nowFunc() time.Time {
 
 func (m *Manager) branchPrefix() string {
 	if m == nil || m.BranchPrefix == "" {
-		return "pi-go/"
+		return "easyagent/"
 	}
 	return m.BranchPrefix
 }
@@ -365,7 +367,7 @@ func ensureInfoExclude(ctx context.Context, sourceRoot string) error {
 		return fmt.Errorf("create git exclude dir: %w", err)
 	}
 	existing, _ := os.ReadFile(excludePath)
-	line := ".pi-go/worktrees/"
+	line := filepath.ToSlash(filepath.Join(config.HomeDirName, "worktrees")) + "/"
 	if strings.Contains(string(existing), line) {
 		return nil
 	}

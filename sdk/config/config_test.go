@@ -11,7 +11,7 @@ import (
 
 func TestDefault(t *testing.T) {
 	cfg := Default()
-	assert.Equal(t, "pi-go", cfg.Name)
+	assert.Equal(t, "easyagent", cfg.Name)
 	assert.Equal(t, "127.0.0.1", cfg.Host)
 	assert.Equal(t, 8080, cfg.Port)
 	assert.Equal(t, "", cfg.Provider)
@@ -21,17 +21,17 @@ func TestDefault(t *testing.T) {
 func TestLoadFromEnv(t *testing.T) {
 	cfg := Default()
 
-	os.Setenv("PI_GO_PROVIDER", "openai")
+	os.Setenv("EA_PROVIDER", "openai")
 	os.Setenv("OPENAI_API_KEY", "test-key")
 	os.Setenv("OPENAI_MODEL", "gpt-4")
 	os.Setenv("OPENAI_BASE_URL", "https://api.test.com")
-	os.Setenv("PI_GO_PORT", "9090")
+	os.Setenv("EA_PORT", "9090")
 	defer func() {
-		os.Unsetenv("PI_GO_PROVIDER")
+		os.Unsetenv("EA_PROVIDER")
 		os.Unsetenv("OPENAI_API_KEY")
 		os.Unsetenv("OPENAI_MODEL")
 		os.Unsetenv("OPENAI_BASE_URL")
-		os.Unsetenv("PI_GO_PORT")
+		os.Unsetenv("EA_PORT")
 	}()
 
 	cfg.LoadFromEnv()
@@ -40,6 +40,18 @@ func TestLoadFromEnv(t *testing.T) {
 	assert.Equal(t, "gpt-4", cfg.OpenAIModel)
 	assert.Equal(t, "https://api.test.com", cfg.OpenAIBaseURL)
 	assert.Equal(t, 9090, cfg.Port)
+}
+
+func TestEnvPrefersNewPrefixAndFallsBackToLegacy(t *testing.T) {
+	t.Setenv("EA_PROVIDER", "openai")
+	t.Setenv("PI_GO_PROVIDER", "anthropic")
+	assert.Equal(t, "openai", Env("EA_PROVIDER"))
+
+	t.Setenv("EA_PROVIDER", "")
+	assert.Equal(t, "", Env("EA_PROVIDER"))
+
+	_ = os.Unsetenv("EA_PROVIDER")
+	assert.Equal(t, "anthropic", Env("EA_PROVIDER"))
 }
 
 func TestLoadDotEnv(t *testing.T) {

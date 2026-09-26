@@ -104,16 +104,16 @@ React Hooks 是 React 16.8 引入的新特性，允许在函数组件中使用 s
 	os.WriteFile(filepath.Join(tmpDir, "README.md"), []byte("# Repo\n"), 0644)
 
 	// ── project-journals ──
-	pjDir := filepath.Join(tmpDir, "project-journals", "pi-go")
+	pjDir := filepath.Join(tmpDir, "project-journals", "easyagent")
 	os.MkdirAll(pjDir, 0755)
-	os.WriteFile(filepath.Join(pjDir, "journal.md"), []byte(`# pi-go 开发日志
+	os.WriteFile(filepath.Join(pjDir, "journal.md"), []byte(`# easyagent 开发日志
 
 > 自动生成于 2026-06-24
 
 ## 2026-06-07
 
 ### 🎯 目标
-- 深度对比 pi-go 架构
+- 深度对比 easyagent 架构
 `), 0644)
 
 	return tmpDir

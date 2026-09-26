@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# build-android.sh — Build the Pi-Go Android APK.
+# build-android.sh — Build the EasyAgent Android APK.
 #
 # Prerequisites:
 #   1. Node.js 18+ and npm
@@ -22,7 +22,7 @@ DESKTOP_DIR="$PROJECT_ROOT/desktop"
 MODE="${1:-debug}"
 
 echo "╔══════════════════════════════════════════╗"
-echo "║   Pi-Go Android APK Builder ($MODE)       ║"
+echo "║   EasyAgent Android APK Builder ($MODE)       ║"
 echo "╚══════════════════════════════════════════╝"
 echo ""
 

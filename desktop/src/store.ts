@@ -1,9 +1,9 @@
 /**
- * store.ts — Single source of truth for the pi-go desktop renderer.
+ * store.ts — Single source of truth for the easyagent desktop renderer.
  *
- * Talks directly to the pi-go backend via REST (fetch) + WebSocket.
+ * Talks directly to the easyagent backend via REST (fetch) + WebSocket.
  * No IPC bridge — the renderer hits the HTTP server managed by Electron's
- * pi-go-manager directly.
+ * easyagent-manager directly.
  */
 
 import { create } from 'zustand';

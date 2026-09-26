@@ -1,5 +1,5 @@
 [Unit]
-Description=Pi-Go coding agent service
+Description=EasyAgent coding agent service
 After=network.target
 
 [Service]
@@ -8,7 +8,7 @@ User=root
 WorkingDirectory=__DEPLOY_PATH__/current
 EnvironmentFile=__DEPLOY_PATH__/shared/.env
 Environment=PI_AGENT_URL=http://127.0.0.1:8081
-ExecStart=__DEPLOY_PATH__/current/pi-agent -mode serve -listen 127.0.0.1:8081
+ExecStart=__DEPLOY_PATH__/current/easyagent -mode serve -listen 127.0.0.1:8081
 Restart=always
 RestartSec=3
 StandardOutput=journal

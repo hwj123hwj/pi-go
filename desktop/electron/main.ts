@@ -1,12 +1,12 @@
-// main.ts — Electron main process for pi-go desktop client.
+// main.ts — Electron main process for EasyAgent desktop client.
 import { app, BrowserWindow, ipcMain, shell, dialog } from 'electron';
 import * as path from 'path';
 import { spawn } from 'child_process';
-import { PiGoManager } from './pi-go-manager';
+import { EasyAgentManager } from './easyagent-manager';
 import { checkForUpdate } from './update-checker';
 
 let mainWindow: BrowserWindow | null = null;
-const piGoManager = new PiGoManager();
+const easyAgentManager = new EasyAgentManager();
 
 async function createWindow() {
   mainWindow = new BrowserWindow({
@@ -14,7 +14,7 @@ async function createWindow() {
     height: 800,
     minWidth: 800,
     minHeight: 600,
-    title: 'Pi-Go',
+    title: 'EasyAgent',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -38,18 +38,18 @@ async function createWindow() {
 
 // IPC handlers
 ipcMain.handle('get-server-url', () => {
-  const info = piGoManager.getServerInfo();
+  const info = easyAgentManager.getServerInfo();
   return info ? info.url : null;
 });
 
 ipcMain.handle('start-server', async () => {
   // If already started, return existing info
-  const existing = piGoManager.getServerInfo();
+  const existing = easyAgentManager.getServerInfo();
   if (existing) {
     return { url: existing.url, port: existing.port };
   }
   try {
-    const info = await piGoManager.start();
+    const info = await easyAgentManager.start();
     return { url: info.url, port: info.port };
   } catch (err: any) {
     return { error: err.message };
@@ -127,11 +127,11 @@ ipcMain.handle('open-external', async (_event, url: string) => {
 
 // App lifecycle
 app.whenReady().then(async () => {
-  // Start pi-go backend before creating window
+  // Start EasyAgent backend before creating window
   try {
-    await piGoManager.start();
+    await easyAgentManager.start();
   } catch (err) {
-    console.error('Failed to start pi-go server:', err);
+    console.error('Failed to start EasyAgent server:', err);
   }
 
   await createWindow();
@@ -150,5 +150,5 @@ app.on('window-all-closed', () => {
 });
 
 app.on('before-quit', async () => {
-  await piGoManager.stop();
+  await easyAgentManager.stop();
 });

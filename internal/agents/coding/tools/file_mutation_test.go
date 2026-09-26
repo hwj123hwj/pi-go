@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hwj123hwj/pi-go/sdk/agent"
+	"github.com/hwj123hwj/easyagent/sdk/agent"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

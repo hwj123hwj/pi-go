@@ -1,6 +1,6 @@
-# Pi-Go 文档中心
+# EasyAgent 文档中心
 
-> 本目录是 pi-go 项目的所有文档入口。按文档性质分目录组织，方便不同角色（调研/计划/审核/执行 agent）快速定位。
+> 本目录是 EasyAgent 项目的所有文档入口。按文档性质分目录组织，方便不同角色（调研/计划/审核/执行 agent）快速定位。
 
 ---
 
@@ -57,7 +57,7 @@ docs/
     ├── web-access/                    # Web 工具（已落地：web_fetch/web_search）
     ├── tui-bubbletea.md               # TUI 设计（已落地：tui/ 包）
     ├── llm-wiki-integration.md        # llm-wiki 集成设计（已落地：/wiki 命令）
-    ├── pi-go-analysis.md              # pi-go 深度分析（2026-05-25 历史快照）
+    ├── pi-go-analysis.md              # EasyAgent 深度分析（2026-05-25 历史快照）
     ├── code-review-suggestions.md     # 全面代码审查建议（历史快照）
     ├── easycode-memories.md           # EasyCode agent 记忆（误置于根目录，存档）
     ├── project-overview.md            # 项目概览（历史快照）
@@ -98,7 +98,7 @@ docs/
 | 文档 | 用途 |
 |------|------|
 | [skills-vs-application.md](decisions/skills-vs-application.md) | 什么时候用 Skills，什么时候拆成独立 Application |
-| [personal-assistant-roadmap.md](decisions/personal-assistant-roadmap.md) | pi-go 从编程助手演进为通用个人助手：多 agent + 记忆层（OpenViking）路线 |
+| [personal-assistant-roadmap.md](decisions/personal-assistant-roadmap.md) | EasyAgent 从编程助手演进为通用个人助手：多 agent + 记忆层（OpenViking）路线 |
 | [goal-compact-cross-framework.md](decisions/goal-compact-cross-framework.md) | `/goal` 与 `/compact` 的跨框架对比与采纳建议 |
 | [manual-compaction-design-analysis.md](decisions/manual-compaction-design-analysis.md) | `/compact` 手动上下文治理设计收敛文档 |
 | [deepvcode-essence-absorption.md](decisions/deepvcode-essence-absorption.md) | 基于 DeepV 对比得出的阶段性增强建议 |
@@ -110,14 +110,14 @@ docs/
 | 文档 | 内容 |
 |------|------|
 | [oh-my-pi-full-analysis.md](research/oh-my-pi-full-analysis.md) | oh-my-pi (omp) 全面分析：32 工具、Native Rust、TTSR、Subagent 等 |
-| [claude-code-plugins-hooks-analysis.md](research/claude-code-plugins-hooks-analysis.md) | Claude Code 插件生态、Hooks 系统与 pi-go 对比借鉴 |
-| [claude-code-system-prompt-analysis.md](research/claude-code-system-prompt-analysis.md) | Claude Code 系统提示构建方式与 pi-go 对比 |
+| [claude-code-plugins-hooks-analysis.md](research/claude-code-plugins-hooks-analysis.md) | Claude Code 插件生态、Hooks 系统与 EasyAgent 对比借鉴 |
+| [claude-code-system-prompt-analysis.md](research/claude-code-system-prompt-analysis.md) | Claude Code 系统提示构建方式与 EasyAgent 对比 |
 | [cc-haha-architecture-analysis.md](research/cc-haha-architecture-analysis.md) | cc-haha 桌面端架构与功能全景分析 |
 | [cc-haha-core-engine-analysis.md](research/cc-haha-core-engine-analysis.md) | cc-haha Agent 循环、Tool 系统、核心引擎源码深度分析 |
-| [cc-haha-web-fetch-analysis.md](research/cc-haha-web-fetch-analysis.md) | cc-haha(=Claude Code 官方) WebFetch 源码级分析，pi-go web_fetch 实现参照 |
+| [cc-haha-web-fetch-analysis.md](research/cc-haha-web-fetch-analysis.md) | cc-haha(=Claude Code 官方) WebFetch 源码级分析，EasyAgent web_fetch 实现参照 |
 | [codex-rust-cli-analysis.md](research/codex-rust-cli-analysis.md) | Codex Rust CLI 详细调研 |
 | [deepv-code-full-analysis.md](research/deepv-code-full-analysis.md) | DeepV Code 全面分析 |
-| [pi-go-enhancement-status.md](research/pi-go-enhancement-status.md) | pi-go P0-P2 增强落地状态（确认机制/循环检测/Hook/web_fetch/MicroCompact 的 commit 与 PR 索引） |
+| [pi-go-enhancement-status.md](research/pi-go-enhancement-status.md) | EasyAgent P0-P2 增强落地状态（确认机制/循环检测/Hook/web_fetch/MicroCompact 的 commit 与 PR 索引） |
 | ~~competitive-research.md~~ | *(已归档)* 阶段性竞品对比分析 |
 
 ## 开发文档
@@ -177,7 +177,7 @@ updated: YYYY-MM-DD
 | [web-access/](archive/web-access/spec.md) | Web 工具规格（已落地：sdk/tools/web_fetch、web_search） |
 | [tui-bubbletea.md](archive/tui-bubbletea.md) | TUI Bubble Tea 设计（已落地：internal/tui/） |
 | [llm-wiki-integration.md](archive/llm-wiki-integration.md) | llm-wiki 集成设计（已落地：/wiki 命令） |
-| [pi-go-analysis.md](archive/pi-go-analysis.md) | pi-go 深度分析（2026-05-25 快照，当时 65 个源文件） |
+| [pi-go-analysis.md](archive/pi-go-analysis.md) | EasyAgent 深度分析（2026-05-25 快照，当时 65 个源文件） |
 | [code-review-suggestions.md](archive/code-review-suggestions.md) | 全面代码审查建议（历史快照，路径为重构前） |
 | [easycode-memories.md](archive/easycode-memories.md) | EasyCode agent 记忆文件（原误置于仓库根目录） |
 | [project-overview.md](archive/project-overview.md) | 项目概览（历史快照） |

@@ -11,8 +11,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/hwj123hwj/pi-go/sdk/ai"
-	"github.com/hwj123hwj/pi-go/sdk/ai/providers"
+	"github.com/hwj123hwj/easyagent/sdk/ai"
+	"github.com/hwj123hwj/easyagent/sdk/ai/providers"
 )
 
 // GoalEvalResult is the structured output from the goal completion evaluator.
@@ -33,7 +33,7 @@ func goalLog(format string, args ...interface{}) {
 	goalLogMu.Lock()
 	defer goalLogMu.Unlock()
 	if goalLogFile == nil {
-		path := filepath.Join(os.TempDir(), "pi-goal-debug.log")
+		path := filepath.Join(os.TempDir(), "easyagental-debug.log")
 		f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 		if err != nil {
 			return

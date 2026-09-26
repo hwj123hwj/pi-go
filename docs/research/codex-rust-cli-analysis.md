@@ -2,7 +2,7 @@
 
 > 调研日期：2025-05-24
 > 来源：本地仓库 `/Users/weijian/Desktop/develop/test/pi/codex`（GitHub: `openai/codex`）
-> 调研目标：深入分析 Codex CLI 的 Rust 实现架构，对比 pi-go 的设计，提炼可迁移的模式
+> 调研目标：深入分析 Codex CLI 的 Rust 实现架构，对比 EasyAgent 的设计，提炼可迁移的模式
 
 ---
 
@@ -13,11 +13,11 @@
 | 项目 | 角色 | 技术栈 | 定位 |
 |------|------|--------|------|
 | Codex CLI | OpenAI 官方编码 Agent | Rust (90+ crate workspace) | 本地运行的 AI 编码助手，强调安全沙箱和多客户端支持 |
-| pi-go | 我们的 Agent 框架 | Go | 通用 Agent 底座 + coding-agent 应用层 |
+| EasyAgent | 我们的 Agent 框架 | Go | 通用 Agent 底座 + coding-agent 应用层 |
 
 ### 核心发现摘要
 
-1. **单层 Turn 循环**：不同于 pi-go 的双层循环，Codex 采用单层 Turn 循环，Turn 内部通过采样循环处理多轮工具调用
+1. **单层 Turn 循环**：不同于 EasyAgent 的双层循环，Codex 采用单层 Turn 循环，Turn 内部通过采样循环处理多轮工具调用
 2. **Responses API + WebSocket 优先**：使用 OpenAI Responses API（非 Chat Completions），优先 WebSocket 连接，失败自动回退 HTTP
 3. **90+ crate 的超细粒度模块化**：每个功能领域都是独立 crate，`codex-core` 是最大的但也被明确要求"抵制膨胀"
 4. **跨平台沙箱是核心卖点**：macOS Seatbelt + Linux Landlock+Seccomp+Bubblewrap + Windows RestrictedToken，三层安全模型
@@ -70,7 +70,7 @@
 
 ### Agent 循环
 
-Codex 的 Agent 循环是**单层 Turn 循环**，与 pi-go 的双层循环不同：
+Codex 的 Agent 循环是**单层 Turn 循环**，与 EasyAgent 的双层循环不同：
 
 ```
 ThreadManager
@@ -87,7 +87,7 @@ ThreadManager
 ```
 
 **关键差异**：
-- pi-go：外层循环处理 follow-up，内层循环处理 tool call，职责分离
+- EasyAgent：外层循环处理 follow-up，内层循环处理 tool call，职责分离
 - Codex：单层采样循环，Turn 内部通过 `needs_follow_up` 标志控制是否继续
 
 ### 消息流转
@@ -435,18 +435,18 @@ SubagentStart / SubagentStop
 
 ---
 
-## 4. 与 pi-go 对比
+## 4. 与 EasyAgent 对比
 
 ### 架构理念对比
 
-| 维度 | Codex CLI | pi-go | 评价 |
+| 维度 | Codex CLI | EasyAgent | 评价 |
 |------|-----------|-------|------|
 | **语言** | Rust | Go | Rust 更安全但门槛高，Go 更简洁 |
 | **模块化** | 90+ crate 超细粒度 | ~10 package 适度粒度 | Codex 更灵活但复杂度高 |
-| **Agent 循环** | 单层 Turn 循环 | 双层循环（follow-up + tool call） | pi-go 职责分离更清晰 |
-| **LLM API** | Responses API（WebSocket 优先） | 多 Provider 统一 API | pi-go 更通用，Codex 更深度集成 OpenAI |
+| **Agent 循环** | 单层 Turn 循环 | 双层循环（follow-up + tool call） | EasyAgent 职责分离更清晰 |
+| **LLM API** | Responses API（WebSocket 优先） | 多 Provider 统一 API | EasyAgent 更通用，Codex 更深度集成 OpenAI |
 | **工具系统** | ToolExecutor trait + CoreToolRuntime | Tool 泛型 + Operations 接口 | 思路相似，Codex 更多内置工具 |
-| **沙箱** | 跨平台三层沙箱 | 无内置沙箱（依赖外部） | Codex 安全性远超 pi-go |
+| **沙箱** | 跨平台三层沙箱 | 无内置沙箱（依赖外部） | Codex 安全性远超 EasyAgent |
 | **配置** | TOML 多层堆栈 | JSON 配置 | Codex 更灵活 |
 | **TUI** | Ratatui 事件驱动 | pi-tui Elm/MVU | 架构风格不同，各有优劣 |
 | **Server** | JSON-RPC 2.0（4 种传输） | HTTP REST + SSE | Codex 更丰富 |
@@ -455,10 +455,10 @@ SubagentStart / SubagentStop
 
 ### 功能覆盖对比
 
-| 功能 | Codex CLI | pi-go | 差距评估 |
+| 功能 | Codex CLI | EasyAgent | 差距评估 |
 |------|-----------|-------|----------|
-| 多 Provider LLM | OpenAI 深度集成 | 多 Provider 抽象 | pi-go 更通用 |
-| Agent 双层循环 | 单层 Turn 循环 | 外层 follow-up + 内层 tool call | pi-go 设计更清晰 |
+| 多 Provider LLM | OpenAI 深度集成 | 多 Provider 抽象 | EasyAgent 更通用 |
+| Agent 双层循环 | 单层 Turn 循环 | 外层 follow-up + 内层 tool call | EasyAgent 设计更清晰 |
 | 内置工具 | 18+ 工具 | 7 工具 | Codex 工具集更丰富 |
 | 沙箱安全 | 三层跨平台沙箱 | 无 | **Codex 压倒性优势** |
 | 执行策略 | 规则引擎 + 启发式 | 工具过滤 | Codex 更精细 |
@@ -471,17 +471,17 @@ SubagentStart / SubagentStop
 | 记忆系统 | 两阶段 + Git 版本控制 | 无 | Codex 领先 |
 | 多 Agent | multi_agents 工具 | 无 | Codex 领先 |
 | 上下文压缩 | Mid-turn + Pre-turn + Remote | LLM 摘要 + 保留最近消息 | Codex 更多样 |
-| 会话持久化 | SQLite + JSONL rollout | JSONL 树状存储 | 各有特色，pi-go 支持分支 |
+| 会话持久化 | SQLite + JSONL rollout | JSONL 树状存储 | 各有特色，EasyAgent 支持分支 |
 | 认证 | ChatGPT OAuth + API Key | API Key | Codex 更便利 |
 | 可观测性 | OTEL 集成 | 基础日志 | Codex 更完善 |
 
-### pi-go 的优势
+### EasyAgent 的优势
 
-1. **多 Provider 通用性**：pi-go 的统一 LLM API 抽象（Provider 注册制 + 懒加载）比 Codex 深度绑定 OpenAI 更灵活
+1. **多 Provider 通用性**：EasyAgent 的统一 LLM API 抽象（Provider 注册制 + 懒加载）比 Codex 深度绑定 OpenAI 更灵活
 2. **双层循环设计**：外层 follow-up + 内层 tool call 的职责分离比 Codex 的单层循环更清晰
 3. **树状会话存储**：JSONL 树状存储支持分支和 MoveTo，比 Codex 的线性 rollout 更灵活
 4. **Go 语言优势**：单二进制分发、编译速度快、goroutine 并发模型简洁
-5. **SSH 远程执行**：pi-go 内置 SSH Operations 支持远程执行，Codex 无此能力
+5. **SSH 远程执行**：EasyAgent 内置 SSH Operations 支持远程执行，Codex 无此能力
 6. **Application 接口解耦**：runtime.Application 接口实现了 Platform 与 Application 的彻底解耦
 7. **更简洁的架构**：~10 个 package vs 90+ crate，更易理解和维护
 

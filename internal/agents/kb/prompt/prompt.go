@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/hwj123hwj/pi-go/sdk/agent"
-	"github.com/hwj123hwj/pi-go/internal/profile"
+	"github.com/hwj123hwj/easyagent/sdk/agent"
+	"github.com/hwj123hwj/easyagent/internal/profile"
 )
 
 // Options configures the kb-agent system prompt.

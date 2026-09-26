@@ -1,5 +1,5 @@
 /**
- * App.tsx — Root component for Pi-Go mobile (React Native / Expo)
+ * App.tsx — Root component for EasyAgent mobile (React Native / Expo)
  *
  * RN Best Practices applied:
  * - js-atomic-state: Fine-grained Zustand selectors (no broad re-renders)

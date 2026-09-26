@@ -5,7 +5,7 @@ package mcp
 // 配置格式与 hwjcode / Claude Desktop 兼容。每个 MCP 服务器用名字做 key，
 // 配置内容包含 command+args+env（stdio 传输）或 url（SSE / HTTP 传输）。
 //
-// 配置文件示例（.pi-go/mcp.json）：
+// 配置文件示例（.easyagent/mcp.json）：
 //
 //	{
 //	  "mcpServers": {
@@ -118,7 +118,7 @@ func LoadConfig(path string) (*MCPConfigFile, error) {
 }
 
 // LoadConfigFromDir 在给定目录下查找 mcp.json 并加载。
-// 典型用法：LoadConfigFromDir(".pi-go") → 查找 .pi-go/mcp.json。
+// 典型用法：LoadConfigFromDir(".easyagent") → 查找 .easyagent/mcp.json。
 func LoadConfigFromDir(dir string) (*MCPConfigFile, error) {
 	path := filepath.Join(dir, "mcp.json")
 	if _, err := os.Stat(path); os.IsNotExist(err) {

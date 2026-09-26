@@ -1,6 +1,6 @@
 # 架构设计
 
-> 本文档面向开发者和贡献者，描述 pi-go 的四层架构和模块划分。
+> 本文档面向开发者和贡献者，描述 EasyAgent 的四层架构和模块划分。
 
 ---
 
@@ -9,7 +9,7 @@
 ```
 ┌─────────────────────────────────────────────────────┐
 │  Entrypoints（组装与入口）                           │
-│  cmd/pi-agent  cmd/pi-feishu-bridge                  │
+│  cmd/easyagent  cmd/easyagent-bridge                  │
 ├─────────────────────────────────────────────────────┤
 │  Application（领域应用层，可插拔）                    │
 │  agents/coding/ — 工具集、提示、命令、Profile        │
@@ -97,7 +97,7 @@
 
 1. 在 `internal/agents/` 下创建新目录
 2. 实现 `runtime.Application` 接口
-3. 在 `cmd/pi-agent/main.go` 中注册
+3. 在 `cmd/easyagent/main.go` 中注册
 4. Core 层零改动
 
 ```go

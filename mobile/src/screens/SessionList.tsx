@@ -78,7 +78,7 @@ export function SessionList({ navigation }: SessionListProps) {
   return (
     <SafeArea style={styles.container} edges={['top']} collapsable={false}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Pi-Go</Text>
+        <Text style={styles.headerTitle}>EasyAgent</Text>
         <TouchableOpacity onPress={() => setShowNewMenu(true)} style={styles.newBtn}>
           <Text style={styles.newBtnText}>＋</Text>
         </TouchableOpacity>

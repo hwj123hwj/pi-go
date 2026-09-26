@@ -1,9 +1,9 @@
 package coding
 
 import (
-	codingtools "github.com/hwj123hwj/pi-go/internal/agents/coding/tools"
-	codingcommands "github.com/hwj123hwj/pi-go/internal/agents/coding/commands"
-	"github.com/hwj123hwj/pi-go/sdk/slashcmd"
+	codingtools "github.com/hwj123hwj/easyagent/internal/agents/coding/tools"
+	codingcommands "github.com/hwj123hwj/easyagent/internal/agents/coding/commands"
+	"github.com/hwj123hwj/easyagent/sdk/slashcmd"
 )
 
 func BaseToolNames(enableBash bool) []string {

@@ -1,6 +1,6 @@
-# Pi-Go 飞书 Bot 接入参考文档
+# EasyAgent 飞书 Bot 接入参考文档
 
-> 基于 DeepVcodeClient 的飞书集成经验总结，供 pi-go 对接飞书时复用。
+> 基于 DeepVcodeClient 的飞书集成经验总结，供 EasyAgent 对接飞书时复用。
 > 参考实现：`DeepVcodeClient/packages/cli/src/services/feishu/` 和 `easyagent/src/easyagent/gateway/feishu_oapi.py`
 >
 > **最后更新**: 2025-05，补充了卡片回调、用户交互、动态工具、流式消息等实战踩坑经验。
@@ -25,7 +25,7 @@
 | **WebSocket 长连接** | 通过飞书 SDK 建立 WS，自动接收事件推送 | 服务端长驻进程，推荐 |
 | **Webhook 回调** | 配置飞书开放平台事件回调 URL，POST 接收 | 已有 HTTP 服务的场景 |
 
-对 pi-go 来说，**推荐用 WebSocket 方式**，因为 pi-go 本身是长驻进程，和 WS 长连接生命周期匹配。也可以单独启动一个桥接进程通过 pi-go 的 HTTP API 调用。
+对 EasyAgent 来说，**推荐用 WebSocket 方式**，因为 EasyAgent 本身是长驻进程，和 WS 长连接生命周期匹配。也可以单独启动一个桥接进程通过 EasyAgent 的 HTTP API 调用。
 
 > ⚠️ **关键限制：WS 长连接只支持事件订阅，不支持回调订阅。**
 >
@@ -160,7 +160,7 @@ POST https://open.feishu.cn/open-apis/im/v1/messages?receive_id_type=chat_id
 {"receive_id": "oc_xxx", "msg_type": "file", "content": "{\"file_key\":\"file_xxx\"}"}
 ```
 
-> **建议**：在 pi-go 中实现为 Agent 工具（如 `send_feishu_file`），让 LLM 可以主动发送生成的文件给用户。
+> **建议**：在 EasyAgent 中实现为 Agent 工具（如 `send_feishu_file`），让 LLM 可以主动发送生成的文件给用户。
 
 ### Bot 信息查询
 
@@ -315,7 +315,7 @@ func (g *Gateway) WaitForTextChoice(chatId, title string, buttons []Button, defa
 }
 ```
 
-> **备选方案**：如果 pi-go 部署时能配 Webhook 回调 URL，可以同时支持真正的卡片交互。但 WS 模式下文本选择是唯一可靠方案。
+> **备选方案**：如果 EasyAgent 部署时能配 Webhook 回调 URL，可以同时支持真正的卡片交互。但 WS 模式下文本选择是唯一可靠方案。
 
 ### 8. 动态工具注册/注销
 
@@ -370,14 +370,14 @@ gateway.UpdateMessage(msgId, fullResponse)
 
 ---
 
-## pi-go 推荐实现方案
+## EasyAgent 推荐实现方案
 
 ### 方案一：内部集成（内置 module）
 
-在 pi-go 内部新增 `internal/feishu/` 包，serve 模式下同时启动飞书网关。
+在 EasyAgent 内部新增 `internal/feishu/` 包，serve 模式下同时启动飞书网关。
 
 ```
-pi-go serve 模式
+easyagent serve 模式
   ├─ HTTP Server (:8080) — 已有
   └─ Feishu Gateway — 新增
        ├─ WSClient 连接飞书
@@ -389,16 +389,16 @@ pi-go serve 模式
 
 ### 方案二：独立桥接进程（推荐）
 
-新增 `cmd/pi-feishu-bridge/main.go`，作为独立进程通过 pi-go HTTP API 对接。
+新增 `cmd/easyagent-bridge/main.go`，作为独立进程通过 EasyAgent HTTP API 对接。
 
 ```
-pi-go serve (:8080)        ←→   pi-feishu-bridge    ←→   飞书
+easyagent serve (:8080)        ←→   easyagent-bridge    ←→   飞书
   (HTTP SSE /chat/stream)        (feishu gateway)        (WS 长连接)
 ```
 
 **优势**：
 - 职责分离，一个 bridge 可对接多个 Bot（不同 App ID）
-- bridge 出问题不影响 pi-go 主进程
+- bridge 出问题不影响 EasyAgent 主进程
 - 支持多项目：每个项目启动一个 bridge，连接不同的 Bot
 
 ### API 调用方式

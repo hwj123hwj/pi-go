@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hwj123hwj/pi-go/sdk/workflow"
+	"github.com/hwj123hwj/easyagent/sdk/workflow"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

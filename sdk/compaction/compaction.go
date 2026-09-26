@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/hwj123hwj/pi-go/sdk/ai"
+	"github.com/hwj123hwj/easyagent/sdk/ai"
 )
 
 // Settings 控制上下文压缩行为。

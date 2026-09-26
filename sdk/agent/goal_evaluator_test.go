@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/hwj123hwj/pi-go/sdk/ai"
-	"github.com/hwj123hwj/pi-go/sdk/ai/providers"
+	"github.com/hwj123hwj/easyagent/sdk/ai"
+	"github.com/hwj123hwj/easyagent/sdk/ai/providers"
 )
 
 // mockEvalProvider returns a fixed text response for testing goal evaluation.

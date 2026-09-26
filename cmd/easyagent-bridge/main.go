@@ -6,15 +6,27 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 
-	"github.com/hwj123hwj/pi-go/internal/feishu"
+	"github.com/hwj123hwj/easyagent/internal/appdir"
+	"github.com/hwj123hwj/easyagent/internal/feishu"
+	"github.com/hwj123hwj/easyagent/sdk/config"
 	"github.com/joho/godotenv"
 )
 
 func main() {
-	// Auto-load .env (ignore error — file may not exist in production)
-	_ = godotenv.Load()
+	if err := appdir.MigrateLegacyHome(); err != nil {
+		slog.Error("cannot migrate EasyAgent data directory", "error", err)
+		os.Exit(1)
+	}
+	// Load the configured or standard .env file (ignore missing files).
+	envFile := config.Env("EA_ENV_FILE")
+	if envFile != "" {
+		_ = godotenv.Load(envFile)
+	} else {
+		_ = godotenv.Load(".env", filepath.Join(config.HomeDir(), ".env"))
+	}
 
 	appID := os.Getenv("FEISHU_APP_ID")
 	appSecret := os.Getenv("FEISHU_APP_SECRET")
@@ -39,7 +51,7 @@ func main() {
 	}
 
 	piAgentURL := os.Getenv("PI_AGENT_URL")
-	workspace := os.Getenv("PI_GO_WORKSPACE")
+	workspace := config.Env("EA_WORKSPACE")
 	callbackURL := os.Getenv("BRIDGE_CALLBACK_URL")
 	callbackAddr := os.Getenv("BRIDGE_CALLBACK_ADDR")
 
@@ -56,7 +68,7 @@ func main() {
 		callbackAddr = ":9090"
 	}
 
-	slog.Info("starting pi-feishu-bridge",
+	slog.Info("starting easyagent-bridge",
 		"piAgentURL", piAgentURL,
 		"workspace", workspace,
 		"callbackURL", callbackURL,
@@ -87,7 +99,7 @@ func main() {
 			}
 		}()
 
-		// Register tool with pi-agent
+		// Register tool with easyagent
 		fullCallbackURL := callbackURL + "/tool-callback"
 		if err := feishu.RegisterTool(piAgentURL, fullCallbackURL); err != nil {
 			slog.Warn("failed to register tool (will work without agent tool)", "error", err)
@@ -112,5 +124,5 @@ func main() {
 		slog.Error("gateway stopped", "error", err)
 	}
 
-	slog.Info("pi-feishu-bridge exited")
+	slog.Info("easyagent-bridge exited")
 }

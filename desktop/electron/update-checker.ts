@@ -3,7 +3,7 @@
 // since the app is unsigned and electron-updater auto-install won't work.
 import { app, net } from 'electron';
 
-const REPO = 'hwj123hwj/pi-go';
+const REPO = 'hwj123hwj/easyagent';
 
 export interface UpdateInfo {
   version: string;

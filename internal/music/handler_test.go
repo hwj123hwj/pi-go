@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/hwj123hwj/pi-go/internal/music/netease"
+	"github.com/hwj123hwj/easyagent/internal/music/netease"
 )
 
 // testRouter creates a minimal SourceRouter with a netease adapter for testing.

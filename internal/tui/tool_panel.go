@@ -20,7 +20,7 @@ import (
 // Expanded (Ctrl+O toggle):
 // ┌─ 🔧 bash ────────────────────── ✓ 1.2s ▾ ─┐
 // │ go test ./internal/tools/                   │
-// │ ok  github.com/hwj123hwj/pi-go/...          │
+// │ ok  github.com/hwj123hwj/easyagent/...          │
 // └─────────────────────────────────────────────┘
 type ToolPanel struct {
 	info  ToolCallInfo

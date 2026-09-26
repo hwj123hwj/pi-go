@@ -220,7 +220,7 @@ const (
 	MCPProtocolVersion = "2024-11-05"
 
 	// MCPClientName 是本客户端在 initialize 握手中报告的名称。
-	MCPClientName = "pi-go-mcp-client"
+	MCPClientName = "easyagent-mcp-client"
 
 	// MCPClientVersion 是本客户端报告的版本。
 	MCPClientVersion = "1.0.0"

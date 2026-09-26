@@ -2,7 +2,7 @@
 
 > 调研日期：2026-05-24
 > 来源：本地路径 `/Users/weijian/Desktop/develop/test/pi/cc-haha`，GitHub: [NanmiCoder/cc-haha](https://github.com/NanmiCoder/cc-haha)
-> 调研目标：cc-haha 是基于 Anthropic npm registry 泄露的 Claude Code 源码修复而来的桌面端工作台，分析其架构设计、功能特性，对比 pi-go 评估迁移价值
+> 调研目标：cc-haha 是基于 Anthropic npm registry 泄露的 Claude Code 源码修复而来的桌面端工作台，分析其架构设计、功能特性，对比 EasyAgent 评估迁移价值
 
 ---
 
@@ -13,15 +13,15 @@
 | 项目 | 角色 | 技术栈 | 定位 |
 |------|------|--------|------|
 | cc-haha | Claude Code 桌面工作台（修复版） | TypeScript/Bun + Tauri(Rust) + React/Zustand | 把 Claude Code CLI 包装为桌面 APP：多会话、多项目、分支/Worktree、代码 Diff、权限审批、IM 接入、Computer Use、定时任务 |
-| pi-go | 我们的 Agent 框架 | Go | 通用 Agent 底座 + coding-agent 应用层，面向终端和 server 场景 |
+| EasyAgent | 我们的 Agent 框架 | Go | 通用 Agent 底座 + coding-agent 应用层，面向终端和 server 场景 |
 
 ### 核心发现摘要
 
-1. **cc-haha 不是独立框架，而是 Claude Code 源码的修复版**——它继承的是 Anthropic 官方 Claude Code 的全部架构：Ink React TUI、Anthropic SDK、自定义 Agent 循环。与此对比，pi-go 是独立从零实现的 Agent 框架。
-2. **桌面端是核心差异点**：cc-haha 用 Tauri (Rust + WebView) 将 CLI 包装为 macOS/Windows 桌面 APP，提供多会话工作台、可视化 Diff、权限审批面板等。pi-go 也有桌面端（Electron + React + Vite），但功能丰富度不如 cc-haha。
-3. **IM 接入体系**：支持 Telegram/飞书/微信/钉钉四种 IM 渠道远程操控 Agent 会话，通过 `adapters/` 独立进程 + 本地 HTTP/WS API 对接。pi-go 无此能力。
-4. **Provider 代理层**：内置协议转换代理（Anthropic Messages ↔ OpenAI Chat/Responses），支持非 Anthropic 模型（DeepSeek/Ollama/OpenAI）作为后端。pi-go 的 Provider 抽象层设计更干净但缺少协议转换。
-5. **多 Agent 系统和 Agent SDK 集成**：支持 Agent Teams（多 Agent 编排）、Fork Subagent（子 Agent 分支）、Coordinator Mode（协调器模式）。pi-go 规划中有类似能力但尚未实现。
+1. **cc-haha 不是独立框架，而是 Claude Code 源码的修复版**——它继承的是 Anthropic 官方 Claude Code 的全部架构：Ink React TUI、Anthropic SDK、自定义 Agent 循环。与此对比，EasyAgent 是独立从零实现的 Agent 框架。
+2. **桌面端是核心差异点**：cc-haha 用 Tauri (Rust + WebView) 将 CLI 包装为 macOS/Windows 桌面 APP，提供多会话工作台、可视化 Diff、权限审批面板等。EasyAgent 也有桌面端（Electron + React + Vite），但功能丰富度不如 cc-haha。
+3. **IM 接入体系**：支持 Telegram/飞书/微信/钉钉四种 IM 渠道远程操控 Agent 会话，通过 `adapters/` 独立进程 + 本地 HTTP/WS API 对接。EasyAgent 无此能力。
+4. **Provider 代理层**：内置协议转换代理（Anthropic Messages ↔ OpenAI Chat/Responses），支持非 Anthropic 模型（DeepSeek/Ollama/OpenAI）作为后端。EasyAgent 的 Provider 抽象层设计更干净但缺少协议转换。
+5. **多 Agent 系统和 Agent SDK 集成**：支持 Agent Teams（多 Agent 编排）、Fork Subagent（子 Agent 分支）、Coordinator Mode（协调器模式）。EasyAgent 规划中有类似能力但尚未实现。
 
 ---
 
@@ -93,14 +93,14 @@ export type Tool<
 }
 ```
 
-与 pi-go 的对比：
-- 两者都使用泛型设计 + schema 校验（cc-haha 用 Zod v4 vs pi-go 用 TypeBox）
+与 EasyAgent 的对比：
+- 两者都使用泛型设计 + schema 校验（cc-haha 用 Zod v4 vs EasyAgent 用 TypeBox）
 - cc-haha 多了 `isConcurrencySafe`/`isReadOnly`/`isDestructive`/`shouldDefer` 等细粒度控制
 - cc-haha 有 `onProgress` 回调用于流式进度通知
 
 #### QueryEngine（`src/QueryEngine.ts:186`）
 
-这是 Agent 循环的核心封装，接收配置（tools/commands/mcpClients/canUseTool 等）、管理消息、执行 `submitMessage()` 生成器方法。相当于 pi-go 中 `agent-loop.ts` 的升级版——它整合了系统提示构建、用户输入处理、slash command 处理、file history、memory 加载等完整流程。
+这是 Agent 循环的核心封装，接收配置（tools/commands/mcpClients/canUseTool 等）、管理消息、执行 `submitMessage()` 生成器方法。相当于 EasyAgent 中 `agent-loop.ts` 的升级版——它整合了系统提示构建、用户输入处理、slash command 处理、file history、memory 加载等完整流程。
 
 cc-haha 的重要特点是**没有独立分层的 Agent 循环模块**——Agent 循环逻辑散布在 `QueryEngine.submitMessage()`、`query.ts`、`utils/processUserInput/` 等多个文件中，与 Claude Code 的业务逻辑高度耦合。
 
@@ -178,7 +178,7 @@ src/server/proxy/
     └── openaiResponsesStreamToAnthropic.ts
 ```
 
-**对 pi-go 的启示**：pi-go 的 Provider 抽象（`internal/ai/providers/`）已经设计了统一接口，但缺少协议转换层。如果 pi-go 需要支持更多模型（如 DeepSeek），可以借鉴此代理模式。
+**对 EasyAgent 的启示**：EasyAgent 的 Provider 抽象（`internal/ai/providers/`）已经设计了统一接口，但缺少协议转换层。如果 EasyAgent 需要支持更多模型（如 DeepSeek），可以借鉴此代理模式。
 
 #### 2. IM 接入体系（`adapters/`）
 
@@ -202,7 +202,7 @@ adapters/
 
 数据流：`IM Message → Adapter → Server REST API → Agent Session`
 
-**对 pi-go 的启示**：pi-go 目前完全是终端应用，无 IM 接入。如果规划中需要，可借鉴 adapter 模式，但需要先建立 Server API 层。
+**对 EasyAgent 的启示**：EasyAgent 目前完全是终端应用，无 IM 接入。如果规划中需要，可借鉴 adapter 模式，但需要先建立 Server API 层。
 
 #### 3. 多 Agent 系统
 
@@ -216,30 +216,30 @@ Agent 定义存储在 `~/.claude/agents/` 目录下，支持内置和自定义�
 
 ---
 
-## 4. 与 pi-go 对比
+## 4. 与 EasyAgent 对比
 
 ### 架构理念对比
 
-| 维度 | cc-haha (Claude Code) | pi-go | 评价 |
+| 维度 | cc-haha (Claude Code) | EasyAgent | 评价 |
 |------|----------------------|-------|------|
-| 框架独立性 | 高度耦合 Claude Code 业务 | 通用 Agent 底座 + 可插拔应用层 | pi-go 更胜一筹 |
+| 框架独立性 | 高度耦合 Claude Code 业务 | 通用 Agent 底座 + 可插拔应用层 | EasyAgent 更胜一筹 |
 | 语言 | TypeScript + Bun | Go | 各有利弊 |
 | UI | Ink React TUI + Tauri Desktop | 终端文本输出 | cc-haha 丰富得多 |
-| LLM Provider | Anthropic SDK + 协议转换代理 | 统一 Provider 抽象（Anthropic/OpenAI/Mock/DeepV） | pi-go 抽象更干净 |
+| LLM Provider | Anthropic SDK + 协议转换代理 | 统一 Provider 抽象（Anthropic/OpenAI/Mock/DeepV） | EasyAgent 抽象更干净 |
 | 工具系统 | Tool 接口 + Zod schema | AgentTool 泛型 + TypeBox schema | 设计思路相似 |
-| Agent 循环 | QueryEngine + 隐性循环 | 显式双层循环（外层 follow-up + 内层 tool call） | pi-go 结构更清晰 |
+| Agent 循环 | QueryEngine + 隐性循环 | 显式双层循环（外层 follow-up + 内层 tool call） | EasyAgent 结构更清晰 |
 | 可扩展性 | 插件/钩子/Skills/Extension | Extension 接口 + Skill 系统 | 各有特色 |
-| 桌面端 | Tauri (React) | Electron + React + Vite (`desktop/`) | 各有千秋：cc-haha 的 Tauri (Rust) 更轻量，pi-go 的 Electron 生态更成熟 |
-| 远程执行 | SSH + Bridge (远程 Cloud 会话) | SSH Operations 接口 | pi-go 有基础能力 |
+| 桌面端 | Tauri (React) | Electron + React + Vite (`desktop/`) | 各有千秋：cc-haha 的 Tauri (Rust) 更轻量，EasyAgent 的 Electron 生态更成熟 |
+| 远程执行 | SSH + Bridge (远程 Cloud 会话) | SSH Operations 接口 | EasyAgent 有基础能力 |
 | 会话存储 | JSONL 树状 | JSONL 树状 | 设计一致 |
 | 上下文压缩 | 四级渐进式压缩 | LLM 摘要 + 保留最近消息 | cc-haha 更精细 |
 | MCP 支持 | 内置 | 规划中 | cc-haha 领先 |
 
 ### 功能覆盖对比
 
-| 功能 | cc-haha | pi-go | 差距评估 |
+| 功能 | cc-haha | EasyAgent | 差距评估 |
 |------|---------|-------|----------|
-| 统一 LLM API | ✅ Anthropic SDK 直接调用 | ✅ 多 Provider 抽象 | pi-go 抽象更好 |
+| 统一 LLM API | ✅ Anthropic SDK 直接调用 | ✅ 多 Provider 抽象 | EasyAgent 抽象更好 |
 | Agent 双层循环 | ✅ QueryEngine | ✅ agent-loop.ts | 结构不同，均可 |
 | 7 个内置工具 | ✅ (read/write/edit/bash/grep/find/ls) | ✅ 同样 7 个 | 持平 |
 | 工具过滤 | ✅ AllowedTools/BlockedTools | ✅ config 层 | 持平 |
@@ -262,14 +262,14 @@ Agent 定义存储在 `~/.claude/agents/` 目录下，支持内置和自定义�
 | **质量门禁** | ✅ 覆盖度/PR/Release | ❌ | 显著差距 |
 | **插件市场** | ✅ 本地安装 | ❌ | 显著差距 |
 
-### pi-go 的优势
+### EasyAgent 的优势
 
-1. **架构清晰、分层明确**：pi-go 的四层架构（Core → Platform → Application → Entrypoints）比 cc-haha 的扁平结构更工程化，模块间依赖关系清晰
+1. **架构清晰、分层明确**：EasyAgent 的四层架构（Core → Platform → Application → Entrypoints）比 cc-haha 的扁平结构更工程化，模块间依赖关系清晰
 2. **Go 语言的优势**：单二进制分发、无运行时依赖、goroutine 并发模型比 Bun/Node 更适合做 Agent 底座
-3. **Provider 抽象更干净**：pi-go 的 Provider 注册制 + 懒加载 + 统一 EventStream 协议，比 cc-haha 的硬编码 Anthropic SDK 调用更灵活
-4. **Agent 循环显式化**：pi-go 的双层循环（外层 follow-up + 内层 tool call）结构清晰，cc-haha 的循环逻辑分散在多文件中
-5. **Operations 抽象**：pi-go 的 `operations.Operations` 接口（本地/SSH 切换）设计优雅，cc-haha 没有等价抽象
-6. **代码体积**：pi-go 的 Go 代码 vs cc-haha 的 300+ 工具函数文件，pi-go 更精简
+3. **Provider 抽象更干净**：EasyAgent 的 Provider 注册制 + 懒加载 + 统一 EventStream 协议，比 cc-haha 的硬编码 Anthropic SDK 调用更灵活
+4. **Agent 循环显式化**：EasyAgent 的双层循环（外层 follow-up + 内层 tool call）结构清晰，cc-haha 的循环逻辑分散在多文件中
+5. **Operations 抽象**：EasyAgent 的 `operations.Operations` 接口（本地/SSH 切换）设计优雅，cc-haha 没有等价抽象
+6. **代码体积**：EasyAgent 的 Go 代码 vs cc-haha 的 300+ 工具函数文件，EasyAgent 更精简
 
 ---
 
@@ -279,13 +279,13 @@ Agent 定义存储在 `~/.claude/agents/` 目录下，支持内置和自定义�
 
 | 优先级 | 特性/设计 | 迁移难度 | 预期收益 | 实现路径 |
 |--------|----------|----------|----------|----------|
-| P0 | **Provider 协议转换代理** | 中 | 高——解锁非 Anthropic 模型 | 在 pi-go `internal/ai/providers/` 下新增 `proxy` provider，实现 Anthropic ↔ OpenAI 协议转换 |
+| P0 | **Provider 协议转换代理** | 中 | 高——解锁非 Anthropic 模型 | 在 EasyAgent `internal/ai/providers/` 下新增 `proxy` provider，实现 Anthropic ↔ OpenAI 协议转换 |
 | P0 | **Server API 丰富化** | 低 | 高——桌面端/IM 的前置条件 | 在现有 `internal/server/` 基础上，按 cc-haha 的 API 目录补齐会话管理/Provider 管理/Skills 管理/文件系统等 API |
 | P1 | **MCP 支持** | 中 | 高——标准工具扩展协议 | 新增 `internal/mcp/` 包，实现 MCP 客户端协议、工具发现和调用 |
-| P1 | **桌面端 APP** | 高 | 高——提升用户体验 | 使用 Tauri 或 Wails (Go 原生 WebView) 构建桌面端，通过 pi-go Server API 通信 |
+| P1 | **桌面端 APP** | 高 | 高——提升用户体验 | 使用 Tauri 或 Wails (Go 原生 WebView) 构建桌面端，通过 EasyAgent Server API 通信 |
 | P1 | **多 Agent 系统** | 中 | 高——Agent 协作场景 | 基于现有 Extension 系统和 Agent 循环，实现 Agent fork/subagent 和 Team 编排 |
 | P2 | **IM 接入** | 中 | 中——远程操控 | 构建 adapter 公共层 + 各平台实现，通过 Server API 与 Agent 交互 |
-| P2 | **定时任务** | 低 | 中——自动化场景 | 在 Server 层增加 cron 调度器，使用 pi-go 的 Agent Session 执行任务 |
+| P2 | **定时任务** | 低 | 中——自动化场景 | 在 Server 层增加 cron 调度器，使用 EasyAgent 的 Agent Session 执行任务 |
 | P2 | **Computer Use** | 高 | 中 | 需要桌面端支持 + 截图/输入模拟 |
 | P2 | **质量门禁** | 低 | 中 | 在 CI 中增加覆盖度检查、Provider 冒烟测试 |
 | P3 | **H5 远程访问** | 中 | 低 | 在 Server 层增加 Web UI + 一次性令牌认证 |

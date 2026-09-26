@@ -6,24 +6,24 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/hwj123hwj/pi-go/sdk/agent"
-	platformprompt "github.com/hwj123hwj/pi-go/sdk/prompt"
-	"github.com/hwj123hwj/pi-go/sdk/skill"
-	basetools "github.com/hwj123hwj/pi-go/sdk/tools"
+	"github.com/hwj123hwj/easyagent/sdk/agent"
+	platformprompt "github.com/hwj123hwj/easyagent/sdk/prompt"
+	"github.com/hwj123hwj/easyagent/sdk/skill"
+	basetools "github.com/hwj123hwj/easyagent/sdk/tools"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestBuildSystemPrompt_Default(t *testing.T) {
 	prompt := BuildSystemPrompt(Options{})
-	assert.Contains(t, prompt, "Pi Go")
+	assert.Contains(t, prompt, "EasyAgent")
 	assert.Contains(t, prompt, "Current date:")
 }
 
 func TestBuildSystemPrompt_CustomPrompt(t *testing.T) {
 	prompt := BuildSystemPrompt(Options{CustomPrompt: "You are a test agent."})
 	assert.Contains(t, prompt, "You are a test agent.")
-	assert.NotContains(t, prompt, "Pi Go")
+	assert.NotContains(t, prompt, "EasyAgent")
 }
 
 func TestBuildSystemPrompt_WithCWD(t *testing.T) {
@@ -122,7 +122,7 @@ func TestBuildSystemPrompt_NoGit(t *testing.T) {
 
 func TestBuildSystemPrompt_CodingProfile(t *testing.T) {
 	prompt := BuildSystemPrompt(Options{Profile: "coding"})
-	assert.Contains(t, prompt, "Pi Go")
+	assert.Contains(t, prompt, "EasyAgent")
 	assert.Contains(t, prompt, "server-side coding agent")
 }
 

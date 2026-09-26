@@ -10,54 +10,70 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 
-	"github.com/hwj123hwj/pi-go/internal/agents/coding"
-	"github.com/hwj123hwj/pi-go/internal/agents/coding/commands"
-	kbapp "github.com/hwj123hwj/pi-go/internal/agents/kb"
-	musicapp "github.com/hwj123hwj/pi-go/internal/agents/music"
-	"github.com/hwj123hwj/pi-go/internal/app"
-	"github.com/hwj123hwj/pi-go/internal/mode"
-	music "github.com/hwj123hwj/pi-go/internal/music"
-	"github.com/hwj123hwj/pi-go/internal/music/bilibili"
-	"github.com/hwj123hwj/pi-go/internal/music/netease"
-	userprofile "github.com/hwj123hwj/pi-go/internal/profile"
-	"github.com/hwj123hwj/pi-go/internal/scheduler"
-	"github.com/hwj123hwj/pi-go/internal/tui"
-	"github.com/hwj123hwj/pi-go/sdk/config"
-	"github.com/hwj123hwj/pi-go/sdk/runtime"
-	"github.com/hwj123hwj/pi-go/sdk/slashcmd"
+	"github.com/hwj123hwj/easyagent/internal/agents/coding"
+	"github.com/hwj123hwj/easyagent/internal/agents/coding/commands"
+	kbapp "github.com/hwj123hwj/easyagent/internal/agents/kb"
+	musicapp "github.com/hwj123hwj/easyagent/internal/agents/music"
+	"github.com/hwj123hwj/easyagent/internal/app"
+	"github.com/hwj123hwj/easyagent/internal/appdir"
+	"github.com/hwj123hwj/easyagent/internal/mode"
+	music "github.com/hwj123hwj/easyagent/internal/music"
+	"github.com/hwj123hwj/easyagent/internal/music/bilibili"
+	"github.com/hwj123hwj/easyagent/internal/music/netease"
+	userprofile "github.com/hwj123hwj/easyagent/internal/profile"
+	"github.com/hwj123hwj/easyagent/internal/scheduler"
+	"github.com/hwj123hwj/easyagent/internal/tui"
+	"github.com/hwj123hwj/easyagent/sdk/config"
+	"github.com/hwj123hwj/easyagent/sdk/runtime"
+	"github.com/hwj123hwj/easyagent/sdk/slashcmd"
 )
 
 // version is the build version, injected via -ldflags during release builds.
 var version = "dev"
 
 func main() {
+	if len(os.Args) == 2 && (os.Args[1] == "--version" || os.Args[1] == "-version") {
+		fmt.Printf("easyagent %s\n", version)
+		return
+	}
+	if err := appdir.MigrateLegacyHome(); err != nil {
+		slog.Error("cannot migrate EasyAgent data directory", "error", err)
+		os.Exit(1)
+	}
 	cfg := config.Default()
 
 	// Version flag (injectable via -ldflags "-X main.version=...")
 	versionFlag := flag.Bool("version", false, "Print version and exit")
 
 	// Config file flag (YAML, loaded before .env and env vars)
-	configFile := flag.String("config", "", "Path to YAML config file (e.g. pi-go.yaml)")
+	configFile := flag.String("config", "", "Path to YAML config file (e.g. easyagent.yaml)")
 
-	// Load .env files (ignore if missing)
-	// PI_GO_ENV_FILE allows custom .env path (e.g. for packaged desktop app)
-	envFile := os.Getenv("PI_GO_ENV_FILE")
-	if envFile == "" {
-		envFile = ".env"
+	// Load .env files (ignore if missing). EA_ENV_FILE (or legacy
+	// PI_GO_ENV_FILE) allows a custom path; otherwise use the CWD and home files.
+	envFile := config.Env("EA_ENV_FILE")
+	if envFile != "" {
+		_ = config.LoadDotEnv(envFile)
+		_ = config.LoadDotEnv(envFile + ".local")
+	} else {
+		_ = config.LoadDotEnv(".env")
+		_ = config.LoadDotEnv(".env.local")
+		_ = config.LoadDotEnv(filepath.Join(config.HomeDir(), ".env"))
+		_ = config.LoadDotEnv(filepath.Join(config.HomeDir(), ".env.local"))
 	}
-	_ = config.LoadDotEnv(envFile)
-	_ = config.LoadDotEnv(envFile + ".local")
 
 	// Load YAML config first (lowest priority), then env vars override
 	if *configFile == "" {
-		// Auto-detect pi-go.yaml in CWD or ~/.pi-go/
-		if _, err := os.Stat("pi-go.yaml"); err == nil {
-			*configFile = "pi-go.yaml"
-		} else if home, err := os.UserHomeDir(); err == nil {
-			p := filepath.Join(home, ".pi-go", "config.yaml")
-			if _, err := os.Stat(p); err == nil {
-				*configFile = p
+		// Prefer new names, then keep the previous config locations as fallbacks.
+		candidates := []string{"easyagent.yaml", filepath.Join(config.HomeDir(), "config.yaml"), "pi-go.yaml"}
+		if home, err := os.UserHomeDir(); err == nil {
+			candidates = append(candidates, filepath.Join(home, ".pi-go", "config.yaml"))
+		}
+		for _, candidate := range candidates {
+			if _, err := os.Stat(candidate); err == nil {
+				*configFile = candidate
+				break
 			}
 		}
 	}
@@ -73,18 +89,25 @@ func main() {
 
 	// Handle --version
 	if *versionFlag {
-		fmt.Printf("pi-go %s\n", version)
+		fmt.Printf("easyagent %s\n", version)
 		return
 	}
 
-	// Parse remaining flags
-	modeFlag := flag.String("mode", "run", "run, chat, interactive, or serve")
+	// No subcommand starts the interactive TUI. Prompt flags preserve the
+	// one-shot behavior for `easyagent -p ...` and `easyagent --prompt ...`.
+	args := os.Args[1:]
+	modeFlag := flag.String("mode", inferredDefaultMode(args), "run, chat, interactive, or serve (default: chat; prompt flags select run)")
 	listen := flag.String("listen", fmt.Sprintf("%s:%d", cfg.Host, cfg.Port), "HTTP listen address")
-	input := flag.String("prompt", "hello", "prompt for run mode")
+	input := "hello"
+	flag.StringVar(&input, "prompt", input, "prompt for run mode")
+	flag.StringVar(&input, "p", input, "short form of -prompt")
 	sessionFlag := flag.String("session", "", "session ID (empty = new session)")
 	skillDir := flag.String("skill-dir", "", "directory containing skills (SKILL.md files)")
 	legacyTUI := flag.Bool("legacy", false, "Use legacy linear CLI instead of Bubble Tea TUI")
 	yolo := flag.Bool("y", false, "全权模式：初始跳过危险工具确认（会话内 /confirm on|off 随时切换）")
+	if mode := modeForSubcommand(args); mode != "" {
+		os.Args = append([]string{os.Args[0], "--mode", mode}, args[1:]...)
+	}
 	flag.Parse()
 
 	// Sync the actual listen port back to config so MusicApplication
@@ -173,7 +196,7 @@ func main() {
 		must(err)
 		ctx, cancel := context.WithTimeout(context.Background(), cfg.Timeout)
 		defer cancel()
-		must(mode.NewPrintMode(sess).Run(ctx, *input))
+		must(mode.NewPrintMode(sess).Run(ctx, input))
 
 	case "serve":
 		cmds := buildSlashRegistry(application.LoopManager())
@@ -183,7 +206,7 @@ func main() {
 		musicHandler.RegisterRoutes(extraMux)
 		srv := mode.NewServeMode(application, cmds)
 		srv.SetExtraRoutes(extraMux)
-		slog.Info("starting pi-go server", "listen", *listen)
+		slog.Info("starting easyagent server", "listen", *listen)
 		if err := srv.Run(*listen); err != nil {
 			slog.Error("server failed", "error", err)
 			os.Exit(1)
@@ -192,6 +215,36 @@ func main() {
 	default:
 		fmt.Fprintf(os.Stderr, "unknown mode %q\n", *modeFlag)
 		os.Exit(2)
+	}
+}
+
+func inferredDefaultMode(args []string) string {
+	if mode := modeForSubcommand(args); mode != "" {
+		return mode
+	}
+	for _, arg := range args {
+		switch {
+		case arg == "-p", arg == "-prompt", arg == "--prompt",
+			strings.HasPrefix(arg, "-p="), strings.HasPrefix(arg, "-prompt="), strings.HasPrefix(arg, "--prompt="):
+			return "run"
+		}
+	}
+	return "chat"
+}
+
+func modeForSubcommand(args []string) string {
+	if len(args) == 0 {
+		return ""
+	}
+	switch args[0] {
+	case "chat", "interactive":
+		return "chat"
+	case "serve", "server":
+		return "serve"
+	case "run":
+		return "run"
+	default:
+		return ""
 	}
 }
 

@@ -7,8 +7,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/hwj123hwj/pi-go/internal/app"
-	"github.com/hwj123hwj/pi-go/sdk/config"
+	"github.com/hwj123hwj/easyagent/internal/app"
+	"github.com/hwj123hwj/easyagent/sdk/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

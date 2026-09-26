@@ -1,27 +1,27 @@
-// pi-go-manager.ts — Manages the pi-go backend process lifecycle.
+// easyagent-manager.ts — Manages the easyagent backend process lifecycle.
 import { ChildProcess, spawn, execSync } from 'child_process';
 import * as http from 'http';
 import * as path from 'path';
 import * as fs from 'fs';
 import { app } from 'electron';
 
-export interface PiGoServerInfo {
+export interface EasyAgentServerInfo {
   url: string;
   port: number;
 }
 
 // Default .env content created on first run (for packaged app)
-const DEFAULT_ENV_CONTENT = `# Pi-Go Configuration
+const DEFAULT_ENV_CONTENT = `# EasyAgent Configuration
 # Edit this file to change the AI provider and model.
 
 # Use OpenAI-compatible provider to connect to local gateway
-PI_GO_PROVIDER=openai
+EA_PROVIDER=openai
 OPENAI_API_KEY=
 OPENAI_BASE_URL=http://localhost:4001
 OPENAI_MODEL=mimo-opus
 
 # Enable bash tool
-PI_GO_ENABLE_BASH=true
+EA_ENABLE_BASH=true
 `;
 
 // Find an available port
@@ -56,7 +56,7 @@ function healthCheck(url: string, maxAttempts = 30, intervalMs = 500): Promise<v
 
       function retry() {
         if (attempts >= maxAttempts) {
-          reject(new Error(`pi-go server not ready after ${maxAttempts} attempts`));
+          reject(new Error(`EasyAgent server not ready after ${maxAttempts} attempts`));
         } else {
           setTimeout(check, intervalMs);
         }
@@ -66,24 +66,23 @@ function healthCheck(url: string, maxAttempts = 30, intervalMs = 500): Promise<v
   });
 }
 
-export class PiGoManager {
+export class EasyAgentManager {
   private process: ChildProcess | null = null;
-  private serverInfo: PiGoServerInfo | null = null;
+  private serverInfo: EasyAgentServerInfo | null = null;
 
-  async start(): Promise<PiGoServerInfo> {
+  async start(): Promise<EasyAgentServerInfo> {
     const port = await findFreePort();
     const url = `http://127.0.0.1:${port}`;
     const isPackaged = app.isPackaged;
 
-    // Find pi-agent binary
+    // Find easyagent binary
     const binary = this.findBinary(isPackaged);
 
-    console.log(`[pi-go-manager] Starting ${binary} on port ${port} (packaged: ${isPackaged})`);
+    console.log(`[easyagent-manager] Starting ${binary} on port ${port} (packaged: ${isPackaged})`);
 
     // Prepare environment variables
     const envVars: Record<string, string> = {
       ...process.env as Record<string, string>,
-      PI_GO_ENABLE_BASH: process.env.PI_GO_ENABLE_BASH || 'true',
     };
 
     let spawnCwd: string;
@@ -100,19 +99,19 @@ export class PiGoManager {
       const envFile = path.join(userDataPath, '.env');
       if (!fs.existsSync(envFile)) {
         fs.writeFileSync(envFile, DEFAULT_ENV_CONTENT, 'utf-8');
-        console.log(`[pi-go-manager] Created default .env at ${envFile}`);
+        console.log(`[easyagent-manager] Created default .env at ${envFile}`);
       }
 
       // Tell Go process where to find data and config
-      envVars.PI_GO_DATA_DIR = dataDir;
-      envVars.PI_GO_ENV_FILE = envFile;
+      envVars.EA_DATA_DIR = dataDir;
+      envVars.EA_ENV_FILE = envFile;
 
       // macOS: remove quarantine attributes from the binary
       if (process.platform === 'darwin') {
         try {
           execSync(`xattr -cr "${binary}"`, { stdio: 'ignore' });
         } catch (e) {
-          console.warn('[pi-go-manager] Failed to remove quarantine attributes:', e);
+          console.warn('[easyagent-manager] Failed to remove quarantine attributes:', e);
         }
       }
 
@@ -120,17 +119,17 @@ export class PiGoManager {
       try {
         fs.chmodSync(binary, 0o755);
       } catch (e) {
-        console.warn('[pi-go-manager] Failed to chmod binary:', e);
+        console.warn('[easyagent-manager] Failed to chmod binary:', e);
       }
 
       // cwd can be userDataPath for relative path resolution
       spawnCwd = userDataPath;
     } else {
       // --- Development mode ---
-      // cwd is pi-go root so .env is loaded automatically
+      // cwd is easyagent root so .env is loaded automatically
       spawnCwd = path.resolve(__dirname, '..', '..', '..');
 
-      envVars.PI_GO_PROVIDER = process.env.PI_GO_PROVIDER || 'openai';
+      envVars.EA_PROVIDER = process.env.EA_PROVIDER || process.env.PI_GO_PROVIDER || 'openai';
       envVars.OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
       envVars.OPENAI_BASE_URL = process.env.OPENAI_BASE_URL || 'http://localhost:4001';
       envVars.OPENAI_MODEL = process.env.OPENAI_MODEL || 'mimo-opus';
@@ -144,7 +143,7 @@ export class PiGoManager {
 
     this.process.stdout?.on('data', (data: Buffer) => {
       try {
-        console.log(`[pi-go] ${data.toString().trim()}`);
+        console.log(`[easyagent] ${data.toString().trim()}`);
       } catch (e) {
         // Ignore EPIPE when the process exits and the pipe breaks
       }
@@ -152,21 +151,21 @@ export class PiGoManager {
 
     this.process.stderr?.on('data', (data: Buffer) => {
       try {
-        console.error(`[pi-go] ${data.toString().trim()}`);
+        console.error(`[easyagent] ${data.toString().trim()}`);
       } catch (e) {
         // Ignore EPIPE when the process exits and the pipe breaks
       }
     });
 
     this.process.on('exit', (code) => {
-      console.log(`[pi-go-manager] Process exited with code ${code}`);
+      console.log(`[easyagent-manager] Process exited with code ${code}`);
     });
 
     // Wait for server to be ready
     await healthCheck(url);
 
     this.serverInfo = { url, port };
-    console.log(`[pi-go-manager] Server ready at ${url}`);
+    console.log(`[easyagent-manager] Server ready at ${url}`);
 
     return this.serverInfo;
   }
@@ -179,26 +178,26 @@ export class PiGoManager {
     }
   }
 
-  getServerInfo(): PiGoServerInfo | null {
+  getServerInfo(): EasyAgentServerInfo | null {
     return this.serverInfo;
   }
 
   private findBinary(isPackaged: boolean): string {
     if (isPackaged) {
-      // Packaged: binary is in Contents/Resources/pi-agent
-      const binaryPath = path.join(process.resourcesPath, 'pi-agent');
+      // Packaged: binary is in Contents/Resources/easyagent
+      const binaryPath = path.join(process.resourcesPath, 'easyagent');
       if (fs.existsSync(binaryPath)) {
         return binaryPath;
       }
-      console.error(`[pi-go-manager] Binary not found at ${binaryPath}, falling back to PATH`);
-      return 'pi-agent';
+      console.error(`[easyagent-manager] Binary not found at ${binaryPath}, falling back to PATH`);
+      return 'easyagent';
     }
 
-    // Development: try to find pi-agent in the parent directory's build output
+    // Development: try to find easyagent in the parent directory's build output
     const possiblePaths = [
-      path.resolve(__dirname, '..', '..', '..', 'pi-agent'),         // dist/electron → desktop → pi-go
-      path.resolve(__dirname, '..', '..', '..', 'cmd', 'pi-agent', 'pi-agent'),
-      'pi-agent',  // Rely on PATH
+      path.resolve(__dirname, '..', '..', '..', 'easyagent'),         // dist/electron → desktop → easyagent
+      path.resolve(__dirname, '..', '..', '..', 'cmd', 'easyagent', 'easyagent'),
+      'easyagent',  // Rely on PATH
     ];
 
     for (const p of possiblePaths) {
@@ -207,6 +206,6 @@ export class PiGoManager {
       }
     }
 
-    return 'pi-agent';
+    return 'easyagent';
   }
 }

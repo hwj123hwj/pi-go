@@ -1,5 +1,5 @@
 /**
- * AppNavigator.tsx — Native navigation stack for Pi-Go mobile
+ * AppNavigator.tsx — Native navigation stack for EasyAgent mobile
  *
  * RN Best Practice: native-sdks-over-polyfills + TTI optimization
  * - react-native-screens: Native screen containers (not JS-managed views)

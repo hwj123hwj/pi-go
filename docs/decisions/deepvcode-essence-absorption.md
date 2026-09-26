@@ -1,3 +1,5 @@
+> 历史文档：本文保留更名前的 pi-go 项目记录；项目现名为 EasyAgent。
+
 # DeepVcodeClient 精要吸收报告 — pi-go 增强建议
 
 > 基于对 pi-go（pi 的 Go 重写）与 DeepVcodeClient（商业化 Coding Agent）的深度对比分析。
