@@ -63,6 +63,9 @@ type TuiModel struct {
 
 	// App context for slash commands that need session management (/new, /switch, etc.)
 	app slashcmd.AppContext
+
+	// autoApprove 全权模式：跳过危险工具确认（config.auto_approve）
+	autoApprove bool
 }
 
 // SetProgram stores a reference to the tea.Program so we can send msgs from callbacks.
@@ -71,7 +74,7 @@ func (m *TuiModel) SetProgram(p *tea.Program) {
 }
 
 // New creates a new TuiModel.
-func New(session *runtime.AgentSession, cmds *slashcmd.Registry) *TuiModel {
+func New(session *runtime.AgentSession, cmds *slashcmd.Registry, autoApprove bool) *TuiModel {
 	provider, modelID := session.ModelInfo()
 	m := &TuiModel{
 		width:        80,
@@ -90,10 +93,13 @@ func New(session *runtime.AgentSession, cmds *slashcmd.Registry) *TuiModel {
 		confirmation: NewConfirmationState(),
 	}
 
-	// Wire confirmation callback
-	session.SetConfirmFunc(func(ctx context.Context, req agent.ConfirmationRequest) agent.ConfirmDecision {
-		return m.handleConfirmation(ctx, req)
-	})
+	// Wire confirmation callback（autoApprove 全权模式下放行，不装确认对话框）
+	m.autoApprove = autoApprove
+	if !autoApprove {
+		session.SetConfirmFunc(func(ctx context.Context, req agent.ConfirmationRequest) agent.ConfirmDecision {
+			return m.handleConfirmation(ctx, req)
+		})
+	}
 
 	return m
 }
