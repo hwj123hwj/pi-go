@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/hwj123hwj/pi-go/internal/feishu"
 	"github.com/joho/godotenv"
@@ -18,16 +19,22 @@ func main() {
 
 	appID := os.Getenv("FEISHU_APP_ID")
 	appSecret := os.Getenv("FEISHU_APP_SECRET")
+	ownerOpenID := os.Getenv("FEISHU_OWNER_OPEN_ID")
 
-	// Fallback: try loading from credentials file (saved by /feishu setup)
-	if appID == "" || appSecret == "" {
-		if creds, err := feishu.LoadCredentials(); err == nil && creds != nil {
-			if appID == "" {
-				appID = creds.AppID
-			}
-			if appSecret == "" {
-				appSecret = creds.AppSecret
-			}
+	// Credentials saved by /feishu setup also contain the user who registered
+	// the app. Use that account for the startup DM unless explicitly overridden.
+	storedCredentials, _ := feishu.LoadCredentials()
+	if storedCredentials != nil {
+		if appID == "" {
+			appID = storedCredentials.AppID
+		}
+		if appSecret == "" {
+			appSecret = storedCredentials.AppSecret
+		}
+		if ownerOpenID == "" && storedCredentials.AppID == appID {
+			ownerOpenID = storedCredentials.UserOpenID
+		}
+		if appID == storedCredentials.AppID {
 			slog.Info("loaded feishu credentials from file", "app_id", appID)
 		}
 	}
@@ -68,6 +75,28 @@ func main() {
 	gateway := feishu.NewGateway(appID, appSecret, client, msgHandler)
 	handler.SetGateway(gateway)
 	gateway.SetCardActionHandler(handler.HandleCardAction)
+	gateway.SetOnReady(func() {
+		if ownerOpenID == "" {
+			slog.Info("skipping feishu startup welcome: owner open_id is not configured")
+			return
+		}
+		go func() {
+			probeCtx, cancelProbe := context.WithTimeout(context.Background(), 8*time.Second)
+			scopes, scopesKnown, err := client.ProbeGrantedScopes(probeCtx)
+			cancelProbe()
+			if err != nil {
+				slog.Warn("feishu startup permission check failed", "error", err)
+				scopesKnown = false
+			}
+
+			welcome := feishu.BuildStartupWelcome(appID, workspace, scopes, scopesKnown)
+			sendCtx, cancelSend := context.WithTimeout(context.Background(), 8*time.Second)
+			defer cancelSend()
+			if _, err := client.SendMarkdown(sendCtx, ownerOpenID, welcome, ""); err != nil {
+				slog.Warn("failed to send feishu startup welcome", "error", err)
+			}
+		}()
+	})
 
 	// Start tool callback HTTP server
 	if callbackURL != "" {

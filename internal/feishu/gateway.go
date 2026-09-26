@@ -42,6 +42,7 @@ type Gateway struct {
 	client      *Client // for API calls like image download
 	handler     MessageHandler
 	cardHandler CardActionHandler
+	onReady     func()
 
 	// Dedup state
 	seen    map[string]struct{}
@@ -94,6 +95,11 @@ func (g *Gateway) Start(ctx context.Context) error {
 
 	wsClient := larkws.NewClient(g.appID, g.appSecret,
 		larkws.WithEventHandler(dispatcher),
+		larkws.WithOnReady(func() {
+			if g.onReady != nil {
+				g.onReady()
+			}
+		}),
 	)
 
 	slog.Info("feishu gateway connecting via WebSocket...")
@@ -103,6 +109,11 @@ func (g *Gateway) Start(ctx context.Context) error {
 		slog.Error("feishu ws client stopped", "error", err)
 	}
 	return err
+}
+
+// SetOnReady sets a callback invoked after the WebSocket connection is ready.
+func (g *Gateway) SetOnReady(handler func()) {
+	g.onReady = handler
 }
 
 // SetCardActionHandler sets the interactive card action handler.

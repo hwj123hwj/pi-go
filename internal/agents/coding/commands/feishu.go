@@ -19,10 +19,10 @@ func RegisterFeishuCommands(registry *slashcmd.Registry) {
 func registerFeishuCommand(registry *slashcmd.Registry, name string) {
 	registry.Register(slashcmd.Command{
 		Name:        name,
-		Description: "Manage Feishu bot integration (setup, start, stop, status)",
+		Description: "Configure Feishu and show how to run the standalone bridge",
 		Subcommands: []slashcmd.Subcommand{
 			{Name: "setup", Description: "Scan QR to login (or --manual <AppId> <AppSecret>)"},
-			{Name: "start", Description: "Start the bot (credentials required)"},
+			{Name: "start", Description: "Check credentials and show bridge start instructions"},
 			{Name: "stop", Description: "Stop the bot"},
 			{Name: "status", Description: "Show current status"},
 			{Name: "logout", Description: "Clear credentials and disconnect"},
@@ -140,12 +140,12 @@ func handleFeishuSetup(ctx slashcmd.Context, args []string) (slashcmd.CommandRes
 
 	// Step 5: Save credentials
 	creds := feishu.Credentials{
-		AppID:     poll.AppID,
-		AppSecret: poll.AppSecret,
+		AppID:      poll.AppID,
+		AppSecret:  poll.AppSecret,
 		UserOpenID: poll.OpenID,
-		BotName:   botName,
-		BotOpenID: botOpenID,
-		Platform:  poll.Domain,
+		BotName:    botName,
+		BotOpenID:  botOpenID,
+		Platform:   poll.Domain,
 	}
 	if err := feishu.SaveCredentials(creds); err != nil {
 		return slashcmd.CommandResult{}, fmt.Errorf("save credentials: %w", err)
@@ -188,15 +188,16 @@ Please configure first:
 	// when pi-feishu-bridge is launched.
 	_ = creds
 	return slashcmd.CommandResult{
-		Output: fmt.Sprintf(`✅ Feishu Bot ready!
+		Output: fmt.Sprintf(`✅ Feishu credentials found.
 
   App ID:  %s
   Platform: %s
 
-To start the bot, run pi-feishu-bridge:
+This command does not open the Feishu WebSocket. To start receiving messages, run:
   pi-feishu-bridge
 
-Or if running in serve mode, the bot auto-connects on startup.`, creds.AppID, creds.Platform),
+After the WebSocket connects, the bot sends the setup owner a welcome guide and permission check.
+For manual credentials, set FEISHU_OWNER_OPEN_ID to receive that startup message.`, creds.AppID, creds.Platform),
 	}, nil
 }
 
@@ -258,14 +259,15 @@ Usage:
   /feishu                        Interactive setup (QR scan login)
   /feishu setup                  Scan QR code to login (recommended)
   /feishu setup --manual <AppId> <AppSecret>  Manual credentials
-  /feishu start                 Start the bot (credentials required)
+  /feishu start                 Check credentials and show bridge start instructions
   /feishu stop                  Stop the bot
   /feishu status                Show current status
   /feishu logout                Clear credentials and disconnect
 
 Workflow:
   1. /feishu setup              # Scan QR (you become the owner)
-  2. /feishu start              # Start the bot
+  2. /feishu start              # Show the standalone bridge command
+     pi-feishu-bridge           # Start the actual Feishu connection
   3. Send a message to the bot in Feishu
 
 Credentials are saved to ~/.pi-go/feishu-credentials.json
