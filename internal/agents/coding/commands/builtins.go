@@ -12,6 +12,31 @@ import (
 // RegisterBuiltins registers coding-agent slash commands into the shared framework registry.
 func RegisterBuiltins(registry *slashcmd.Registry) {
 	registry.Register(slashcmd.Command{
+		Name:        "confirm",
+		Description: "Show or toggle dangerous-tool confirmation (/confirm on|off)",
+		Handler: func(ctx slashcmd.Context, args string) (slashcmd.CommandResult, error) {
+			if ctx.Session == nil {
+				return slashcmd.CommandResult{Output: "no active session"}, nil
+			}
+			switch strings.ToLower(strings.TrimSpace(args)) {
+			case "", "status":
+				if ctx.Session.ConfirmEnabled() {
+					return slashcmd.CommandResult{Output: "确认已开启：危险工具执行前会询问（/confirm off 切换为全权模式）"}, nil
+				}
+				return slashcmd.CommandResult{Output: "全权模式：危险工具直接执行（/confirm on 恢复确认）"}, nil
+			case "off":
+				ctx.Session.SetConfirmEnabled(false)
+				return slashcmd.CommandResult{Output: "已进入全权模式：危险工具不再询问，直接执行（/confirm on 恢复）"}, nil
+			case "on":
+				ctx.Session.SetConfirmEnabled(true)
+				return slashcmd.CommandResult{Output: "已恢复确认：危险工具执行前会询问"}, nil
+			default:
+				return slashcmd.CommandResult{Output: "用法：/confirm [on|off|status]"}, nil
+			}
+		},
+	})
+
+	registry.Register(slashcmd.Command{
 		Name:        "help",
 		Description: "List all commands",
 		Handler: func(ctx slashcmd.Context, args string) (slashcmd.CommandResult, error) {

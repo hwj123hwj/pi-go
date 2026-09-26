@@ -84,6 +84,7 @@ func main() {
 	sessionFlag := flag.String("session", "", "session ID (empty = new session)")
 	skillDir := flag.String("skill-dir", "", "directory containing skills (SKILL.md files)")
 	legacyTUI := flag.Bool("legacy", false, "Use legacy linear CLI instead of Bubble Tea TUI")
+	yolo := flag.Bool("y", false, "全权模式：初始跳过危险工具确认（会话内 /confirm on|off 随时切换）")
 	flag.Parse()
 
 	// Sync the actual listen port back to config so MusicApplication
@@ -95,6 +96,11 @@ func main() {
 	}
 	if host, _, err := net.SplitHostPort(*listen); err == nil && host != "" {
 		cfg.Host = host
+	}
+
+	// -y 全权模式：等价 auto_approve: true，仅决定初始状态（/confirm 可切）
+	if *yolo {
+		cfg.AutoApprove = true
 	}
 
 	// Set log level based on mode

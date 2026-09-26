@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 
 	"github.com/hwj123hwj/pi-go/sdk/agent"
 	"github.com/hwj123hwj/pi-go/sdk/ai"
@@ -56,7 +57,10 @@ type AgentSession struct {
 	skillDirs   []string
 	application Application
 	confirmFunc agent.ConfirmFunc // 可选：危险工具执行前的确认回调（interactive 注入，serve/feishu 留空=放行）
-	ext         SessionExt
+	// confirmEnabled 控制已注入回调的生效状态（/confirm on|off 运行时切换；
+	// auto_approve/-y 只是它的初始值）。回调本身始终包装经此开关。
+	confirmEnabled atomic.Bool
+	ext            SessionExt
 }
 
 // NewAgentSession creates a new AgentSession.
@@ -407,7 +411,7 @@ func (s *AgentSession) buildAgent(ctx context.Context, registry *providers.Regis
 		CompactionSettings: compactionSettings,
 		SummarizeFunc:      summarizeFunc,
 		LifecycleHooks:     lifecycleHooks,
-		ConfirmFunc:        s.confirmFunc,
+		ConfirmFunc:        s.wrapConfirm(s.confirmFunc),
 		LoopDetectSettings: agent.DefaultLoopDetectSettings(),
 	}), nil
 }
@@ -417,6 +421,34 @@ func (s *AgentSession) buildAgent(ctx context.Context, registry *providers.Regis
 // 在首次 PromptStream 之前调用即可生效；若 agent 已构建则会触发重建。
 func (s *AgentSession) SetConfirmFunc(fn agent.ConfirmFunc) {
 	s.confirmFunc = fn
+}
+
+// wrapConfirm 给确认回调套上运行时开关：/confirm off 时直接放行，不再进对话框。
+// 回调为空（serve/feishu）返回 nil，保持引擎默认放行语义。
+func (s *AgentSession) wrapConfirm(fn agent.ConfirmFunc) agent.ConfirmFunc {
+	if fn == nil {
+		return nil
+	}
+	s.confirmEnabled.Store(true)
+	return func(ctx context.Context, req agent.ConfirmationRequest) agent.ConfirmDecision {
+		if !s.confirmEnabled.Load() {
+			return agent.ConfirmDecision{Approved: true, Reason: "全权模式（/confirm on 可恢复确认）"}
+		}
+		return fn(ctx, req)
+	}
+}
+
+// SetConfirmEnabled 运行时切换确认开关（/confirm on|off）。
+func (s *AgentSession) SetConfirmEnabled(enabled bool) {
+	if s.confirmFunc == nil {
+		return // 从未注入回调：本来就没确认可言
+	}
+	s.confirmEnabled.Store(enabled)
+}
+
+// ConfirmEnabled 返回确认开关当前状态；未注入回调时恒为 false（无确认）。
+func (s *AgentSession) ConfirmEnabled() bool {
+	return s.confirmFunc != nil && s.confirmEnabled.Load()
 }
 
 // toolBuildOptions constructs ToolBuildOptions from the current config and session state.

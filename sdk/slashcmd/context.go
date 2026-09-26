@@ -26,6 +26,9 @@ type SessionContext interface {
 	Goal() string
 	SetGoal(goal string)
 	ClearGoal()
+	// ConfirmEnabled / SetConfirmEnabled：危险工具确认的运行时开关（/confirm）。
+	ConfirmEnabled() bool
+	SetConfirmEnabled(enabled bool)
 	Compact(ctx context.Context, customInstructions string) (summary string, trimmedFrom int, trimmedTo int, err error)
 }
 
