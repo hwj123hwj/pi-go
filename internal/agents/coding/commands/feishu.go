@@ -2,7 +2,12 @@ package commands
 
 import (
 	"fmt"
+	"log/slog"
+	"net"
+	"os"
+	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/hwj123hwj/pi-go/internal/feishu"
 	"github.com/hwj123hwj/pi-go/sdk/slashcmd"
@@ -19,10 +24,10 @@ func RegisterFeishuCommands(registry *slashcmd.Registry) {
 func registerFeishuCommand(registry *slashcmd.Registry, name string) {
 	registry.Register(slashcmd.Command{
 		Name:        name,
-		Description: "Configure Feishu and show how to run the standalone bridge",
+		Description: "Configure and control the Feishu bot",
 		Subcommands: []slashcmd.Subcommand{
 			{Name: "setup", Description: "Scan QR to login (or --manual <AppId> <AppSecret>)"},
-			{Name: "start", Description: "Check credentials and show bridge start instructions"},
+			{Name: "start", Description: "Start the Feishu bot and send its startup guide"},
 			{Name: "stop", Description: "Stop the bot"},
 			{Name: "status", Description: "Show current status"},
 			{Name: "logout", Description: "Clear credentials and disconnect"},
@@ -167,12 +172,11 @@ Next: run /feishu start to start the bot`, botName, poll.AppID),
 }
 
 func handleFeishuStart() (slashcmd.CommandResult, error) {
-	if feishuGatewayMgr.IsRunning() {
-		return slashcmd.CommandResult{Output: "⚠️ Feishu Bot is already running. Run /feishu stop first."}, nil
+	creds, err := configuredFeishuCredentials()
+	if err != nil {
+		return slashcmd.CommandResult{Output: fmt.Sprintf("❌ Could not load Feishu credentials: %v", err)}, nil
 	}
-
-	creds, err := feishu.LoadCredentials()
-	if err != nil || creds == nil {
+	if creds == nil || creds.AppID == "" || creds.AppSecret == "" {
 		return slashcmd.CommandResult{
 			Output: `⚠️ Feishu credentials not found.
 
@@ -183,25 +187,115 @@ Please configure first:
 		}, nil
 	}
 
-	// For now, just return instructions since we need a message handler
-	// wired from the runtime layer. The actual gateway start happens
-	// when pi-feishu-bridge is launched.
-	_ = creds
-	return slashcmd.CommandResult{
-		Output: fmt.Sprintf(`✅ Feishu credentials found.
+	if systemdBridgeUnitInstalled() {
+		if state, err := feishuBridgeServiceState(); err == nil && state == "active" {
+			return slashcmd.CommandResult{Output: "✅ 飞书机器人已经连接中。"}, nil
+		}
+		if output, err := exec.Command("systemctl", "start", feishuBridgeServiceName).CombinedOutput(); err != nil {
+			return slashcmd.CommandResult{Output: fmt.Sprintf("❌ 启动飞书桥接服务失败：%s", strings.TrimSpace(string(output)))}, nil
+		}
+		state, err := feishuBridgeServiceState()
+		if err != nil || state != "active" {
+			return slashcmd.CommandResult{Output: "⚠️ 飞书桥接服务没有启动。请确认凭据已配置，然后查看 `systemctl status pi-feishu-bridge`。"}, nil
+		}
+		return feishuStartedMessage(*creds), nil
+	}
 
-  App ID:  %s
-  Platform: %s
+	if feishuGatewayMgr.IsRunning() {
+		return slashcmd.CommandResult{Output: "✅ 飞书机器人已经连接中。"}, nil
+	}
+	client := feishu.NewClient(creds.AppID, creds.AppSecret)
+	handler := feishu.NewHandler(piAgentURL(), creds.AppID, client, os.Getenv("PI_GO_WORKSPACE"))
+	if err := feishuGatewayMgr.StartWithHandler(*creds, client, handler); err != nil {
+		return slashcmd.CommandResult{Output: fmt.Sprintf("❌ 启动飞书机器人失败：%v", err)}, nil
+	}
+	return feishuStartedMessage(*creds), nil
+}
 
-This command does not open the Feishu WebSocket. To start receiving messages, run:
-  pi-feishu-bridge
+func feishuStartedMessage(creds feishu.Credentials) slashcmd.CommandResult {
+	message := fmt.Sprintf("✅ 飞书机器人已启动（App ID: %s）。长连接就绪后会向完成扫码的账号发送欢迎语和权限提示。", creds.AppID)
+	if creds.UserOpenID == "" && strings.TrimSpace(os.Getenv("FEISHU_OWNER_OPEN_ID")) == "" {
+		message += "\n⚠️ 当前没有配置接收欢迎语的用户：手动配置凭据时请设置 `FEISHU_OWNER_OPEN_ID`。"
+	}
+	return slashcmd.CommandResult{Output: message}
+}
 
-After the WebSocket connects, the bot sends the setup owner a welcome guide and permission check.
-For manual credentials, set FEISHU_OWNER_OPEN_ID to receive that startup message.`, creds.AppID, creds.Platform),
-	}, nil
+func configuredFeishuCredentials() (*feishu.Credentials, error) {
+	creds, err := feishu.LoadCredentials()
+	if err != nil {
+		return nil, err
+	}
+	if creds == nil {
+		creds = &feishu.Credentials{Platform: "feishu"}
+	}
+	envAppID := strings.TrimSpace(os.Getenv("FEISHU_APP_ID"))
+	if envAppID != "" {
+		if creds.AppID != "" && creds.AppID != envAppID {
+			creds.UserOpenID = ""
+		}
+		creds.AppID = envAppID
+	}
+	if appSecret := strings.TrimSpace(os.Getenv("FEISHU_APP_SECRET")); appSecret != "" {
+		creds.AppSecret = appSecret
+	}
+	if ownerOpenID := strings.TrimSpace(os.Getenv("FEISHU_OWNER_OPEN_ID")); ownerOpenID != "" {
+		creds.UserOpenID = ownerOpenID
+	}
+	return creds, nil
+}
+
+func piAgentURL() string {
+	if url := strings.TrimRight(strings.TrimSpace(os.Getenv("PI_AGENT_URL")), "/"); url != "" {
+		return url
+	}
+	host := strings.TrimSpace(os.Getenv("PI_GO_HOST"))
+	if host == "" || host == "0.0.0.0" || host == "::" {
+		host = "127.0.0.1"
+	}
+	port := strings.TrimSpace(os.Getenv("PI_GO_PORT"))
+	if port == "" {
+		port = "8080"
+	}
+	return "http://" + net.JoinHostPort(host, port)
+}
+
+const feishuBridgeServiceName = "pi-feishu-bridge.service"
+
+func systemdBridgeUnitInstalled() bool {
+	if _, err := os.Stat("/run/systemd/system"); err != nil {
+		return false
+	}
+	if _, err := exec.LookPath("systemctl"); err != nil {
+		return false
+	}
+	output, err := exec.Command("systemctl", "show", feishuBridgeServiceName, "--property=LoadState", "--value").Output()
+	return err == nil && strings.TrimSpace(string(output)) == "loaded"
+}
+
+func feishuBridgeServiceState() (string, error) {
+	output, err := exec.Command("systemctl", "show", feishuBridgeServiceName, "--property=ActiveState", "--value").Output()
+	return strings.TrimSpace(string(output)), err
+}
+
+func stopSystemdFeishuBridgeAfterReply() {
+	go func() {
+		// A /feishu stop command may itself arrive through this bridge. Give it
+		// time to send the command result back to Feishu before stopping the WS.
+		time.Sleep(3 * time.Second)
+		if err := exec.Command("systemctl", "stop", feishuBridgeServiceName).Run(); err != nil {
+			slog.Warn("failed to stop Feishu bridge service", "error", err)
+		}
+	}()
 }
 
 func handleFeishuStop() (slashcmd.CommandResult, error) {
+	if systemdBridgeUnitInstalled() {
+		state, err := feishuBridgeServiceState()
+		if err == nil && (state == "active" || state == "activating") {
+			stopSystemdFeishuBridgeAfterReply()
+			return slashcmd.CommandResult{Output: "✅ 正在停止飞书机器人。"}, nil
+		}
+	}
 	if !feishuGatewayMgr.IsRunning() {
 		return slashcmd.CommandResult{Output: "⚠️ Feishu Bot is not running."}, nil
 	}
@@ -211,13 +305,17 @@ func handleFeishuStop() (slashcmd.CommandResult, error) {
 }
 
 func handleFeishuStatus() (slashcmd.CommandResult, error) {
-	creds, _ := feishu.LoadCredentials()
-	if creds == nil {
+	creds, _ := configuredFeishuCredentials()
+	if creds == nil || creds.AppID == "" || creds.AppSecret == "" {
 		return slashcmd.CommandResult{Output: "📊 Feishu Status: Not configured\n\nRun /feishu setup to get started."}, nil
 	}
 
 	status := "stopped"
-	if feishuGatewayMgr.IsRunning() {
+	if systemdBridgeUnitInstalled() {
+		if state, err := feishuBridgeServiceState(); err == nil && (state == "active" || state == "activating") {
+			status = "running"
+		}
+	} else if feishuGatewayMgr.IsRunning() {
 		status = "running"
 	}
 
@@ -238,6 +336,11 @@ func handleFeishuStatus() (slashcmd.CommandResult, error) {
 }
 
 func handleFeishuLogout() (slashcmd.CommandResult, error) {
+	if systemdBridgeUnitInstalled() {
+		if state, err := feishuBridgeServiceState(); err == nil && state == "active" {
+			stopSystemdFeishuBridgeAfterReply()
+		}
+	}
 	if feishuGatewayMgr.IsRunning() {
 		feishuGatewayMgr.Stop()
 	}
@@ -259,15 +362,14 @@ Usage:
   /feishu                        Interactive setup (QR scan login)
   /feishu setup                  Scan QR code to login (recommended)
   /feishu setup --manual <AppId> <AppSecret>  Manual credentials
-  /feishu start                 Check credentials and show bridge start instructions
+  /feishu start                 Start the Feishu connection and send the startup guide
   /feishu stop                  Stop the bot
   /feishu status                Show current status
   /feishu logout                Clear credentials and disconnect
 
 Workflow:
   1. /feishu setup              # Scan QR (you become the owner)
-  2. /feishu start              # Show the standalone bridge command
-     pi-feishu-bridge           # Start the actual Feishu connection
+  2. /feishu start              # Start the Feishu connection
   3. Send a message to the bot in Feishu
 
 Credentials are saved to ~/.pi-go/feishu-credentials.json

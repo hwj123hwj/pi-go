@@ -37,6 +37,9 @@ jobs:
           mkdir -p "dist/${RELEASE_NAME}"
           cp "dist/${BINARY_NAME}" "dist/${RELEASE_NAME}/${BINARY_NAME}"
           cp "dist/pi-feishu-bridge" "dist/${RELEASE_NAME}/pi-feishu-bridge"
+          mkdir -p "dist/${RELEASE_NAME}/scripts"
+          cp scripts/feishu-bridge-configured.sh "dist/${RELEASE_NAME}/scripts/feishu-bridge-configured.sh"
+          chmod +x "dist/${RELEASE_NAME}/scripts/feishu-bridge-configured.sh"
           cp README.md "dist/${RELEASE_NAME}/README.md"
           tar -C dist -czf "dist/${RELEASE_NAME}.tar.gz" "${RELEASE_NAME}"
           echo "RELEASE_NAME=${RELEASE_NAME}" >> "$GITHUB_ENV"
@@ -87,7 +90,10 @@ jobs:
                cp /tmp/pi-feishu-bridge.service /etc/systemd/system/pi-feishu-bridge.service && \
                systemctl daemon-reload && \
                systemctl enable pi-feishu-bridge.service && \
-               systemctl restart pi-feishu-bridge.service || true; \
+               (systemctl restart pi-feishu-bridge.service || { \
+                 state=\$(systemctl show pi-feishu-bridge.service --property=ActiveState --value); \
+                 [ "\$state" = "inactive" ] || exit 1; \
+               }); \
              fi"
 
       - name: Health check

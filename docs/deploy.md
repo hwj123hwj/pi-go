@@ -18,6 +18,8 @@
 ├── releases/
 │   └── release-<git-sha>/
 │       ├── pi-agent
+│       ├── pi-feishu-bridge
+│       ├── scripts/feishu-bridge-configured.sh
 │       └── README.md
 └── shared/
     └── .env
@@ -104,7 +106,8 @@ curl --version
 5. 渲染并安装 `systemd` service
 6. 更新 `current` 软链
 7. `systemctl restart pi-go`
-8. 对 `http://127.0.0.1:8081/health` 做健康检查
+8. 重启已配置的飞书桥接服务；缺少凭据时跳过启动，不进入重启循环
+9. 对 `http://127.0.0.1:8081/health` 做健康检查
 
 ## 手动查看服务
 
@@ -118,10 +121,12 @@ curl http://127.0.0.1:8081/health
 
 ## 飞书接入建议
 
-如果最终是“飞书套 agent 的壳”，当前方案适合以下形态：
+服务器部署后，在同一个账号下完成 `/feishu setup`，再执行 `/feishu start` 启动桥接服务。完成扫码的账号会收到欢迎语和权限提示；手动配置凭据时，需要设置 `FEISHU_OWNER_OPEN_ID`。
+
+当前方案适合以下形态：
 
 - agent 服务仅作为本机内部 HTTP 服务
 - 飞书适配层与 `pi-go` 运行在同一台机器
 - 飞书适配层通过 `127.0.0.1:8081` 调用 agent
 
-如果后面改成长连接事件模式，也可以继续沿用这套部署方式，不需要额外暴露公网端口。
+桥接服务通过长连接接收事件，不需要额外暴露公网端口。

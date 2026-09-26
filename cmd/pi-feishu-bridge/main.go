@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"github.com/hwj123hwj/pi-go/internal/feishu"
 	"github.com/joho/godotenv"
@@ -75,28 +74,7 @@ func main() {
 	gateway := feishu.NewGateway(appID, appSecret, client, msgHandler)
 	handler.SetGateway(gateway)
 	gateway.SetCardActionHandler(handler.HandleCardAction)
-	gateway.SetOnReady(func() {
-		if ownerOpenID == "" {
-			slog.Info("skipping feishu startup welcome: owner open_id is not configured")
-			return
-		}
-		go func() {
-			probeCtx, cancelProbe := context.WithTimeout(context.Background(), 8*time.Second)
-			scopes, scopesKnown, err := client.ProbeGrantedScopes(probeCtx)
-			cancelProbe()
-			if err != nil {
-				slog.Warn("feishu startup permission check failed", "error", err)
-				scopesKnown = false
-			}
-
-			welcome := feishu.BuildStartupWelcome(appID, workspace, scopes, scopesKnown)
-			sendCtx, cancelSend := context.WithTimeout(context.Background(), 8*time.Second)
-			defer cancelSend()
-			if _, err := client.SendMarkdown(sendCtx, ownerOpenID, welcome, ""); err != nil {
-				slog.Warn("failed to send feishu startup welcome", "error", err)
-			}
-		}()
-	})
+	feishu.ConfigureStartupWelcome(gateway, appID, ownerOpenID, workspace, client)
 
 	// Start tool callback HTTP server
 	if callbackURL != "" {
