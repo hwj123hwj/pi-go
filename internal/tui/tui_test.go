@@ -4,7 +4,23 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/hwj123hwj/easyagent/sdk/runtime"
+	"github.com/hwj123hwj/easyagent/sdk/slashcmd"
 )
+
+func TestNewConfirmationMode(t *testing.T) {
+	confirmSession := &runtime.AgentSession{}
+	New(confirmSession, slashcmd.NewRegistry(), false)
+	if !confirmSession.ConfirmEnabled() {
+		t.Fatal("confirmation should be enabled by default")
+	}
+
+	fullAccessSession := &runtime.AgentSession{}
+	New(fullAccessSession, slashcmd.NewRegistry(), true)
+	if fullAccessSession.ConfirmEnabled() {
+		t.Fatal("full-access mode should disable confirmation")
+	}
+}
 
 func TestInputModel_InsertAndText(t *testing.T) {
 	im := NewInputModel()
@@ -157,8 +173,8 @@ func TestStatusBarRender(t *testing.T) {
 
 func TestTuiModel_Init(t *testing.T) {
 	m := &TuiModel{
-		input:    NewInputModel(),
-		viewport: NewMessageViewport(80, 20),
+		input:     NewInputModel(),
+		viewport:  NewMessageViewport(80, 20),
 		statusBar: *NewStatusBar(),
 		messages:  []ChatMessage{},
 		theme:     DefaultTheme(),

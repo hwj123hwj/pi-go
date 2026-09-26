@@ -1,0 +1,70 @@
+package runtime
+
+import (
+	"context"
+	"testing"
+
+	"github.com/hwj123hwj/easyagent/sdk/agent"
+	"github.com/hwj123hwj/easyagent/sdk/ai/providers"
+	"github.com/hwj123hwj/easyagent/sdk/config"
+	"github.com/hwj123hwj/easyagent/sdk/extensions"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+type confirmationTestApplication struct {
+	buildToolsCalls int
+}
+
+func (a *confirmationTestApplication) BuildTools(ToolBuildOptions) []agent.Tool {
+	a.buildToolsCalls++
+	return nil
+}
+
+func (*confirmationTestApplication) BuildPrompt(PromptBuildOptions, string, string) string {
+	return "test prompt"
+}
+
+func (*confirmationTestApplication) NewSessionExt() SessionExt { return nil }
+
+func TestSetConfirmFuncRebuildsExistingAgent(t *testing.T) {
+	application := &confirmationTestApplication{}
+	session := &AgentSession{
+		cfg:         config.Default(),
+		extRegistry: extensions.NewRegistry(),
+		deps:        Dependencies{Registry: providers.NewRegistry()},
+		application: application,
+		agent:       agent.New(agent.Options{}),
+	}
+	oldAgent := session.agent
+
+	session.SetConfirmFunc(func(context.Context, agent.ConfirmationRequest) agent.ConfirmDecision {
+		return agent.ConfirmDecision{Approved: true}
+	})
+
+	require.NotSame(t, oldAgent, session.agent)
+	assert.Equal(t, 1, application.buildToolsCalls)
+	assert.True(t, session.ConfirmEnabled(), "installing a confirmation handler enables confirmation by default")
+}
+
+func TestWrapConfirmPreservesFullAccessAcrossAgentRebuilds(t *testing.T) {
+	session := &AgentSession{}
+	confirmCalls := 0
+	session.confirmFunc = func(context.Context, agent.ConfirmationRequest) agent.ConfirmDecision {
+		confirmCalls++
+		return agent.ConfirmDecision{Approved: false}
+	}
+	session.confirmEnabled.Store(false)
+
+	for range 2 {
+		decision := session.wrapConfirm(session.confirmFunc)(context.Background(), agent.ConfirmationRequest{})
+		assert.True(t, decision.Approved, "full access must bypass confirmation")
+	}
+	assert.Zero(t, confirmCalls, "full access must not invoke the dialog callback")
+	assert.False(t, session.ConfirmEnabled())
+
+	session.SetConfirmEnabled(true)
+	decision := session.wrapConfirm(session.confirmFunc)(context.Background(), agent.ConfirmationRequest{})
+	assert.False(t, decision.Approved, "turning confirmation back on must call the handler")
+	assert.Equal(t, 1, confirmCalls)
+}
