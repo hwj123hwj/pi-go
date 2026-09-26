@@ -50,6 +50,21 @@ setInterval(() => {
   if (ws.connected) ws.sendPing();
 }, 30000);
 
+// 会话深链接：#s=<sessionId> 自动选中并打开该会话（刷新不丢当前会话）
+const hashSession = location.hash.match(/^#s=(.+)$/);
+if (hashSession) {
+  const wanted = decodeURIComponent(hashSession[1]);
+  let tries = 0;
+  const trySelect = () => {
+    if (state.sessions.some(s => s.id === wanted)) {
+      sidebar.selectSession(wanted);
+    } else if (tries++ < 20) {
+      setTimeout(trySelect, 300);
+    }
+  };
+  setTimeout(trySelect, 200);
+}
+
 // ─── 页面导航 ────────────────────────────────────────────────────────────────
 
 const pages = { 'page-chat': null, 'page-workflows': workflowsPage, 'page-sessions': sessionsPage };

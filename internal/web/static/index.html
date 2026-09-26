@@ -35,7 +35,7 @@
         </div>
 
         <button id="new-session-btn" class="new-session-btn">
-          <span>+</span> New Session
+          <span>+</span> 新对话
         </button>
 
         <div id="session-list" class="session-list">
@@ -44,7 +44,7 @@
 
         <div class="sidebar-footer">
           <div class="model-selector">
-            <label class="model-label">Model</label>
+            <label class="model-label">模型</label>
             <select id="model-select" class="model-select">
               <option value="">Loading...</option>
             </select>
@@ -56,8 +56,8 @@
         <!-- Empty State -->
         <div id="empty-state" class="empty-state">
           <div class="empty-icon">💬</div>
-          <h2 class="empty-title">Welcome to Pi-Go</h2>
-          <p class="empty-subtitle">Create a new session or select an existing one to start chatting.</p>
+          <h2 class="empty-title">欢迎使用 Pi-Go</h2>
+          <p class="empty-subtitle">新建一个对话，或从左侧选择历史记录开始</p>
         </div>
 
         <!-- Chat View (hidden initially) -->
@@ -68,7 +68,7 @@
 
           <div class="input-area">
             <div class="input-container">
-              <textarea id="message-input" placeholder="Send a message..." rows="1"></textarea>
+              <textarea id="message-input" class="message-input" placeholder="输入消息，Enter 发送…" rows="1"></textarea>
               <button id="send-btn" class="send-btn" title="Send">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                   <path d="M8 1.5l-6.5 6.5h4v6.5h5v-6.5h4L8 1.5z"/>

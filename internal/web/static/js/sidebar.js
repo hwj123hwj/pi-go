@@ -54,10 +54,10 @@ export class Sidebar {
 
     if (connected) {
       dot.className = 'status-dot online';
-      text.textContent = 'Connected';
+      text.textContent = '已连接';
     } else {
       dot.className = 'status-dot connecting';
-      text.textContent = 'Reconnecting...';
+      text.textContent = '重新连接中…';
     }
   }
 
@@ -125,7 +125,7 @@ export class Sidebar {
 
   _renderSessions() {
     if (this.state.sessions.length === 0) {
-      this.sessionList.innerHTML = '<div class="empty-sessions">No sessions yet</div>';
+      this.sessionList.innerHTML = '<div class="empty-sessions">还没有对话</div>';
       return;
     }
 
@@ -139,7 +139,7 @@ export class Sidebar {
             <div class="session-title">${title}</div>
             <div class="session-meta">${meta}</div>
           </div>
-          <button class="delete-btn" title="Delete">✕</button>
+          <button class="delete-btn" title="删除">✕</button>
         </div>
       `;
     }).join('');
@@ -159,15 +159,18 @@ export class Sidebar {
   }
 
   _formatSessionTitle(s) {
-    // Show truncated session ID
-    const shortId = s.id.replace('sess_', '').slice(0, 12);
-    return shortId;
+    // 后端 List 已提取首条用户消息作为标题；空会话回退为"新对话"
+    const t = (s.title || '').trim();
+    if (!t) return '新对话';
+    const plain = t.replace(/[&<>"']/g, c => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+    }[c])).replace(/\s+/g, ' ');
+    return plain.length > 28 ? plain.slice(0, 28) + '…' : plain;
   }
 
   _formatSessionMeta(s) {
     const msgCount = s.message_count || 0;
-    const time = this._formatTime(s.last_active);
-    return `${msgCount} msgs · ${time}`;
+    return `${msgCount} 条消息 · ${this._formatTime(s.last_active)}`;
   }
 
   _formatTime(ts) {
@@ -176,9 +179,10 @@ export class Sidebar {
     const now = new Date();
     const diff = now - date;
 
-    if (diff < 60000) return 'just now';
-    if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
-    if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+    if (diff < 60000) return '刚刚';
+    if (diff < 3600000) return `${Math.floor(diff / 60000)} 分钟前`;
+    if (diff < 86400000) return `${Math.floor(diff / 3600000)} 小时前`;
+    if (diff < 172800000) return '昨天';
     return date.toLocaleDateString();
   }
 }
