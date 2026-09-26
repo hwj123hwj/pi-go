@@ -93,13 +93,13 @@ func New(session *runtime.AgentSession, cmds *slashcmd.Registry, autoApprove boo
 		confirmation: NewConfirmationState(),
 	}
 
-	// Wire confirmation callback（autoApprove 全权模式下放行，不装确认对话框）
+	// Wire confirmation callback：始终安装对话框，autoApprove/-y 只决定
+	// 初始状态；会话内随时 /confirm on|off 运行时切换。
 	m.autoApprove = autoApprove
-	if !autoApprove {
-		session.SetConfirmFunc(func(ctx context.Context, req agent.ConfirmationRequest) agent.ConfirmDecision {
-			return m.handleConfirmation(ctx, req)
-		})
-	}
+	session.SetConfirmFunc(func(ctx context.Context, req agent.ConfirmationRequest) agent.ConfirmDecision {
+		return m.handleConfirmation(ctx, req)
+	})
+	session.SetConfirmEnabled(!autoApprove)
 
 	return m
 }

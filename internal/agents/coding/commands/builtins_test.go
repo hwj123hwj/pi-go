@@ -12,17 +12,18 @@ import (
 )
 
 type mockSession struct {
-	sessionID     string
-	provider      string
-	modelID       string
-	toolNames     []string
-	switchErr     error
-	profile       string
-	goal          string
-	compactResult string
-	compactFrom   int
-	compactTo     int
-	compactErr    error
+	confirmEnabled bool
+	sessionID      string
+	provider       string
+	modelID        string
+	toolNames      []string
+	switchErr      error
+	profile        string
+	goal           string
+	compactResult  string
+	compactFrom    int
+	compactTo      int
+	compactErr     error
 }
 
 func (m *mockSession) SessionID() string { return m.sessionID }
@@ -69,9 +70,11 @@ func (m *mockSession) SwitchProfile(_ context.Context, profile string) error {
 	}
 }
 
-func (m *mockSession) Goal() string                        { return m.goal }
-func (m *mockSession) SetGoal(goal string)                  { m.goal = goal }
-func (m *mockSession) ClearGoal()                           { m.goal = "" }
+func (m *mockSession) Goal() string                   { return m.goal }
+func (m *mockSession) SetGoal(goal string)            { m.goal = goal }
+func (m *mockSession) ClearGoal()                     { m.goal = "" }
+func (m *mockSession) ConfirmEnabled() bool           { return m.confirmEnabled }
+func (m *mockSession) SetConfirmEnabled(enabled bool) { m.confirmEnabled = enabled }
 func (m *mockSession) Compact(_ context.Context, _ string) (string, int, int, error) {
 	if m.compactErr != nil {
 		return "", 0, 0, m.compactErr
@@ -618,4 +621,41 @@ func TestHelp_IncludesNewCommands(t *testing.T) {
 	assert.Contains(t, result.Output, "/clear")
 	// Help section should now be called "Information & control"
 	assert.Contains(t, result.Output, "Information & control")
+}
+
+func TestConfirmCommand_TogglesAndStatus(t *testing.T) {
+	reg := newRegistry()
+	sess := &mockSession{sessionID: "test", confirmEnabled: true}
+	cmdCtx := slashcmd.Context{
+		Ctx:     context.Background(),
+		Session: sess,
+		App:     &mockApp{},
+	}
+
+	// 状态查询
+	result, err := reg.Execute(cmdCtx, "/confirm")
+	require.NoError(t, err)
+	assert.Contains(t, result.Output, "确认已开启")
+
+	// off → 全权
+	result, err = reg.Execute(cmdCtx, "/confirm off")
+	require.NoError(t, err)
+	assert.Contains(t, result.Output, "全权模式")
+	assert.False(t, sess.ConfirmEnabled())
+
+	// 全权下状态查询
+	result, err = reg.Execute(cmdCtx, "/confirm")
+	require.NoError(t, err)
+	assert.Contains(t, result.Output, "全权模式")
+
+	// on → 恢复
+	result, err = reg.Execute(cmdCtx, "/confirm on")
+	require.NoError(t, err)
+	assert.Contains(t, result.Output, "已恢复确认")
+	assert.True(t, sess.ConfirmEnabled())
+
+	// 非法参数
+	result, err = reg.Execute(cmdCtx, "/confirm blah")
+	require.NoError(t, err)
+	assert.Contains(t, result.Output, "用法")
 }
