@@ -8,9 +8,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/hwj123hwj/pi-go/sdk/agent"
-	"github.com/hwj123hwj/pi-go/internal/music"
-	"github.com/hwj123hwj/pi-go/internal/music/netease"
+	"github.com/hwj123hwj/easyagent/sdk/agent"
+	"github.com/hwj123hwj/easyagent/internal/music"
+	"github.com/hwj123hwj/easyagent/internal/music/netease"
 )
 
 // fakeNetease 起一个 mock 网易 API server。

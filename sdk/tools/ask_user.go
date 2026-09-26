@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/hwj123hwj/pi-go/sdk/agent"
+	"github.com/hwj123hwj/easyagent/sdk/agent"
 )
 
 // AskUserTool pauses the agent loop and presents questions to the user.

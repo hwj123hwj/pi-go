@@ -5,14 +5,14 @@ import sys
 import urllib.request
 import urllib.error
 
-REPO = "hwj123hwj/pi-go"
+REPO = "hwj123hwj/easyagent"
 TOKEN = open("/tmp/gh_token.txt").read().strip()
 
 # 1. Create release
 release_data = json.dumps({
     "tag_name": "v0.9.2",
     "target_commitish": "main",
-    "name": "Pi-Go Mobile v0.9.2 — Button Fix",
+    "name": "EasyAgent Mobile v0.9.2 — Button Fix",
     "body": "## 🔧 Fix: 连接按钮无反应\n\n"
             "**Root cause:** `react-native-gesture-handler` 的 native module 已安装但没有正确初始化。"
             "`GestureHandlerRootView` 必须包裹在根组件中才能让触摸事件正常工作。\n\n"

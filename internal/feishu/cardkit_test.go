@@ -239,8 +239,8 @@ func TestBuildFinalCard_SummaryStripsMarkdown(t *testing.T) {
 
 func TestBuildWorktreeCard_WithActions(t *testing.T) {
 	route := &ChatRoute{
-		WorktreeRoot:   "/tmp/repo/.pi-go/worktrees/task",
-		WorktreeBranch: "pi-go/task",
+		WorktreeRoot:   "/tmp/repo/.easyagent/worktrees/task",
+		WorktreeBranch: "easyagent/task",
 	}
 	card := BuildWorktreeCard("oc_chat", route, "status text")
 

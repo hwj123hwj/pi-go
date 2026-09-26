@@ -3,7 +3,7 @@ package agent
 import (
 	"sync"
 
-	"github.com/hwj123hwj/pi-go/sdk/ai"
+	"github.com/hwj123hwj/easyagent/sdk/ai"
 )
 
 type MessageQueue struct {

@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/hwj123hwj/pi-go/sdk/agent"
-	"github.com/hwj123hwj/pi-go/sdk/ai"
-	"github.com/hwj123hwj/pi-go/sdk/ai/providers"
+	"github.com/hwj123hwj/easyagent/sdk/agent"
+	"github.com/hwj123hwj/easyagent/sdk/ai"
+	"github.com/hwj123hwj/easyagent/sdk/ai/providers"
 )
 
 // echoProvider 演示实现 providers.Provider 的最小样子：不调网络，直接回固定文本。
@@ -39,7 +39,7 @@ func (echoProvider) Stream(ctx context.Context, req ai.StreamRequest) (*ai.Event
 }
 
 // Example_agent 演示 SDK 的最小用法：注册 Provider → 组装 Agent → 一轮对话。
-// 这就是"在自己的 Go 后端服务里拿到 pi-go 原子能力"的全部代码。
+// 这就是"在自己的 Go 后端服务里拿到 easyagent 原子能力"的全部代码。
 func Example_agent() {
 	registry := providers.NewRegistry()
 	registry.Register(echoProvider{})

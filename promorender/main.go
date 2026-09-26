@@ -1,4 +1,4 @@
-// Command promorender renders pi-go TUI states with the real internal/tui
+// Command promorender renders easyagent TUI states with the real internal/tui
 // package and exports them as ANSI text frames for the video project.
 package main
 
@@ -12,7 +12,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/termenv"
 
-	"github.com/hwj123hwj/pi-go/internal/tui"
+	"github.com/hwj123hwj/easyagent/internal/tui"
 )
 
 const (
@@ -96,7 +96,7 @@ func modelSelectorScene() Frame {
 		msg("user", "把 internal/server 的模型列表接口改成从网关 /v1/models 同步", 14, 31),
 		msg("assistant", "已读取 `internal/server/server.go`，`listModels` 目前返回硬编码列表。\n\n**方案**\n1. 请求网关 `GET /v1/models`\n2. 把 `display_name` 映射为模型名\n3. 网关不可达时回退到内置列表", 14, 31),
 		msg("user", "补充测试，然后跑一遍 TUI 相关用例", 14, 33),
-		msg("assistant", "新增 `TestListModelsFallsBackWithoutGateway`，覆盖网关不可达时的回退路径。\n\n```\nok  github.com/hwj123hwj/pi-go/internal/server  0.8s\nok  github.com/hwj123hwj/pi-go/internal/tui    1.2s\n```", 14, 33),
+		msg("assistant", "新增 `TestListModelsFallsBackWithoutGateway`，覆盖网关不可达时的回退路径。\n\n```\nok  github.com/hwj123hwj/easyagent/internal/server  0.8s\nok  github.com/hwj123hwj/easyagent/internal/tui    1.2s\n```", 14, 33),
 	}
 
 	models := []tui.ModelOption{
@@ -109,7 +109,7 @@ func modelSelectorScene() Frame {
 
 	vp := tui.NewMessageViewport(width, height-1-4)
 	vp.SetMessages(msgs)
-	pre := fullFrame(vp, "", 18300, 1240, "ready", 0, "openai", "glm-5", "/Users/weijian/Desktop/hwj/pi-go")
+	pre := fullFrame(vp, "", 18300, 1240, "ready", 0, "openai", "glm-5", "/Users/weijian/Desktop/hwj/easyagent")
 
 	pop := ""
 	for sel := 0; sel < 5; sel++ {
@@ -119,7 +119,7 @@ func modelSelectorScene() Frame {
 			cm.Next()
 		}
 		popup := tui.NewCompletionPopup().RenderModelPopup(&cm, width)
-		pop = fullFrame(vp, popup, 18300, 1240, "ready", 0, "openai", "glm-5", "/Users/weijian/Desktop/hwj/pi-go")
+		pop = fullFrame(vp, popup, 18300, 1240, "ready", 0, "openai", "glm-5", "/Users/weijian/Desktop/hwj/easyagent")
 	}
 
 	return Frame{ID: "model-selector", Pre: pre, Pop: pop}
@@ -161,7 +161,7 @@ func diffReviewScene() Frame {
 
 	vp := tui.NewMessageViewport(width, height-1-4)
 	vp.SetMessages(msgs)
-	frame := fullFrame(vp, "", 21400, 2680, "ready", 0, "openai", "glm-5", "/Users/weijian/Desktop/hwj/pi-go")
+	frame := fullFrame(vp, "", 21400, 2680, "ready", 0, "openai", "glm-5", "/Users/weijian/Desktop/hwj/easyagent")
 	return Frame{ID: "diff-review", Pre: frame, Pop: frame}
 }
 
@@ -172,12 +172,12 @@ func workingScene() Frame {
 	}
 	vp := tui.NewMessageViewport(width, height-1-4)
 	vp.SetMessages(userMsgs)
-	pre := fullFrame(vp, "", 0, 0, "ready", 0, "openai", "glm-5", "/Users/weijian/Desktop/hwj/pi-go")
+	pre := fullFrame(vp, "", 0, 0, "ready", 0, "openai", "glm-5", "/Users/weijian/Desktop/hwj/easyagent")
 
 	stream := tui.NewMessageViewport(width, height-1-4)
 	stream.SetMessages(userMsgs)
 	stream.SetStreaming("先读配置里的 baseURL 与 apiKey，再请求网关 /v1/models。\n将 display_name 映射为模型名，写入模型注册表。\n失败时回退内置列表，保证接口始终可用。")
-	pop := fullFrame(stream, "", 9044, 661, "thinking", 3, "openai", "glm-5", "/Users/weijian/Desktop/hwj/pi-go")
+	pop := fullFrame(stream, "", 9044, 661, "thinking", 3, "openai", "glm-5", "/Users/weijian/Desktop/hwj/easyagent")
 
 	return Frame{ID: "working", Pre: pre, Pop: pop}
 }

@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/hwj123hwj/pi-go/internal/handoff"
-	"github.com/hwj123hwj/pi-go/sdk/slashcmd"
-	"github.com/hwj123hwj/pi-go/sdk/util"
+	"github.com/hwj123hwj/easyagent/internal/handoff"
+	"github.com/hwj123hwj/easyagent/sdk/slashcmd"
+	"github.com/hwj123hwj/easyagent/sdk/util"
 )
 
 // RegisterTaskCommands registers /task slash commands for TASK.md handoff management.

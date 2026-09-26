@@ -3,7 +3,7 @@ package compaction
 import (
 	"strings"
 
-	"github.com/hwj123hwj/pi-go/sdk/ai"
+	"github.com/hwj123hwj/easyagent/sdk/ai"
 )
 
 // EstimateTokens 估算消息列表的 token 数。

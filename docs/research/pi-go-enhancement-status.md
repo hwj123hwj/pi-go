@@ -1,4 +1,4 @@
-# pi-go 增强进度：P0-P2 落地状态
+# EasyAgent 增强进度：P0-P2 落地状态
 
 > 更新日期：2026-06-20
 > 背景：基于 DeepVcodeClient 差距分析（参考 `deepv-code-full-analysis.md`、`cc-haha-web-fetch-analysis.md`）得出的 P0-P4 优先级，本文记录已落地的增强项及其 commit/PR，作为当前能力基线。
@@ -19,7 +19,7 @@
 
 ### P1：循环检测 + 会话级 Hook + 压缩 bugfix ✅
 
-- **PR**: [#19](https://github.com/hwj123hwj/pi-go/pull/19)（3 个 commit，已合并）
+- **PR**: [#19](https://github.com/hwj123hwj/easyagent/pull/19)（3 个 commit，已合并）
 
 **循环检测**（`fa56beb`/`7dd32be`）:
 - 连续相同 tool call（SHA256 指纹 name:args）达阈值 5 → 注入提醒到 followUpQueue，柔性不中断
@@ -36,14 +36,14 @@
 
 ### P2：web_fetch + MicroCompact ✅
 
-**web_fetch 内置工具** — [PR #21](https://github.com/hwj123hwj/pi-go/pull/21)（`47dccdb`，已合并）:
+**web_fetch 内置工具** — [PR #21](https://github.com/hwj123hwj/easyagent/pull/21)（`47dccdb`，已合并）:
 - 参照 cc-haha（=Claude Code 官方），不学 DeepV（DeepV 连 HTML→markdown 都不做）
 - 结构化参数 `{url, prompt?}`，html-to-markdown 库转换
 - 三层长度控制 + SSRF 双重防护（入口 isPrivateHost + CheckRedirect 每跳校验）
 - 默认关闭 `EnableWeb`（和 bash 一致的安全默认）
 - **不做 web_search**（编程 agent 低频，用户给链接更准）
 
-**MicroCompact** — [PR #22](https://github.com/hwj123hwj/pi-go/pull/22)（`f2063f6`，已合并）:
+**MicroCompact** — [PR #22](https://github.com/hwj123hwj/easyagent/pull/22)（`f2063f6`，已合并）:
 - 参照 cc-haha microCompact.ts：清旧 tool result，**不调 LLM**（非分级摘要——调研后纠正了原设想）
 - 两级阈值：60% 触发 Micro（清旧 read/bash/grep/find/ls/web_fetch result，保留最近 5 个）→ 90% 才全量 AutoCompact
 - ToolCallID→工具名 回溯关联判断可压缩性；防膨胀（占位符更长时跳过）
@@ -57,7 +57,7 @@
 
 | 项 | 原优先级 | 状态 | 说明 |
 |---|---|---|---|
-| 子 Agent / SubAgent | P3（已降级） | 未做 | pi-go 当前无多 Agent 场景刚需；DeepV 的 4 Agent 类型 + TaskTool 工作量大 |
+| 子 Agent / SubAgent | P3（已降级） | 未做 | EasyAgent 当前无多 Agent 场景刚需；DeepV 的 4 Agent 类型 + TaskTool 工作量大 |
 | MCP 协议支持 | P4 | 未做 | 工作量大，按需。DeepV 有完整 MCP（3 Transport + OAuth） |
 | LSP 客户端 | P4 | 未做 | 按需。Go 有 lsp 库可用 |
 | 沙箱执行 | P4 | 未做 | 按需。DeepV 继承自 gemini-cli（docker/podman/macOS-seatbelt） |
@@ -66,7 +66,7 @@
 
 ---
 
-## pi-go 不可丢弃的结构性优势（保持）
+## EasyAgent 不可丢弃的结构性优势（保持）
 
 这些是 DeepVcodeClient 用 fork 路径换不来的，增强任何能力时都需守住：
 

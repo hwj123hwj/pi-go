@@ -1,5 +1,5 @@
 /**
- * store.ts — Zustand store for Pi-Go mobile
+ * store.ts — Zustand store for EasyAgent mobile
  *
  * Manages sessions, active chat transcript, WebSocket events, models.
  *

@@ -1,3 +1,5 @@
+> 历史文档：本文保留更名前的 pi-go 项目记录；项目现名为 EasyAgent。
+
 # Archived
 
 原文件已归档，历史路径：`docs/desktop-golang-changes.md`。

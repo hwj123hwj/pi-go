@@ -5,17 +5,17 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/hwj123hwj/pi-go/sdk/agent"
-	"github.com/hwj123hwj/pi-go/internal/agents/coding"
-	"github.com/hwj123hwj/pi-go/sdk/ai/providers"
-	"github.com/hwj123hwj/pi-go/sdk/config"
-	"github.com/hwj123hwj/pi-go/sdk/extensions"
-	"github.com/hwj123hwj/pi-go/sdk/operations"
-	"github.com/hwj123hwj/pi-go/internal/profile"
-	"github.com/hwj123hwj/pi-go/sdk/runtime"
-	"github.com/hwj123hwj/pi-go/internal/scheduler"
-	"github.com/hwj123hwj/pi-go/sdk/sessionmgr"
-	"github.com/hwj123hwj/pi-go/sdk/slashcmd"
+	"github.com/hwj123hwj/easyagent/sdk/agent"
+	"github.com/hwj123hwj/easyagent/internal/agents/coding"
+	"github.com/hwj123hwj/easyagent/sdk/ai/providers"
+	"github.com/hwj123hwj/easyagent/sdk/config"
+	"github.com/hwj123hwj/easyagent/sdk/extensions"
+	"github.com/hwj123hwj/easyagent/sdk/operations"
+	"github.com/hwj123hwj/easyagent/internal/profile"
+	"github.com/hwj123hwj/easyagent/sdk/runtime"
+	"github.com/hwj123hwj/easyagent/internal/scheduler"
+	"github.com/hwj123hwj/easyagent/sdk/sessionmgr"
+	"github.com/hwj123hwj/easyagent/sdk/slashcmd"
 )
 
 // App is the thin assembly layer for the agent.
@@ -299,18 +299,18 @@ func registerProviders(registry *providers.Registry, cfg config.Config) error {
 			slog.Info("registered anthropic provider", "model", cfg.AnthropicModel, "base_url", cfg.AnthropicBaseURL)
 			return nil
 		}
-		return fmt.Errorf("PI_GO_PROVIDER=anthropic but ANTHROPIC_API_KEY is empty")
+		return fmt.Errorf("EA_PROVIDER=anthropic but ANTHROPIC_API_KEY is empty")
 	case "openai":
 		if cfg.OpenAIAPIKey != "" {
 			registry.Register(providers.NewOpenAIProvider(cfg.OpenAIAPIKey, cfg.OpenAIBaseURL))
 			slog.Info("registered openai provider", "model", cfg.OpenAIModel, "base_url", cfg.OpenAIBaseURL)
 			return nil
 		}
-		return fmt.Errorf("PI_GO_PROVIDER=openai but OPENAI_API_KEY is empty")
+		return fmt.Errorf("EA_PROVIDER=openai but OPENAI_API_KEY is empty")
 	case "":
-		return fmt.Errorf("PI_GO_PROVIDER is not set (valid values: anthropic, openai)")
+		return fmt.Errorf("EA_PROVIDER is not set (valid values: anthropic, openai)")
 	default:
-		return fmt.Errorf("unknown PI_GO_PROVIDER %q (valid values: anthropic, openai)", cfg.Provider)
+		return fmt.Errorf("unknown EA_PROVIDER %q (valid values: anthropic, openai)", cfg.Provider)
 	}
 }
 

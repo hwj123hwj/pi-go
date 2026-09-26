@@ -7,8 +7,9 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
-	"os"
 	"time"
+
+	"github.com/hwj123hwj/easyagent/sdk/config"
 )
 
 // ToolCallbackRequest mirrors agent.ToolCallbackRequest for the bridge side.
@@ -24,7 +25,7 @@ type ToolCallbackResponse struct {
 	IsError bool   `json:"is_error,omitempty"`
 }
 
-// RegisterTool registers the create_project_group tool with the pi-agent server.
+// RegisterTool registers the create_project_group tool with the easyagent server.
 func RegisterTool(piAgentURL, callbackURL string) error {
 	toolDef := map[string]any{
 		"name":        "create_project_group",
@@ -59,7 +60,7 @@ func RegisterTool(piAgentURL, callbackURL string) error {
 		return fmt.Errorf("register tool: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
-	setAgentAuth(req, os.Getenv("PI_GO_API_KEY"))
+	setAgentAuth(req, config.Env("EA_API_KEY"))
 	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("register tool: %w", err)
@@ -75,7 +76,7 @@ func RegisterTool(piAgentURL, callbackURL string) error {
 	return nil
 }
 
-// HandleToolCallback handles the HTTP callback from pi-agent for tool execution.
+// HandleToolCallback handles the HTTP callback from easyagent for tool execution.
 func (h *Handler) HandleToolCallback(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		writeToolError(w, http.StatusMethodNotAllowed, "method not allowed")
@@ -120,7 +121,7 @@ func (h *Handler) HandleToolCallback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create group chat
-	chatID, err := h.client.CreateGroupChat(r.Context(), params.GroupName, "Pi Agent 项目协作群", []string{senderOpenID})
+	chatID, err := h.client.CreateGroupChat(r.Context(), params.GroupName, "EasyAgent 项目协作群", []string{senderOpenID})
 	if err != nil {
 		writeToolResponse(w, ToolCallbackResponse{
 			Content: fmt.Sprintf("创建群失败: %v", err),

@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hwj123hwj/pi-go/sdk/config"
+	"github.com/hwj123hwj/easyagent/sdk/config"
 )
 
 func truncateResp(b []byte, max int) []byte {

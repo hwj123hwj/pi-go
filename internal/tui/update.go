@@ -8,9 +8,9 @@ import (
 	"unicode/utf8"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/hwj123hwj/pi-go/sdk/agent"
-	"github.com/hwj123hwj/pi-go/sdk/runtime"
-	"github.com/hwj123hwj/pi-go/sdk/slashcmd"
+	"github.com/hwj123hwj/easyagent/sdk/agent"
+	"github.com/hwj123hwj/easyagent/sdk/runtime"
+	"github.com/hwj123hwj/easyagent/sdk/slashcmd"
 )
 
 // handleKeyPress processes all keyboard input, routing to the appropriate

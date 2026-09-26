@@ -15,9 +15,11 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/hwj123hwj/easyagent/sdk/config"
 )
 
-// BuiltinAppID is the pre-registered Feishu app for pi-go.
+// BuiltinAppID is the pre-registered Feishu app for easyagent.
 // Users scan a QR code with this app_id to authorize the bot.
 const BuiltinAppID = "cli_a94f42eb71f9dccc"
 const BuiltinAppSecret = "GJkOZto6hbML2QWdEkqE4chkwSiArva7"
@@ -78,7 +80,7 @@ func StartOAuthFlow(ctx context.Context) (*OAuthResult, error) {
 			"app_id":        {BuiltinAppID},
 			"redirect_uri":  {redirectURI},
 			"response_type": {"code"},
-			"state":         {"pi-go"},
+			"state":         {"easyagent"},
 		}.Encode(),
 	)
 
@@ -373,7 +375,7 @@ func (gm *GatewayManager) start(creds Credentials, client *Client, handler Messa
 	if ownerOpenID == "" {
 		ownerOpenID = creds.UserOpenID
 	}
-	ConfigureStartupWelcome(gw, creds.AppID, ownerOpenID, os.Getenv("PI_GO_WORKSPACE"), client)
+	ConfigureStartupWelcome(gw, creds.AppID, ownerOpenID, config.Env("EA_WORKSPACE"), client)
 
 	gm.gateway = gw
 	gm.cancel = cancel

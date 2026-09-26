@@ -1,3 +1,5 @@
+> 历史文档：本文保留更名前的 pi-go 项目记录；项目现名为 EasyAgent。
+
 # pi-go 项目代码审查与改进建议
 
 > 基于对整个项目（包括 `internal/agent`、`internal/ai`、`internal/tools`、`internal/runtime`、`internal/app` 等核心模块以及 CLI/TUI 集成和飞书桥接）的全面阅读。

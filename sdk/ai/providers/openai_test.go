@@ -9,14 +9,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hwj123hwj/pi-go/sdk/ai"
+	"github.com/hwj123hwj/easyagent/sdk/ai"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 // 本文件是 OpenAI SSE 组装的回归测试。用例来源：
 //   - 2026-05-29 踩坑：兼容网关 tool_calls[].index 从 1 开始导致 ToolCalls 丢失
-//     （agent-lessons/issues/2026-05-29-pi-go-openai-sse-tool-call-index.md）
+//     （agent-lessons/issues/2026-05-29-easyagent-openai-sse-tool-call-index.md）
 //   - litellm-gateway 生产经验：usage 独立 chunk（choices 为空）、超长参数累积、
 //     坏行容错、[DONE] 缺失等兼容性差异
 //
@@ -351,7 +351,7 @@ func TestStreamHugeSingleLineArguments(t *testing.T) {
 
 // TestStreamToolCallMissingIndex：部分上游的 tool_calls 增量不带 index 字段，
 // 零值并入 key 0，单工具场景必须正常组装（new-api 用 *int 区分缺失，此处
-// 锁定 pi-go 的零值兜底行为）。
+// 锁定 easyagent 的零值兜底行为）。
 func TestStreamToolCallMissingIndex(t *testing.T) {
 	frame := `{"id":"1","object":"chat.completion.chunk","model":"m","choices":[{"index":0,"delta":{"tool_calls":[{"id":"call_x","type":"function","function":{"name":"grep","arguments":"{\"q\":\"foo\"}"}}]},"finish_reason":null}]}`
 	srv := sseServer(t,

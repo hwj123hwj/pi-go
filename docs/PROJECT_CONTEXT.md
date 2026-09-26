@@ -1,13 +1,13 @@
-# Pi-Go 项目上下文
+# EasyAgent 项目上下文
 
-> 本文档是 pi-go 项目的高层快照，供调研/分析任务快速了解项目全貌，无需重读源码。
+> 本文档是 EasyAgent 项目的高层快照，供调研/分析任务快速了解项目全貌，无需重读源码。
 > 架构变更时应同步更新本文档。
 
 ---
 
 ## 定位
 
-pi-go 是一个用 Go 实现的通用 Agent 框架，核心目标是：**可扩展的 Agent 底座 + 可插拔的应用层**。
+EasyAgent 是一个用 Go 实现的通用 Agent 框架，核心目标是：**可扩展的 Agent 底座 + 可插拔的应用层**。
 
 当前已落地两个一等公民 Application：
 - **coding-agent**（代码编辑助手，主力）
@@ -21,7 +21,7 @@ pi-go 是一个用 Go 实现的通用 Agent 框架，核心目标是：**可扩�
 ┌─────────────────────────────────────────────────────┐
 │  Entrypoints（组装与入口）                           │
 │  app/ CLI/ server/                                   │
-│  cmd/pi-agent  cmd/pi-feishu-bridge                  │
+│  cmd/easyagent  cmd/easyagent-bridge                  │
 ├─────────────────────────────────────────────────────┤
 │  Application（领域应用层，可插拔）                    │
 │  agents/coding/ — coding-agent 的工具集、提示、命令   │
@@ -47,11 +47,11 @@ pi-go 是一个用 Go 实现的通用 Agent 框架，核心目标是：**可扩�
 
 ### 物理位置：`sdk/` 与 `internal/`
 
-Core + Platform（18 个包）物理位于 `sdk/`，是**可被外部 Go 模块 import 的公共 API 面**——其他 Go 后端服务 `import "github.com/hwj123hwj/pi-go/sdk/..."` 即可拿到 Agent 原子能力（详见 `sdk/doc.go` 与 `sdk/example_test.go`）。
+Core + Platform（18 个包）物理位于 `sdk/`，是**可被外部 Go 模块 import 的公共 API 面**——其他 Go 后端服务 `import "github.com/hwj123hwj/easyagent/sdk/..."` 即可拿到 Agent 原子能力（详见 `sdk/doc.go` 与 `sdk/example_test.go`）。
 
 Application 层及以下（agents/music/feishu/tui/server 等）位于 `internal/`，编译器强制私有。
 
-**硬约束**：`sdk/` 不得 import `pi-go/internal/` 的任何包，由 `sdk/arch_test.go` 在测试中强制——想进 SDK 的能力必须零领域知识。当前 v0 阶段，SDK API 不承诺向后兼容。
+**硬约束**：`sdk/` 不得 import `EasyAgent/internal/` 的任何包，由 `sdk/arch_test.go` 在测试中强制——想进 SDK 的能力必须零领域知识。当前 v0 阶段，SDK API 不承诺向后兼容。
 
 ### 关键接口
 
@@ -100,7 +100,7 @@ Application 层及以下（agents/music/feishu/tui/server 等）位于 `internal
 
 ## 与 TypeScript Agent 项目的典型差异
 
-| 维度 | Go (pi-go) | TypeScript (常见) |
+| 维度 | Go (EasyAgent) | TypeScript (常见) |
 |------|-----------|-------------------|
 | 并发 | goroutine + channel | async/await + Promise |
 | 错误处理 | 多返回值 error | try/catch + Error 对象 |
@@ -114,7 +114,7 @@ Application 层及以下（agents/music/feishu/tui/server 等）位于 `internal
 - **已完成**：runtime 从 coding-agent 解耦（Application 接口注入）
 - **已完成**：CLI 控制面（session 切换、model 切换、profile 切换、结构化 slash command）
 - **已完成**：music-agent 落地——多源音乐（网易云+B站兜底）、音频代理、桌面端播放器
-- **已完成**：Desktop App（Electron + React）首版，管理 pi-agent 子进程
+- **已完成**：Desktop App（Electron + React）首版，管理 easyagent 子进程
 - **规划中**：记忆层（`runtime.Memory` 接口，music 偏好收集为首场景，详见 personal-assistant-roadmap）；更多个人 agent（记账/健康/日记）
 - **文档**：`docs/` 下有架构提案、产品路线图、编码规范、决策记录
 

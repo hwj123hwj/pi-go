@@ -1,3 +1,5 @@
+> 历史文档：本文保留更名前的 pi-go 项目记录；项目现名为 EasyAgent。
+
 # 决策：SDK 抽取——Core+Platform 公共化为 `sdk/`
 
 日期：2026-09-06

@@ -6,10 +6,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/hwj123hwj/pi-go/sdk/agent"
-	platformprompt "github.com/hwj123hwj/pi-go/sdk/prompt"
-	"github.com/hwj123hwj/pi-go/sdk/skill"
-	basetools "github.com/hwj123hwj/pi-go/sdk/tools"
+	"github.com/hwj123hwj/easyagent/sdk/agent"
+	platformprompt "github.com/hwj123hwj/easyagent/sdk/prompt"
+	"github.com/hwj123hwj/easyagent/sdk/skill"
+	basetools "github.com/hwj123hwj/easyagent/sdk/tools"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

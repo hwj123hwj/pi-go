@@ -47,7 +47,7 @@ func buildScopeApplyURL(appID string, scopes []string) string {
 		}
 		v.Set("q", joined)
 	}
-	v.Set("op_from", "pi-go")
+	v.Set("op_from", "easyagent")
 	v.Set("token_type", "tenant")
 	return base + "?" + v.Encode()
 }

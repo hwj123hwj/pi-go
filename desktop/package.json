@@ -1,7 +1,7 @@
 {
-  "name": "pi-go-desktop",
+  "name": "easyagent-desktop",
   "version": "0.2.0",
-  "description": "Pi-Go Desktop Client - AI Coding Agent GUI",
+  "description": "EasyAgent Desktop Client - AI Coding Agent GUI",
   "main": "dist/electron/main.js",
   "scripts": {
     "dev": "vite",

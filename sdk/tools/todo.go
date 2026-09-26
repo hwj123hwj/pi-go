@@ -11,11 +11,11 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/hwj123hwj/pi-go/sdk/agent"
+	"github.com/hwj123hwj/easyagent/sdk/agent"
+	"github.com/hwj123hwj/easyagent/sdk/config"
 )
 
 const (
-	todoDirName  = ".pi-go"
 	todoFileName = "todo.json"
 )
 
@@ -27,7 +27,7 @@ type TodoItem struct {
 	Priority string `json:"priority"` // "high", "medium", "low"
 }
 
-// TodoTool manages a todo list with JSON persistence to ~/.pi-go/todo.json.
+// TodoTool manages a todo list with JSON persistence to ~/.easyagent/todo.json.
 // Each call replaces the entire list (wholesale update, matching the TS pattern).
 type TodoTool struct {
 	mu       sync.Mutex
@@ -161,12 +161,7 @@ func (t *TodoTool) getFilePath() (string, error) {
 		return t.filePath, nil
 	}
 
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", fmt.Errorf("get home dir: %w", err)
-	}
-
-	t.filePath = filepath.Join(home, todoDirName, todoFileName)
+	t.filePath = filepath.Join(config.HomeDir(), todoFileName)
 	return t.filePath, nil
 }
 

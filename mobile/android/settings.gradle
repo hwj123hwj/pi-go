@@ -21,7 +21,7 @@ extensions.configure(com.facebook.react.ReactSettingsExtension) { ex ->
   }
 }
 
-rootProject.name = 'Pi-Go'
+rootProject.name = 'EasyAgent'
 
 dependencyResolutionManagement {
   versionCatalogs {

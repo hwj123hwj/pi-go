@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/hwj123hwj/pi-go/sdk/ai"
-	"github.com/hwj123hwj/pi-go/sdk/ai/providers"
-	"github.com/hwj123hwj/pi-go/sdk/compaction"
-	"github.com/hwj123hwj/pi-go/sdk/session"
+	"github.com/hwj123hwj/easyagent/sdk/ai"
+	"github.com/hwj123hwj/easyagent/sdk/ai/providers"
+	"github.com/hwj123hwj/easyagent/sdk/compaction"
+	"github.com/hwj123hwj/easyagent/sdk/session"
 )
 
 type EventHandler func(ctx context.Context, event AgentEvent)

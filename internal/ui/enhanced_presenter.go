@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/hwj123hwj/pi-go/sdk/agent"
+	"github.com/hwj123hwj/easyagent/sdk/agent"
 )
 
 // ANSI color codes
@@ -627,7 +627,7 @@ func PrintBanner(w io.Writer) {
 	fmt.Fprintf(w, "\n")
 	fmt.Fprintf(w, "  %s%s╔%s╗%s\n", ColorCyan, ColorBold, border, ColorReset)
 	fmt.Fprintf(w, "  %s%s║%s║%s\n", ColorCyan, ColorBold, strings.Repeat(" ", width), ColorReset)
-	fmt.Fprintf(w, "  %s%s║%s║%s\n", ColorCyan, ColorBold, centerLine("⚡  Pi-Go Agent  ⚡"), ColorReset)
+	fmt.Fprintf(w, "  %s%s║%s║%s\n", ColorCyan, ColorBold, centerLine("⚡  EasyAgent  ⚡"), ColorReset)
 	fmt.Fprintf(w, "  %s%s║%s║%s\n", ColorCyan, ColorBold, centerLine("Go-powered AI coding assistant"), ColorReset)
 	fmt.Fprintf(w, "  %s%s║%s║%s\n", ColorCyan, ColorBold, strings.Repeat(" ", width), ColorReset)
 	fmt.Fprintf(w, "  %s%s╚%s╝%s\n\n", ColorCyan, ColorBold, border, ColorReset)

@@ -46,7 +46,7 @@ function breadcrumb(root: string, file: string): string[] {
   return [baseName(r), ...rel.split('/').filter(Boolean)];
 }
 
-// ── REST API helpers (talk to pi-go backend) ────────────────────────────────
+// ── REST API helpers (talk to easyagent backend) ────────────────────────────────
 
 async function listDir(path: string): Promise<DirEntry[]> {
   const res = await fetch(`${getBaseUrl()}/workspace/list-dir?path=${encodeURIComponent(path)}`);

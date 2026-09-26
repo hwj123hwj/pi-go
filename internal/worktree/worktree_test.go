@@ -35,7 +35,7 @@ func TestCreate(t *testing.T) {
 	if info.ProjectPath != info.WorktreeRoot {
 		t.Fatalf("ProjectPath = %q, want worktree root %q", info.ProjectPath, info.WorktreeRoot)
 	}
-	if !strings.HasPrefix(info.Branch, "pi-go/project-20260706-010203-456789") {
+	if !strings.HasPrefix(info.Branch, "easyagent/project-20260706-010203-456789") {
 		t.Fatalf("Branch = %q", info.Branch)
 	}
 	if _, err := os.Stat(filepath.Join(info.WorktreeRoot, ".git")); err != nil {
@@ -57,7 +57,7 @@ func TestCreate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read exclude: %v", err)
 	}
-	if !strings.Contains(string(exclude), ".pi-go/worktrees/") {
+	if !strings.Contains(string(exclude), ".easyagent/worktrees/") {
 		t.Fatalf("exclude missing worktree ignore:\n%s", string(exclude))
 	}
 }
@@ -249,8 +249,8 @@ func initRepo(t *testing.T) string {
 
 	repo := t.TempDir()
 	git(t, repo, "init")
-	git(t, repo, "config", "user.email", "pi-go@example.com")
-	git(t, repo, "config", "user.name", "pi-go")
+	git(t, repo, "config", "user.email", "easyagent@example.com")
+	git(t, repo, "config", "user.name", "easyagent")
 	if err := os.WriteFile(filepath.Join(repo, "README.md"), []byte("# repo\n"), 0o644); err != nil {
 		t.Fatalf("write README: %v", err)
 	}

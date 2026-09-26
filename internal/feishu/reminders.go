@@ -11,7 +11,7 @@ import (
 // the Feishu WebSocket connection becomes ready.
 func BuildStartupWelcome(appID, workspace string, grantedScopes []string, scopesKnown bool) string {
 	lines := []string{
-		"👋 **Pi-go 飞书 Bot 已连接，随时待命。**",
+		"👋 **EasyAgent 飞书机器人已连接，随时待命。**",
 		"",
 		"**💡 快速开始**",
 		"- 私聊直接发送任务即可。",
@@ -23,7 +23,7 @@ func BuildStartupWelcome(appID, workspace string, grantedScopes []string, scopes
 	if workspace != "" {
 		lines = append(lines, "`"+workspace+"`")
 	} else {
-		lines = append(lines, "跟随 pi-agent 服务端工作目录；可设置 `PI_GO_WORKSPACE` 指定目录。")
+		lines = append(lines, "跟随 easyagent 服务端工作目录；可设置 `EA_WORKSPACE` 指定目录。")
 	}
 
 	if scopesKnown {

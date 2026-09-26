@@ -11,7 +11,7 @@ import (
 // token count, and workspace.
 //
 // ┌─────────────────────────────────────────────────────────────────┐
-// │ ● ready │ model: gpt-4o │ tokens: 12.3k/128k │ workspace: pi-go │
+// │ ● ready │ model: gpt-4o │ tokens: 12.3k/128k │ workspace: easyagent │
 // └─────────────────────────────────────────────────────────────────┘
 type StatusBar struct {
 	theme *Theme

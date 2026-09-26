@@ -1,3 +1,5 @@
+> 历史文档：本文保留更名前的 pi-go 项目记录；项目现名为 EasyAgent。
+
 # /goal 与 /compact 跨框架调研报告
 
 > **调研范围**: Pi (TypeScript)、Claude Code、OpenAI Codex CLI、DeepV Code (dvcode)

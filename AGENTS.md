@@ -42,7 +42,7 @@ This file provides guidance to Codex (Codex.ai/code) when working with code in t
 四层分层，依赖方向：`Entrypoints → Application → Platform → Core`
 
 ```
-cmd/pi-agent  cmd/pi-feishu-bridge     ← 入口
+cmd/easyagent  cmd/easyagent-bridge     ← 入口
 internal/agents/ music/ feishu/ tui/…  ← 应用层（领域应用，不属于 SDK）
 sdk/runtime/                           ← 平台层（AgentSession、Application 接口）
 sdk/agent/ sdk/ai/ sdk/session/ …      ← 核心层（零领域知识）
@@ -50,8 +50,8 @@ sdk/agent/ sdk/ai/ sdk/session/ …      ← 核心层（零领域知识）
 
 层间规则：Core 不依赖上层；Platform 只依赖 Core；Application 通过 `runtime.Application` 接口解耦。
 
-**SDK 边界**：`sdk/` 是可被外部 Go 模块 import 的公共 API 面（pi-go 的"原子能力"）；
-`internal/` 是 pi-go 自身的应用与入口。**sdk/ 不得 import internal/ 的任何包**，
+**SDK 边界**：`sdk/` 是可被外部 Go 模块 import 的公共 API 面（EasyAgent 的"原子能力"）；
+`internal/` 是 EasyAgent 自身的应用与入口。**sdk/ 不得 import internal/ 的任何包**，
 由 `sdk/arch_test.go` 强制。给 sdk/ 加代码必须保持零领域知识（音乐/飞书等永远不进 SDK）。
 
 ## 核心接口
@@ -88,14 +88,15 @@ JSONL append-only（`sdk/session/jsonl.go`）：message/compaction/checkpoint �
 ## 命令
 
 ```bash
-go build -o pi-agent ./cmd/pi-agent        # 构建
+go build -o easyagent ./cmd/easyagent        # 构建
 go test ./...                               # 全量测试
 go test ./sdk/tools/ -v                # 单包测试
-./pi-agent -mode chat                       # 交互式
-./pi-agent -mode serve -listen :8080        # HTTP 服务
+./easyagent chat                             # 交互式
+./easyagent serve --listen :8080             # HTTP 服务
 ```
 
-Provider 开发用 `mock`（`PI_GO_PROVIDER=mock`），不调真实 LLM。
+Provider 开发用 `mock`（`EA_PROVIDER=mock`），不调真实 LLM。
+`EA_*` 为当前环境变量前缀；程序仍兼容读取旧的 `PI_GO_*` 变量。
 
 ## 环境变量
 
@@ -103,6 +104,6 @@ Provider 开发用 `mock`（`PI_GO_PROVIDER=mock`），不调真实 LLM。
 
 | 变量 | 默认值 | 说明 |
 |---|---|---|
-| `PI_GO_PROVIDER` | `mock` | `anthropic` / `openai` / `deepv` / `mock` |
-| `PI_GO_ENABLE_BASH` | `false` | 启用 Bash 工具 |
-| `PI_GO_DATA_DIR` | `./data` | 会话数据目录 |
+| `EA_PROVIDER` | `mock` | `anthropic` / `openai` / `deepv` / `mock` |
+| `EA_ENABLE_BASH` | `false` | 启用 Bash 工具 |
+| `EA_DATA_DIR` | `./data` | 会话数据目录 |

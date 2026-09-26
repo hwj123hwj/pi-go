@@ -9,8 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hwj123hwj/pi-go/internal/feishu"
-	"github.com/hwj123hwj/pi-go/sdk/slashcmd"
+	"github.com/hwj123hwj/easyagent/internal/feishu"
+	"github.com/hwj123hwj/easyagent/sdk/config"
+	"github.com/hwj123hwj/easyagent/sdk/slashcmd"
 )
 
 // feishuGatewayMgr is the package-level feishu gateway manager.
@@ -89,7 +90,7 @@ func handleFeishuSetup(ctx slashcmd.Context, args []string) (slashcmd.CommandRes
 		}
 
 		return slashcmd.CommandResult{
-			Output: fmt.Sprintf("✅ Feishu credentials saved!\n  App ID: %s\n  Bot: %s\n  Saved to: ~/.pi-go/feishu-credentials.json\n\nNext: run /feishu start to start the bot", appID, botName),
+			Output: fmt.Sprintf("✅ Feishu credentials saved!\n  App ID: %s\n  Bot: %s\n  Saved to: %s/feishu-credentials.json\n\nNext: run /feishu start to start the bot", appID, botName, config.HomeDir()),
 		}, nil
 	}
 
@@ -165,9 +166,9 @@ func handleFeishuSetup(ctx slashcmd.Context, args []string) (slashcmd.CommandRes
 
   Bot Name:  %s
   App ID:    %s
-  Saved to:  ~/.pi-go/feishu-credentials.json
+  Saved to:  %s/feishu-credentials.json
 
-Next: run /feishu start to start the bot`, botName, poll.AppID),
+Next: run /feishu start to start the bot`, botName, poll.AppID, config.HomeDir()),
 	}, nil
 }
 
@@ -196,7 +197,7 @@ Please configure first:
 		}
 		state, err := feishuBridgeServiceState()
 		if err != nil || state != "active" {
-			return slashcmd.CommandResult{Output: "⚠️ 飞书桥接服务没有启动。请确认凭据已配置，然后查看 `systemctl status pi-feishu-bridge`。"}, nil
+			return slashcmd.CommandResult{Output: "⚠️ 飞书桥接服务没有启动。请确认凭据已配置，然后查看 `systemctl status easyagent-bridge`。"}, nil
 		}
 		return feishuStartedMessage(*creds), nil
 	}
@@ -205,7 +206,7 @@ Please configure first:
 		return slashcmd.CommandResult{Output: "✅ 飞书机器人已经连接中。"}, nil
 	}
 	client := feishu.NewClient(creds.AppID, creds.AppSecret)
-	handler := feishu.NewHandler(piAgentURL(), creds.AppID, client, os.Getenv("PI_GO_WORKSPACE"))
+	handler := feishu.NewHandler(piAgentURL(), creds.AppID, client, config.Env("EA_WORKSPACE"))
 	if err := feishuGatewayMgr.StartWithHandler(*creds, client, handler); err != nil {
 		return slashcmd.CommandResult{Output: fmt.Sprintf("❌ 启动飞书机器人失败：%v", err)}, nil
 	}
@@ -248,18 +249,18 @@ func piAgentURL() string {
 	if url := strings.TrimRight(strings.TrimSpace(os.Getenv("PI_AGENT_URL")), "/"); url != "" {
 		return url
 	}
-	host := strings.TrimSpace(os.Getenv("PI_GO_HOST"))
+	host := strings.TrimSpace(config.Env("EA_HOST"))
 	if host == "" || host == "0.0.0.0" || host == "::" {
 		host = "127.0.0.1"
 	}
-	port := strings.TrimSpace(os.Getenv("PI_GO_PORT"))
+	port := strings.TrimSpace(config.Env("EA_PORT"))
 	if port == "" {
 		port = "8080"
 	}
 	return "http://" + net.JoinHostPort(host, port)
 }
 
-const feishuBridgeServiceName = "pi-feishu-bridge.service"
+const feishuBridgeServiceName = "easyagent-bridge.service"
 
 func systemdBridgeUnitInstalled() bool {
 	if _, err := os.Stat("/run/systemd/system"); err != nil {
@@ -331,7 +332,7 @@ func handleFeishuStatus() (slashcmd.CommandResult, error) {
   App ID:    %s
   Bot Name:  %s
   Platform:  %s
-  Credentials: ~/.pi-go/feishu-credentials.json`, status, creds.AppID, botName, creds.Platform),
+  Credentials: %s/feishu-credentials.json`, status, creds.AppID, botName, creds.Platform, config.HomeDir()),
 	}, nil
 }
 
@@ -355,7 +356,7 @@ func handleFeishuLogout() (slashcmd.CommandResult, error) {
 }
 
 func feishuHelp() string {
-	return strings.TrimSpace(`
+	return strings.TrimSpace(fmt.Sprintf(`
 🤖 /feishu — Feishu Bot Integration
 
 Usage:
@@ -372,6 +373,6 @@ Workflow:
   2. /feishu start              # Start the Feishu connection
   3. Send a message to the bot in Feishu
 
-Credentials are saved to ~/.pi-go/feishu-credentials.json
-`)
+Credentials are saved to %s/feishu-credentials.json
+`, config.HomeDir()))
 }

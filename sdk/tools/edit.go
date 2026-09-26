@@ -8,8 +8,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/hwj123hwj/pi-go/sdk/agent"
-	"github.com/hwj123hwj/pi-go/sdk/operations"
+	"github.com/hwj123hwj/easyagent/sdk/agent"
+	"github.com/hwj123hwj/easyagent/sdk/operations"
 )
 
 // MutationQueue 是 EditTool/WriteTool 的 per-file 串行化抽象。

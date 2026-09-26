@@ -1,7 +1,7 @@
 /**
- * types.ts — Inline type definitions for the pi-go desktop renderer.
+ * types.ts — Inline type definitions for the easyagent desktop renderer.
  * Replaces the @shared/ipc types from DeepVcodeClient, keeping only what
- * pi-go's REST + WebSocket backend needs.
+ * easyagent's REST + WebSocket backend needs.
  */
 
 // ── Sessions ──────────────────────────────────────────────────────────────

@@ -1,5 +1,5 @@
 [Unit]
-Description=Pi-Go Feishu Bridge
+Description=EasyAgent Feishu Bridge
 After=network.target pi-go.service
 Wants=pi-go.service
 StartLimitIntervalSec=300
@@ -11,7 +11,7 @@ User=root
 WorkingDirectory=__DEPLOY_PATH__/current
 EnvironmentFile=__DEPLOY_PATH__/shared/.env
 ExecCondition=__DEPLOY_PATH__/current/scripts/feishu-bridge-configured.sh
-ExecStart=/usr/bin/env PI_AGENT_URL=http://127.0.0.1:8081 __DEPLOY_PATH__/current/pi-feishu-bridge
+ExecStart=/usr/bin/env PI_AGENT_URL=http://127.0.0.1:8081 __DEPLOY_PATH__/current/easyagent-bridge
 Restart=on-failure
 RestartSec=10
 StandardOutput=journal

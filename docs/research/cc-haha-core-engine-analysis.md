@@ -2,7 +2,7 @@
 
 > 调研日期：2026-05-24
 > 来源：本地 `/Users/weijian/Desktop/develop/test/pi/cc-haha`，GitHub: [NanmiCoder/cc-haha](https://github.com/NanmiCoder/cc-haha)
-> 调研目标：聚焦 cc-haha 的 **Agent 循环、Tool 系统、系统提示构建、上下文管理** 等核心源码，与 pi-go 做深度对比，找出 pi-go coding-agent 的差距
+> 调研目标：聚焦 cc-haha 的 **Agent 循环、Tool 系统、系统提示构建、上下文管理** 等核心源码，与 EasyAgent 做深度对比，找出 EasyAgent coding-agent 的差距
 
 ---
 
@@ -15,19 +15,19 @@ cc-haha 是基于 Anthropic Claude Code（官方 CLI）泄露源码修复而来�
 | 项目 | 角色 | 技术栈 | 核心代码量 |
 |------|------|--------|-----------|
 | cc-haha (Claude Code) | 编码 Agent CLI/Desktop | TypeScript/Bun | `src/` ~400 个模块，`src/utils/` 313 个工具函数 |
-| pi-go | 通用 Agent 框架 + coding-agent | Go | 核心层 ~50 个模块 |
+| EasyAgent | 通用 Agent 框架 + coding-agent | Go | 核心层 ~50 个模块 |
 
 ### 核心发现摘要
 
-1. **Agent 循环是 AsyncGenerator 驱动**：cc-haha 的 `query()` 是一个 `async*` generator (`src/query.ts:220`)，用 `while(true)` + `yield*` 实现内外层嵌套——外层 follow-up，内层 API 流式循环。pi-go 的双层循环设计思路一致，但实现更显式。
+1. **Agent 循环是 AsyncGenerator 驱动**：cc-haha 的 `query()` 是一个 `async*` generator (`src/query.ts:220`)，用 `while(true)` + `yield*` 实现内外层嵌套——外层 follow-up，内层 API 流式循环。EasyAgent 的双层循环设计思路一致，但实现更显式。
 
-2. **系统提示是精心设计的缓存策略**：`src/constants/prompts.ts` 将系统提示分为静态（跨组织缓存）和动态（按 section 注册）两部分，用 `__SYSTEM_PROMPT_DYNAMIC_BOUNDARY__` 分割。pi-go 没有等效的缓存策略。
+2. **系统提示是精心设计的缓存策略**：`src/constants/prompts.ts` 将系统提示分为静态（跨组织缓存）和动态（按 section 注册）两部分，用 `__SYSTEM_PROMPT_DYNAMIC_BOUNDARY__` 分割。EasyAgent 没有等效的缓存策略。
 
-3. **Tool 系统是 15+ 方法的接口**：`src/Tool.ts` 的 `Tool<>` 泛型接口定义了 `call/description/isConcurrencySafe/isReadOnly/isDestructive/inputSchema/outputSchema/shouldDefer/maxResultChars` 等，粒度远超 pi-go。
+3. **Tool 系统是 15+ 方法的接口**：`src/Tool.ts` 的 `Tool<>` 泛型接口定义了 `call/description/isConcurrencySafe/isReadOnly/isDestructive/inputSchema/outputSchema/shouldDefer/maxResultChars` 等，粒度远超 EasyAgent。
 
-4. **上下文压缩有 4 级渐进策略**：snip → microcompact → context collapse → autocompact，每级解决不同粒度的问题。pi-go 只有 1 级 LLM 摘要。
+4. **上下文压缩有 4 级渐进策略**：snip → microcompact → context collapse → autocompact，每级解决不同粒度的问题。EasyAgent 只有 1 级 LLM 摘要。
 
-5. **工具执行有完整的编排层**：`src/services/tools/toolOrchestration.ts` 实现了 read-only 工具并行执行 + non-read-only 串行执行的分批策略。pi-go 的工具执行是顺序的。
+5. **工具执行有完整的编排层**：`src/services/tools/toolOrchestration.ts` 实现了 read-only 工具并行执行 + non-read-only 串行执行的分批策略。EasyAgent 的工具执行是顺序的。
 
 ---
 
@@ -80,9 +80,9 @@ QueryEngine               (src/QueryEngine.ts)      — 外层封装：配置、
 └──────────────────────────────────────────────────────────┘
 ```
 
-**关键差异**（与 pi-go 对比）：
+**关键差异**（与 EasyAgent 对比）：
 
-| 特性 | cc-haha | pi-go |
+| 特性 | cc-haha | EasyAgent |
 |------|---------|-------|
 | 循环载体 | AsyncGenerator (`yield*`) | 回调 + goroutine |
 | 上下文压缩 | 4 级渐进（snip/microcompact/collapse/autocompact） | 1 级 LLM 摘要 |
@@ -152,9 +152,9 @@ export type Tool<
 }
 ```
 
-**pi-go 的差距**：
+**EasyAgent 的差距**：
 
-| 功能 | cc-haha | pi-go | 重要度 |
+| 功能 | cc-haha | EasyAgent | 重要度 |
 |------|---------|-------|--------|
 | 并发放行控制 | `isConcurrencySafe()` | ❌ | 高——决定工具能否并行执行 |
 | 只读标记 | `isReadOnly()` | ❌ | 高——决定批次划分 |
@@ -168,7 +168,7 @@ export type Tool<
 
 ### 工具执行编排（src/services/tools/toolOrchestration.ts:19）
 
-这是 cc-haha 最值得 pi-go 借鉴的设计之一：
+这是 cc-haha 最值得 EasyAgent 借鉴的设计之一：
 
 ```typescript
 export async function* runTools(
@@ -193,7 +193,7 @@ export async function* runTools(
 - 将连续的 read-only tools 合并为一个批次并行执行
 - 遇到 write tool 则插入分界，串行执行
 
-**pi-go 当前行为**：所有工具顺序执行。对于 `Read` / `Grep` / `Glob` 这些纯读操作，完全可以并行。
+**EasyAgent 当前行为**：所有工具顺序执行。对于 `Read` / `Grep` / `Glob` 这些纯读操作，完全可以并行。
 
 ### 工具执行完整链路（src/services/tools/toolExecution.ts:337）
 
@@ -244,14 +244,14 @@ runToolUse()
 - 动态部分使用 `systemPromptSection()` 缓存，按 name 缓存计算值
 - 变化频繁的部分用 `DANGEROUS_uncachedSystemPromptSection()` 标注
 
-### pi-go 的差距
+### EasyAgent 的差距
 
-cc-haha 的系统提示构建（`getSystemPrompt()`，445行）远比 pi-go 复杂：
+cc-haha 的系统提示构建（`getSystemPrompt()`，445行）远比 EasyAgent 复杂：
 
 - **cc-haha 有 ~15 个独立 section**，每个独立计算和缓存
 - **cc-haha 区分内部/外部提示**（`USER_TYPE === 'ant'`），内部版多了代码风格、验证 Agent、假阳性抑制等详细指令
 - **cc-haha 的提示是活的**——根据当前启用的工具集、用户设置、MCP 连接动态组装
-- pi-go 的系统提示是静态拼接，没有 section 注册、缓存、动态组装机制
+- EasyAgent 的系统提示是静态拼接，没有 section 注册、缓存、动态组装机制
 
 ### MCP 指令增量系统
 
@@ -270,13 +270,13 @@ cc-haha 有 4 级压缩策略，按触发顺序：
 | 3. Context Collapse | `services/contextCollapse/` | 跨 turns | 投影折叠视图（read-time projection） | feature gate `CONTEXT_COLLAPSE` |
 | 4. Autocompact | `services/compact/autoCompact.ts` | 跨 turns | LLM 摘要 + 保留最近消息 | 上下文接近限制时 |
 
-**pi-go 的差距**：pi-go 只有第 4 级的简化版（LLM 摘要），缺少前 3 级轻量级压缩策略。
+**EasyAgent 的差距**：EasyAgent 只有第 4 级的简化版（LLM 摘要），缺少前 3 级轻量级压缩策略。
 
 ---
 
 ## 6. Message 类型系统
 
-cc-haha 的消息体系（`src/types/message.ts`）比 pi-go 精细得多：
+cc-haha 的消息体系（`src/types/message.ts`）比 EasyAgent 精细得多：
 
 ```typescript
 // 简化的类型联合
@@ -315,13 +315,13 @@ type AssistantMessage = {
 
 ---
 
-## 7. 针对 pi-go coding-agent 的改进建议
+## 7. 针对 EasyAgent coding-agent 的改进建议
 
 ### P0 — 必须补齐
 
 #### 7.1 工具级并行执行
 
-**现状**：pi-go 的 `coding-agent` 中工具按顺序执行。
+**现状**：EasyAgent 的 `coding-agent` 中工具按顺序执行。
 
 **改进**：在 Tool 接口中增加 `IsConcurrencySafe() bool` 方法，在 Agent 循环中检测连续的 read-only 工具并并行执行。参考 `src/services/tools/toolOrchestration.ts:91` 的 `partitionToolCalls()`。
 
@@ -329,7 +329,7 @@ type AssistantMessage = {
 
 #### 7.2 系统提示分层与缓存
 
-**现状**：pi-go 的系统提示是平面字符串拼接，每次重新构建。
+**现状**：EasyAgent 的系统提示是平面字符串拼接，每次重新构建。
 
 **改进**：参考 cc-haha 的 `systemPromptSection` 注册机制，将系统提示拆分为静态（跨会话可缓存）和动态（按 section 注册）两部分。区分 prompt 层的缓存边界。
 
@@ -337,7 +337,7 @@ type AssistantMessage = {
 
 #### 7.3 多级上下文压缩
 
-**现状**：pi-go 只有 LLM 摘要压缩。
+**现状**：EasyAgent 只有 LLM 摘要压缩。
 
 **改进**：增加轻量级压缩策略：
 - 细粒度压缩：用简单规则替换/截断大 tool result
@@ -350,7 +350,7 @@ type AssistantMessage = {
 
 #### 7.4 工具方法丰富化
 
-**现状**：pi-go 的 `AgentTool` 接口定义了 `Execute` + 基础方法。
+**现状**：EasyAgent 的 `AgentTool` 接口定义了 `Execute` + 基础方法。
 
 **建议增加**：
 - `IsReadOnly() bool` — 标记只读工具
@@ -360,7 +360,7 @@ type AssistantMessage = {
 
 #### 7.5 消息类型丰富化
 
-**现状**：pi-go 的 `AgentMessage` 联合类型较简单。
+**现状**：EasyAgent 的 `AgentMessage` 联合类型较简单。
 
 **建议增加**：
 - 错误元数据字段（API 错误类型、重试状态）
@@ -369,7 +369,7 @@ type AssistantMessage = {
 
 #### 7.6 错误恢复机制
 
-**现状**：pi-go 对 API 错误没有恢复策略。
+**现状**：EasyAgent 对 API 错误没有恢复策略。
 
 **建议增加**：
 - `max_output_tokens` 恢复：检测到后自动重试带更大的 output token limit
@@ -379,11 +379,11 @@ type AssistantMessage = {
 
 #### 7.7 ToolSearch / 工具延迟加载
 
-cc-haha 的 `ToolSearch` 机制将不常用的工具延迟发送，初次只发送核心工具，需要时通过 `tool_search` 工具发现。pi-go 目前所有工具均加载。
+cc-haha 的 `ToolSearch` 机制将不常用的工具延迟发送，初次只发送核心工具，需要时通过 `tool_search` 工具发现。EasyAgent 目前所有工具均加载。
 
 #### 7.8 Token Budget 管理
 
-cc-haha 支持 `task_budget`（API 参数）和 `token_budget`（内部跟踪），pi-go 无此能力。
+cc-haha 支持 `task_budget`（API 参数）和 `token_budget`（内部跟踪），EasyAgent 无此能力。
 
 ---
 
@@ -406,11 +406,11 @@ cc-haha 支持 `task_budget`（API 参数）和 `token_budget`（内部跟踪）
 
 ---
 
-## 9. 总结：pi-go coding-agent 差距清单
+## 9. 总结：EasyAgent coding-agent 差距清单
 
 ```
 ┌────────────────────────────────────────────────────────────────────┐
-│ 差距类型      │ 差距项               │ cc-haha 状态 │ pi-go 状态   │
+│ 差距类型      │ 差距项               │ cc-haha 状态 │ EasyAgent 状态   │
 ├────────────────────────────────────────────────────────────────────┤
 │ 架构级 P0    │ 工具并行执行          │ ✅ 分批次     │ ❌ 顺序执行   │
 │             │ 系统提示缓存           │ ✅ section注册 │ ❌ 平面拼接  │
@@ -429,4 +429,4 @@ cc-haha 支持 `task_budget`（API 参数）和 `token_budget`（内部跟踪）
 └────────────────────────────────────────────────────────────────────┘
 ```
 
-核心结论：**pi-go 的 Agent 框架底座（`internal/agent/`、`internal/ai/`）设计思路正确**，但 coding-agent 应用层（`internal/agents/coding/`）相比 cc-haha 在工具并行、系统提示缓存、上下文压缩、错误恢复等关键点上差距明显。好消息是这些差距大多数是增量改进，无需重构底座。
+核心结论：**EasyAgent 的 Agent 框架底座（`internal/agent/`、`internal/ai/`）设计思路正确**，但 coding-agent 应用层（`internal/agents/coding/`）相比 cc-haha 在工具并行、系统提示缓存、上下文压缩、错误恢复等关键点上差距明显。好消息是这些差距大多数是增量改进，无需重构底座。

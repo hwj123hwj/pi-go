@@ -1,5 +1,5 @@
 /**
- * ws.ts — Lightweight WebSocket client for Pi-Go mobile
+ * ws.ts — Lightweight WebSocket client for EasyAgent mobile
  *
  * RN Best Practices:
  * - js-memory-leaks: reconnect timer cleaned up on disconnect

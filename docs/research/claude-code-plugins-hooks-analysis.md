@@ -1,4 +1,4 @@
-# Claude Code 源码分析：Pi-Go 对比与借鉴
+# Claude Code 源码分析：EasyAgent 对比与借鉴
 
 > 学习日期：2026-05-22
 > 来源：Claude Code 官方仓库 (https://github.com/anthropics/claude-code) — plugins 目录 + hooks 文档
@@ -14,7 +14,7 @@ Claude Code（以下简称 CC）的**核心源码**是编译到二进制（Bun �
 - **文档与示例** — 配置示例、MDM 管理、hooks 开发指南
 - **GitHub 脚本** — issue 自动化
 
-本文基于 plugins 目录和 hooks 文档分析 CC 的设计，并与 Pi-Go 做对比。
+本文基于 plugins 目录和 hooks 文档分析 CC 的设计，并与 EasyAgent 做对比。
 
 ---
 
@@ -22,7 +22,7 @@ Claude Code（以下简称 CC）的**核心源码**是编译到二进制（Bun �
 
 ### 2.1 Hooks 系统
 
-**这是 CC 最核心的差异化设计。** Pi-Go 目前缺失最严重的能力。
+**这是 CC 最核心的差异化设计。** EasyAgent 目前缺失最严重的能力。
 
 #### 事件类型
 
@@ -122,7 +122,7 @@ Stop hook 返回格式（可 block / approve）：
 
 #### 借鉴建议
 
-Pi-Go 要实现 hooks，可以：
+EasyAgent 要实现 hooks，可以：
 
 1. **定义 Hook 接口**（Go 类型），对应事件类型常量
 2. **实现 event bus** — Agent 循环的关键点（tool 执行前后、停止前、session 开始/结束）发射事件
@@ -156,7 +156,7 @@ You are a senior software architect...
 
 #### 借鉴建议
 
-Pi-Go 实现 SubAgent：
+EasyAgent 实现 SubAgent：
 1. 定义 Agent 规格（支持的 tool 列表、model、系统 prompt）
 2. Agent 循环支持 spawn sub-agent（新 Agent 实例 + 独立 tool 上下文）
 3. 用 Go 的 `sync.WaitGroup` 做并行执行
@@ -183,9 +183,9 @@ my-plugin/
 
 #### 借鉴建议
 
-Pi-Go 可以将这套目录约定简化移植：
+EasyAgent 可以将这套目录约定简化移植：
 - 不需要每个插件都强制 `plugin.json` + `README.md`
-- 支持 `~/.pi-go/plugins/` 和项目内 `.pi-go/` 两个目录层级
+- 支持 `~/.easyagent/plugins/` 和项目内 `.easyagent/` 两个目录层级
 - 文件发现优于代码注册
 
 ---
@@ -194,11 +194,11 @@ Pi-Go 可以将这套目录约定简化移植：
 
 CC 的 `PreCompact` hook 允许在上下文压缩前注入"保留重要信息"的指令。这个设计很小但很精妙：压缩是由 LLM 做摘要的，`PreCompact` 可以告诉 LLM "请保留 X 信息"，解决了压缩丢失关键上下文的痛点。
 
-Pi-Go 已有 `compaction` 包，只需加一个 PreCompact 回调点即可对齐。
+EasyAgent 已有 `compaction` 包，只需加一个 PreCompact 回调点即可对齐。
 
 ---
 
-## 三、CC 的冗余设计（Pi-Go 应避免）
+## 三、CC 的冗余设计（EasyAgent 应避免）
 
 ### 3.1 插件功能重叠
 
@@ -208,13 +208,13 @@ Pi-Go 已有 `compaction` 包，只需加一个 PreCompact 回调点即可对齐
 | `explanatory-output-style` vs `learning-output-style` | 目录结构一样，但 learning 额外增加了"交互式用户贡献模式"，功能差异比表面看起来大 |
 | `feature-dev` 的 code-reviewer vs `pr-review-toolkit` 的 code-reviewer | 同名 agent，能力重叠 |
 
-**Pi-Go 应该**：一个功能只做一个插件，用参数/配置切换行为，而不是分拆多个。
+**EasyAgent 应该**：一个功能只做一个插件，用参数/配置切换行为，而不是分拆多个。
 
 ### 3.2 文档即插件的混淆
 
 `plugin-dev` 插件 **20752 行 markdown**，占据了 plugins 总内容的 **~79%**（全量 26313 行）。它本质是一份开发文档，但因为 CC 没有独立的文档系统，只能把文档包装成插件。
 
-**Pi-Go 应该**：文档放文档目录，插件放插件目录，不混在一起。
+**EasyAgent 应该**：文档放文档目录，插件放插件目录，不混在一起。
 
 ### 3.3 Hooks 配置的三层嵌套
 
@@ -235,7 +235,7 @@ Pi-Go 已有 `compaction` 包，只需加一个 PreCompact 回调点即可对齐
 
 这个嵌套层级过多。一个最小配置（1 event + 1 matcher + 1 hook）需要写 15 行 JSON。
 
-**Pi-Go 应该**：用扁平化配置。比如 Hook 注册直接是 `(event, matcher, handler)` 三元组，不需要多层包装。
+**EasyAgent 应该**：用扁平化配置。比如 Hook 注册直接是 `(event, matcher, handler)` 三元组，不需要多层包装。
 
 ### 3.4 Markdown 硬编码脚本
 
@@ -256,7 +256,7 @@ Pi-Go 已有 `compaction` 包，只需加一个 PreCompact 回调点即可对齐
 
 对比 CC 自己的 hookify 插件用 Python 脚本文件 + JSON 协议，差了档次。
 
-**Pi-Go 应该**：保持工具函数注册的方式，不在 prompt 里硬编码可执行脚本。
+**EasyAgent 应该**：保持工具函数注册的方式，不在 prompt 里硬编码可执行脚本。
 
 ### 3.5 小插件的架子太重
 
@@ -269,13 +269,13 @@ skills/frontend-design/SKILL.md
 
 `security-guidance` 更极端 — 0 行 markdown，只有 2 个 JSON 配置文件。
 
-**Pi-Go 应该**：允许极简注册方式——一个命令 = 一个文件，不需要元数据文件。
+**EasyAgent 应该**：允许极简注册方式——一个命令 = 一个文件，不需要元数据文件。
 
 ---
 
-## 四、Pi-Go 已有的优势
+## 四、EasyAgent 已有的优势
 
-| 维度 | Pi-Go 优势 |
+| 维度 | EasyAgent 优势 |
 |---|---|
 | **流式事件** | `PromptStream` 的 `AgentStreamEvent` channel 设计比 CC 的事件系统更干净 |
 | **双层循环** | `loop.go` 的 `processTurn` / `executeToolCallsParallel` 实现简洁 |
@@ -307,7 +307,7 @@ skills/frontend-design/SKILL.md
    - 待补齐：根据用户输入自动加载相关 skill 内容（当前需 Agent 主动读取）
 
 4. **插件文件系统发现**
-   - 支持 `~/.pi-go/plugins/` 目录扫描
+   - 支持 `~/.easyagent/plugins/` 目录扫描
    - 目录结构约定（commands/、agents/、skills/）
 
 ### 第三期（锦上添花）
@@ -341,9 +341,9 @@ skills/frontend-design/SKILL.md
 │  注册方式：零代码，目录放对位置即可                   │
 └───────────────────────────────────────────────────┘
 
-┌─ Pi-Go 当前架构 ──────────────────────────────────┐
+┌─ EasyAgent 当前架构 ──────────────────────────────────┐
 │                                                   │
-│  pi-go/                                            │
+│  EasyAgent/                                            │
 │  ├── internal/                                     │
 │  │   ├── agent/          ← 核心Agent循环           │
 │  │   ├── extensions/     ← 代码接口注册             │
@@ -355,9 +355,9 @@ skills/frontend-design/SKILL.md
 │  扩展方式：需要改代码、重新编译                       │
 └───────────────────────────────────────────────────┘
 
-┌─ Pi-Go 目标架构 ──────────────────────────────────┐
+┌─ EasyAgent 目标架构 ──────────────────────────────────┐
 │                                                   │
-│  pi-go/                                            │
+│  EasyAgent/                                            │
 │  ├── internal/         ← 核心（不变）               │
 │  ├── plugins/          ← 新增：文件系统发现           │
 │  │   └── my-plugin/                                │

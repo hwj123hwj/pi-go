@@ -2,17 +2,17 @@
 
 > 调研日期：2026-06-20
 > 来源：本地 `/Users/weijian/Desktop/develop/test/pi/cc-haha`（基于 Anthropic Claude Code 泄露源码修复版）
-> 调研目标：为 pi-go 实现 `web_fetch` 内置工具提供权威参照。cc-haha 的 WebFetch 即 Anthropic 官方 Claude Code 的真实实现，比 DeepVcodeClient 的 web_fetch 成熟一个档次，是最佳落地参照。
+> 调研目标：为 EasyAgent 实现 `web_fetch` 内置工具提供权威参照。cc-haha 的 WebFetch 即 Anthropic 官方 Claude Code 的真实实现，比 DeepVcodeClient 的 web_fetch 成熟一个档次，是最佳落地参照。
 > 对照：DeepVcodeClient `packages/core/src/tools/web-fetch.ts`（444 行，gemini-cli 继承）
 
 ---
 
 ## 1. 为什么调研这个
 
-pi-go 当前**完全没有 web 工具**（10 个内置工具都是本地文件/shell 操作），Agent 离线。P2 计划加 `web_fetch`（让 Agent 能读用户给的 URL 内容）。
+EasyAgent 当前**完全没有 web 工具**（10 个内置工具都是本地文件/shell 操作），Agent 离线。P2 计划加 `web_fetch`（让 Agent 能读用户给的 URL 内容）。
 
 调研前已确认：
-- **不做 `web_search`**（编程 agent 低频，且 DeepV 那条路靠 Gemini grounding，pi-go 多 Provider 走不了；用户主动给链接更准）。
+- **不做 `web_search`**（编程 agent 低频，且 DeepV 那条路靠 Gemini grounding，EasyAgent 多 Provider 走不了；用户主动给链接更准）。
 - **只做 `web_fetch`**，要找最成熟的实现作参照 → cc-haha（=官方 Claude Code）。
 
 ---
@@ -52,7 +52,7 @@ inputSchema = z.object({
 
 ---
 
-## 4. 关键工程亮点（值得 pi-go 学的）
+## 4. 关键工程亮点（值得 EasyAgent 学的）
 
 ### 4.1 HTML→markdown 用成熟库（turndown），懒加载
 
@@ -71,7 +71,7 @@ markdownContent = (await getTurndownService()).turndown(htmlContent)
 
 **对比 DeepV**：DeepV 的 web_fetch **根本不做 HTML→markdown**，主路径直接把原始内容喂给 LLM 让它自己消化（费 token、噪音多）。cc-haha 用成熟库转 markdown 是正确做法。
 
-**pi-go 启示**：Go 侧用 `github.com/JohannesKaufmann/html-to-markdown`（Go 生态最成熟的等价库），同样懒加载。
+**EasyAgent 启示**：Go 侧用 `github.com/JohannesKaufmann/html-to-markdown`（Go 生态最成熟的等价库），同样懒加载。
 
 ### 4.2 三层长度控制（比 DeepV 精细）
 
@@ -151,15 +151,15 @@ async function checkDomainBlocklist(domain) {
 
 调 Anthropic 私有 API 查域名是否可抓 + 本地缓存。
 
-**pi-go 不能照搬**：这是 Anthropic 私有服务。pi-go 得用本地规则替代（内网 IP 拦截 + 可选的域名黑名单配置文件）。DeepV 的 `isPrivateIp`（拦 127.x/10.x/192.168/172.16-31/169.254/::1）可作为本地 SSRF 防护的补充。
+**EasyAgent 不能照搬**：这是 Anthropic 私有服务。EasyAgent 得用本地规则替代（内网 IP 拦截 + 可选的域名黑名单配置文件）。DeepV 的 `isPrivateIp`（拦 127.x/10.x/192.168/172.16-31/169.254/::1）可作为本地 SSRF 防护的补充。
 
-### 4.6 权限：走确认机制（与 pi-go P0 一致）
+### 4.6 权限：走确认机制（与 EasyAgent P0 一致）
 
 `WebFetchTool.ts:108-180`：非预批准域名 → 走权限确认（`WebFetchPermissionRequest` 组件）。
 
 `preapproved.ts`（166 行）：常见文档站（官方文档、GitHub 等）预批准，免确认直接抓。
 
-**这印证了 pi-go P0 做确认机制是对的**——官方 Claude Code 的 web_fetch 也需要确认。pi-go 的 `ToolWithConfirmation` 可直接用于 web_fetch：非白名单域名触发确认。
+**这印证了 EasyAgent P0 做确认机制是对的**——官方 Claude Code 的 web_fetch 也需要确认。EasyAgent 的 `ToolWithConfirmation` 可直接用于 web_fetch：非白名单域名触发确认。
 
 ### 4.7 自定义 User-Agent
 
@@ -191,15 +191,15 @@ Confluence, Jira, GitHub). If so, look for a specialized MCP tool...
 | 权限 | 无 | 预批准白名单 + 确认 |
 | User-Agent | 默认 | 自定义 |
 
-cc-haha 全面更成熟，是 pi-go 的首选参照。
+cc-haha 全面更成熟，是 EasyAgent 的首选参照。
 
 ---
 
-## 6. pi-go 落地建议
+## 6. EasyAgent 落地建议
 
-基于 cc-haha 的成熟实现，pi-go `web_fetch` 的设计锚点：
+基于 cc-haha 的成熟实现，EasyAgent `web_fetch` 的设计锚点：
 
-| 设计点 | pi-go 做法 | 参照来源 |
+| 设计点 | EasyAgent 做法 | 参照来源 |
 |--------|-----------|---------|
 | 参数 | 结构化 `{url, prompt?}` | cc-haha |
 | HTML→markdown | `JohannesKaufmann/html-to-markdown`，懒加载 | cc-haha (turndown) |
@@ -207,7 +207,7 @@ cc-haha 全面更成熟，是 pi-go 的首选参照。
 | URL 校验 | 长度 + 禁凭证 URL + hostname≥2 段 | cc-haha |
 | SSRF | 本地内网 IP 拦截（学 DeepV isPrivateIp）+ 可选域名黑名单配置 | DeepV + cc-haha 本地部分 |
 | 重定向 | 跨域不自动跟，返回提示让 Agent 重调 | cc-haha |
-| 权限 | 复用 pi-go P0 的 `ToolWithConfirmation`，非白名单域名确认 | cc-haha |
+| 权限 | 复用 EasyAgent P0 的 `ToolWithConfirmation`，非白名单域名确认 | cc-haha |
 | User-Agent | 自定义 UA | cc-haha |
 | 工具描述 | 诚实声明"抓不了需认证的页面" | cc-haha |
 
@@ -215,7 +215,7 @@ cc-haha 全面更成熟，是 pi-go 的首选参照。
 - ❌ `web_search`（低频，且无通用免费搜索后端）
 - ❌ 调用外部域名黑名单服务（cc-haha 那个是 Anthropic 私有）
 
-**预估实现量**：单工具约 200-250 行（含校验、抓取、转换、安全），加 html-to-markdown 依赖。比 cc-haha 的 1115 行少很多（cc-haha 含桌面端权限 UI、预批准域名表、测试等，pi-go 复用已有确认机制不需重做）。
+**预估实现量**：单工具约 200-250 行（含校验、抓取、转换、安全），加 html-to-markdown 依赖。比 cc-haha 的 1115 行少很多（cc-haha 含桌面端权限 UI、预批准域名表、测试等，EasyAgent 复用已有确认机制不需重做）。
 
 ---
 
@@ -229,7 +229,7 @@ cc-haha 全面更成熟，是 pi-go 的首选参照。
 | `src/tools/WebFetchTool/preapproved.ts` | 166 | 预批准域名白名单 |
 | `src/tools/WebFetchTool/prompt.ts` | 46 | 工具描述 + 限制声明 |
 
-### pi-go（待实现，参照点）
+### EasyAgent（待实现，参照点）
 | 文件 | 用途 |
 |------|------|
 | `internal/tools/web_fetch.go`（新） | web_fetch 工具主体 |

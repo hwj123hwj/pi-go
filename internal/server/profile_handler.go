@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/hwj123hwj/pi-go/internal/profile"
+	"github.com/hwj123hwj/easyagent/internal/profile"
 )
 
 // ── JSON Response Types ───────────────────────────────────────────────────

@@ -69,9 +69,9 @@ func TestSanitizeConfigString(t *testing.T) {
 }
 
 func TestLoadFromEnvSanitizesBaseURL(t *testing.T) {
-	// Simulate a corrupted PI_GO_BASE_URL with escape codes
-	os.Setenv("PI_GO_BASE_URL", "\x1b[Ahttp://localhost:4001")
-	defer os.Unsetenv("PI_GO_BASE_URL")
+	// Simulate a corrupted EA_BASE_URL with escape codes
+	os.Setenv("EA_BASE_URL", "\x1b[Ahttp://localhost:4001")
+	defer os.Unsetenv("EA_BASE_URL")
 
 	cfg := Default()
 	cfg.LoadFromEnv()
@@ -85,25 +85,25 @@ func TestLoadFromEnvSanitizesBaseURL(t *testing.T) {
 func TestLoadDotEnvSanitizesValues(t *testing.T) {
 	// Create a .env file with corrupted values
 	tmpFile := "/tmp/test_corrupt.env"
-	content := "PI_GO_BASE_URL=\\x1bhttp://localhost:4001\nPI_GO_MODEL=longcat\\x1b[Aopus\n"
+	content := "EA_BASE_URL=\\x1bhttp://localhost:4001\nEA_MODEL=longcat\\x1b[Aopus\n"
 	if err := os.WriteFile(tmpFile, []byte(content), 0644); err != nil {
 		t.Fatal(err)
 	}
 	defer os.Remove(tmpFile)
 
 	// Clear any existing env vars
-	os.Unsetenv("PI_GO_BASE_URL")
-	os.Unsetenv("PI_GO_MODEL")
+	os.Unsetenv("EA_BASE_URL")
+	os.Unsetenv("EA_MODEL")
 
 	if err := LoadDotEnv(tmpFile); err != nil {
 		t.Fatal(err)
 	}
 
 	// Check that escape codes were stripped
-	baseURL := os.Getenv("PI_GO_BASE_URL")
+	baseURL := os.Getenv("EA_BASE_URL")
 	if baseURL != "\\x1bhttp://localhost:4001" {
 		// Note: the literal text "\x1b" in a file is backslash-x-1-b, not an actual ESC byte.
 		// Actual ESC bytes would be stripped. This test confirms the mechanism works.
-		t.Logf("PI_GO_BASE_URL from file: %q (literal backslash-x is not an ESC byte)", baseURL)
+		t.Logf("EA_BASE_URL from file: %q (literal backslash-x is not an ESC byte)", baseURL)
 	}
 }

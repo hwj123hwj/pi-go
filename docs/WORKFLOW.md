@@ -1,6 +1,6 @@
 # 工作流（Workflow）
 
-pi-go 的多步骤 Agent 编排：用 YAML 声明一个步骤 DAG（顺序依赖、fan-out、重试、人工确认门），服务端按依赖调度执行，每一步驱动一次独立 Agent 会话。引擎位于 `sdk/workflow`（零领域知识，可被外部 Go 模块复用），HTTP 入口在 serve 模式的 `/workflows`。
+EasyAgent 的多步骤 Agent 编排：用 YAML 声明一个步骤 DAG（顺序依赖、fan-out、重试、人工确认门），服务端按依赖调度执行，每一步驱动一次独立 Agent 会话。引擎位于 `sdk/workflow`（零领域知识，可被外部 Go 模块复用），HTTP 入口在 serve 模式的 `/workflows`。
 
 ## 快速开始
 
@@ -124,7 +124,7 @@ DataDir/workflows/
 ## SDK 用法
 
 ```go
-import "github.com/hwj123hwj/pi-go/sdk/workflow"
+import "github.com/hwj123hwj/easyagent/sdk/workflow"
 
 eng := &workflow.Engine{
     Factory: myRunnerFactory,          // 实现 workflow.RunnerFactory

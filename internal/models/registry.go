@@ -10,16 +10,18 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/hwj123hwj/easyagent/sdk/config"
 )
 
 // ModelDef defines a single model available for use.
 type ModelDef struct {
-	ID           string `json:"id"`             // unique identifier (e.g. "claude-sonnet-4-6")
-	Provider     string `json:"provider"`       // "anthropic", "openai", etc.
-	Name         string `json:"name"`           // display name (e.g. "Claude Sonnet 4.6")
-	ContextWindow int   `json:"context_window"` // max context tokens (e.g. 200000)
-	MaxTokens    int    `json:"max_tokens"`     // max output tokens (e.g. 4096)
-	Hidden       bool   `json:"hidden,omitempty"` // hidden from /models list but still usable
+	ID            string `json:"id"`               // unique identifier (e.g. "claude-sonnet-4-6")
+	Provider      string `json:"provider"`         // "anthropic", "openai", etc.
+	Name          string `json:"name"`             // display name (e.g. "Claude Sonnet 4.6")
+	ContextWindow int    `json:"context_window"`   // max context tokens (e.g. 200000)
+	MaxTokens     int    `json:"max_tokens"`       // max output tokens (e.g. 4096)
+	Hidden        bool   `json:"hidden,omitempty"` // hidden from /models list but still usable
 }
 
 // Registry holds all known models and provides lookup/filtering.
@@ -153,17 +155,14 @@ func NewDefaultRegistry(configPath string) *Registry {
 }
 
 // ResolveConfigPath returns the default path for the models config file.
-// Checks: env var PI_GO_MODELS_FILE → ~/.pi-go/models.json → data dir
+// Checks: EA_MODELS_FILE (legacy PI_GO_MODELS_FILE) → config.HomeDir()/models.json → data dir
 func ResolveConfigPath(dataDir string) string {
-	if env := os.Getenv("PI_GO_MODELS_FILE"); env != "" {
+	if env := config.Env("EA_MODELS_FILE"); env != "" {
 		return env
 	}
-	home, err := os.UserHomeDir()
-	if err == nil {
-		p := filepath.Join(home, ".pi-go", "models.json")
-		if _, err := os.Stat(p); err == nil {
-			return p
-		}
+	p := filepath.Join(config.HomeDir(), "models.json")
+	if _, err := os.Stat(p); err == nil {
+		return p
 	}
 	if dataDir != "" {
 		return filepath.Join(dataDir, "models.json")

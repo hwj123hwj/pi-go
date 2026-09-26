@@ -1,8 +1,8 @@
 .PHONY: build install run chat serve test vet clean tidy help
 
 # ── Binary names ──
-BINARY   = pi-agent
-BRIDGE   = pi-feishu-bridge
+BINARY   = easyagent
+BRIDGE   = easyagent-bridge
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 LDFLAGS  = -X main.version=$(VERSION)
 
@@ -12,10 +12,10 @@ BIN_DIR = bin
 
 # ── Default ──
 help:
-	@echo "π-go Build System"
+	@echo "EasyAgent Build System"
 	@echo ""
 	@echo "  make build       Build all binaries to bin/"
-	@echo "  make install     Install pi-agent to $$GOPATH/bin"
+	@echo "  make install     Install easyagent to $$GOPATH/bin"
 	@echo "  make run         Quick run (single prompt)"
 	@echo "  make chat        Start interactive TUI chat"
 	@echo "  make serve       Start HTTP server"
@@ -31,30 +31,30 @@ help:
 # ── Build ──
 build:
 	mkdir -p $(BIN_DIR)
-	$(GO) build -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/$(BINARY) ./cmd/pi-agent
-	$(GO) build -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/$(BRIDGE) ./cmd/pi-feishu-bridge
+	$(GO) build -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/$(BINARY) ./cmd/easyagent
+	$(GO) build -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/$(BRIDGE) ./cmd/easyagent-bridge
 	@echo "✅ Built $(BIN_DIR)/$(BINARY) and $(BIN_DIR)/$(BRIDGE)"
 
 build-agent:
 	mkdir -p $(BIN_DIR)
-	$(GO) build -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/$(BINARY) ./cmd/pi-agent
+	$(GO) build -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/$(BINARY) ./cmd/easyagent
 	@echo "✅ Built $(BIN_DIR)/$(BINARY)"
 
 # ── Install (puts binary in $GOPATH/bin) ──
 install:
-	$(GO) install -ldflags "$(LDFLAGS)" ./cmd/pi-agent
-	@echo "✅ Installed pi-agent to $$($(GO) env GOPATH)/bin/"
-	@echo "   Run: pi-agent --mode chat"
+	$(GO) install -ldflags "$(LDFLAGS)" ./cmd/easyagent
+	@echo "✅ Installed easyagent to $$($(GO) env GOPATH)/bin/"
+	@echo "   Run: easyagent --mode chat"
 
 # ── Run ──
 run:
-	$(GO) run ./cmd/pi-agent --mode run --prompt "$(P)"
+	$(GO) run ./cmd/easyagent --mode run --prompt "$(P)"
 
 chat:
-	$(GO) run ./cmd/pi-agent --mode chat
+	$(GO) run ./cmd/easyagent --mode chat
 
 serve:
-	$(GO) run ./cmd/pi-agent --mode serve --listen :8080
+	$(GO) run ./cmd/easyagent --mode serve --listen :8080
 
 # ── Quality ──
 test:

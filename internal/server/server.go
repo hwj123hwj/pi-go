@@ -17,14 +17,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/hwj123hwj/pi-go/internal/app"
-	"github.com/hwj123hwj/pi-go/internal/scheduler"
-	"github.com/hwj123hwj/pi-go/internal/web"
-	"github.com/hwj123hwj/pi-go/sdk/agent"
-	"github.com/hwj123hwj/pi-go/sdk/ai"
-	"github.com/hwj123hwj/pi-go/sdk/runtime"
-	"github.com/hwj123hwj/pi-go/sdk/slashcmd"
-	"github.com/hwj123hwj/pi-go/sdk/workflow"
+	"github.com/hwj123hwj/easyagent/internal/app"
+	"github.com/hwj123hwj/easyagent/internal/scheduler"
+	"github.com/hwj123hwj/easyagent/internal/web"
+	"github.com/hwj123hwj/easyagent/sdk/agent"
+	"github.com/hwj123hwj/easyagent/sdk/ai"
+	"github.com/hwj123hwj/easyagent/sdk/runtime"
+	"github.com/hwj123hwj/easyagent/sdk/slashcmd"
+	"github.com/hwj123hwj/easyagent/sdk/workflow"
 )
 
 // Version is the server build version. Set by main.go via SetVersion().
@@ -49,8 +49,8 @@ type Server struct {
 	wfReg     *workflow.Registry
 	wfFactory workflow.RunnerFactory
 
-	allowNoAuth    bool     // PI_GO_ALLOW_NO_AUTH=1：未配 key 时完全开放（调试用）
-	allowedOrigins []string // PI_GO_ALLOWED_ORIGINS：显式 CORS 白名单；空 = 不返回 CORS 头
+	allowNoAuth    bool     // EA_ALLOW_NO_AUTH=1：未配 key 时完全开放（调试用）
+	allowedOrigins []string // EA_ALLOWED_ORIGINS：显式 CORS 白名单；空 = 不返回 CORS 头
 }
 
 // SetExtraRoutes sets an additional ServeMux to be merged into the server's routes.
@@ -80,15 +80,15 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusUnauthorized)
 				_ = json.NewEncoder(w).Encode(ErrorResponse{
-					Error: "unauthorized: set Authorization: Bearer <PI_GO_API_KEY>",
+					Error: "unauthorized: set Authorization: Bearer <EA_API_KEY>",
 				})
 				return
 			}
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusUnauthorized)
 			_ = json.NewEncoder(w).Encode(ErrorResponse{
-				Error: "unauthorized: non-loopback access requires PI_GO_API_KEY " +
-					"(or PI_GO_ALLOW_NO_AUTH=1 for open access)",
+				Error: "unauthorized: non-loopback access requires EA_API_KEY " +
+					"(or EA_ALLOW_NO_AUTH=1 for open access)",
 			})
 			return
 		}
@@ -234,7 +234,7 @@ func (s *Server) Handler() http.Handler {
 
 // ListenAndServe starts the HTTP server on the given address.
 func (s *Server) ListenAndServe(addr string) error {
-	slog.Info("starting pi-go server", "listen", addr)
+	slog.Info("starting easyagent server", "listen", addr)
 	return http.ListenAndServe(addr, s.Handler())
 }
 

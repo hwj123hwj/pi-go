@@ -12,7 +12,7 @@ type Updater struct {
 }
 
 // NewUpdater creates a new policy updater.
-// policyPath is the path to the persistent policy file (e.g., ".pi-go/policy.json").
+// policyPath is the path to the persistent policy file (e.g., ".easyagent/policy.json").
 func NewUpdater(engine *Engine, policyPath string) *Updater {
 	return &Updater{
 		engine:     engine,
@@ -94,5 +94,5 @@ func (u *Updater) PolicyPath() string {
 
 // DefaultPolicyPath returns the default policy file path relative to a project root.
 func DefaultPolicyPath(projectRoot string) string {
-	return filepath.Join(projectRoot, ".pi-go", "policy.json")
+	return filepath.Join(projectRoot, ".easyagent", "policy.json")
 }

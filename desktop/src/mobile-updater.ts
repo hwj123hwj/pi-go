@@ -10,7 +10,7 @@
 import { registerPlugin } from '@capacitor/core';
 import type { MobileUpdateInfo } from './types';
 
-const REPO = 'hwj123hwj/pi-go';
+const REPO = 'hwj123hwj/easyagent';
 
 /** Custom Capacitor plugin registration */
 interface ApkUpdaterPlugin {

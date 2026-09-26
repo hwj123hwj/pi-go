@@ -5,8 +5,8 @@
 - GitHub Actions 负责测试、构建、上传和重启
 - 服务器系统为 Ubuntu
 - 使用 `systemd` 托管进程
-- pi-go 服务仅监听 `127.0.0.1:8081`；服务器的 `8080` 已由 Nginx 使用
-- 默认部署目录为 `/opt/pi-go`
+- EasyAgent 服务仅监听 `127.0.0.1:8081`；服务器的 `8080` 已由 Nginx 使用
+- 当前服务器继续使用既有部署目录 `/opt/pi-go` 和 systemd 单元 `pi-go`，以兼容已部署环境
 
 ## 部署结构
 
@@ -17,8 +17,8 @@
 ├── current -> /opt/pi-go/releases/release-<git-sha>
 ├── releases/
 │   └── release-<git-sha>/
-│       ├── pi-agent
-│       ├── pi-feishu-bridge
+│       ├── easyagent
+│       ├── easyagent-bridge
 │       ├── scripts/feishu-bridge-configured.sh
 │       └── README.md
 └── shared/
@@ -39,36 +39,36 @@
   值：`/opt/pi-go`
 - `DEPLOY_SSH_KEY`
   值：本地 `~/.ssh/id_cloud` 私钥完整内容
-- `PI_GO_ENV`
+- `PI_GO_ENV`（现有 GitHub Actions secret 名称，为兼容部署保留）
   值：服务器 `.env` 文件内容，示例见下文
 
 ## 推荐环境变量
 
-`PI_GO_ENV` 建议至少包含：
+`PI_GO_ENV` 建议至少包含以下使用新前缀的变量：
 
 ```dotenv
-PI_GO_PROVIDER=openai
+EA_PROVIDER=openai
 OPENAI_API_KEY=your_key_here
 OPENAI_MODEL=gpt-4o-mini
 OPENAI_BASE_URL=https://api.openai.com/v1
 
-PI_GO_HOST=127.0.0.1
-PI_GO_PORT=8081
-PI_GO_ENABLE_BASH=false
-PI_GO_SESSION_FILE=/opt/pi-go/shared/data/session.jsonl
+EA_HOST=127.0.0.1
+EA_PORT=8081
+EA_ENABLE_BASH=false
+EA_SESSION_FILE=/opt/pi-go/shared/data/session.jsonl
 PI_AGENT_URL=http://127.0.0.1:8081
 ```
 
 如果你们后面切换到 Anthropic，对应替换成：
 
 ```dotenv
-PI_GO_PROVIDER=anthropic
+EA_PROVIDER=anthropic
 ANTHROPIC_API_KEY=your_key_here
 ANTHROPIC_MODEL=claude-sonnet-4-5
 ANTHROPIC_BASE_URL=https://api.anthropic.com
 
-PI_GO_HOST=127.0.0.1
-PI_GO_PORT=8081
+EA_HOST=127.0.0.1
+EA_PORT=8081
 ```
 
 ## 首次部署前准备
@@ -90,7 +90,7 @@ curl --version
 
 工作流文件位于：
 
-- [.github/workflows/deploy.yml](https://github.com/hwj123hwj/pi-go/blob/main/.github/workflows/deploy.yml)
+- [.github/workflows/deploy.yml](https://github.com/hwj123hwj/easyagent/blob/main/.github/workflows/deploy.yml)
 
 触发方式：
 
@@ -126,7 +126,7 @@ curl http://127.0.0.1:8081/health
 当前方案适合以下形态：
 
 - agent 服务仅作为本机内部 HTTP 服务
-- 飞书适配层与 `pi-go` 运行在同一台机器
+- 飞书适配层与 `EasyAgent` 运行在同一台机器
 - 飞书适配层通过 `127.0.0.1:8081` 调用 agent
 
 桥接服务通过长连接接收事件，不需要额外暴露公网端口。

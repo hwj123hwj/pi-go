@@ -2,7 +2,7 @@
 
 > 学习日期：2026-05-23
 > 来源：Claude Code 官方仓库 (https://github.com/anthropics/claude-code) — plugins 目录
-> 目标：分析 CC 的系统提示构建方式，与 Pi-Go 对比，提炼可借鉴的设计思路
+> 目标：分析 CC 的系统提示构建方式，与 EasyAgent 对比，提炼可借鉴的设计思路
 
 ---
 
@@ -10,9 +10,9 @@
 
 Claude Code（以下简称 CC）的**核心源码**是编译到二进制中的，公开仓库的 plugins 目录通过"约定大于配置"的文件系统发现了完整展现了系统提示的设计哲学。
 
-Pi-Go 的系统提示构建在 `internal/prompt/builder.go` 中，是一个**确定性、有序的字符串拼接过程**。而 CC 的系统提示则是**多源、分层、动态注入**的架构。
+EasyAgent 的系统提示构建在 `internal/prompt/builder.go` 中，是一个**确定性、有序的字符串拼接过程**。而 CC 的系统提示则是**多源、分层、动态注入**的架构。
 
-本文将分析 CC 的三种系统提示构建方式，并与 Pi-Go 做全面对比。
+本文将分析 CC 的三种系统提示构建方式，并与 EasyAgent 做全面对比。
 
 ---
 
@@ -172,7 +172,7 @@ skills/agent-development/SKILL.md
 2. **内容按需加载** — 主 Agent 发现用户输入匹配某个 skill 的 `description` 时，**主动读取** skill 文件内容
 3. **不是系统提示注入** — Skill 内容不自动拼接到系统提示，而是由 Agent 决定何时读取
 
-这与 Pi-Go 的 skill 设计非常相似。
+这与 EasyAgent 的 skill 设计非常相似。
 
 ---
 
@@ -229,17 +229,17 @@ CC 的系统提示是**动态变化**的：
 
 ---
 
-## 四、Pi-Go 现有设计
+## 四、EasyAgent 现有设计
 
 ### 4.1 系统提示构建流程
 
-Pi-Go 的系统提示在 `internal/prompt/builder.go` 中构建，是一个**静态的一次性拼接**过程：
+EasyAgent 的系统提示在 `internal/prompt/builder.go` 中构建，是一个**静态的一次性拼接**过程：
 
 ```
 buildAgent()
     │
     ├── prompt.BuildSystemPrompt(Options{
-    │     CustomPrompt:  cfg.PromptTemplate,   ← 可选覆盖（PI_GO_PROMPT_TEMPLATE）
+    │     CustomPrompt:  cfg.PromptTemplate,   ← 可选覆盖（EA_PROMPT_TEMPLATE）
     │     CWD:           cwd,
     │     Tools:         toolList,             ← 工具列表
     │     ContextFiles:  contextFiles,          ← CLAUDE.md 内容
@@ -256,7 +256,7 @@ buildAgent()
 ### 4.2 输出结构（9 层）
 
 ```
-1. 基础提示（默认或 PI_GO_PROMPT_TEMPLATE）
+1. 基础提示（默认或 EA_PROMPT_TEMPLATE）
    └─ "You are Pi Go, a server-side coding agent..."
 
 2. ## Tool Summary
@@ -284,7 +284,7 @@ buildAgent()
 
 ### 4.3 Skill 的"引用而非注入"设计
 
-Pi-Go 的技能（Skills）是**只引用不注入**的：
+EasyAgent 的技能（Skills）是**只引用不注入**的：
 
 ```xml
 <available_skills>
@@ -302,18 +302,18 @@ Agent 看到这个列表后，如果需要使用某个 skill，会主动读取�
 
 ## 五、对比分析
 
-| 维度 | CC | Pi-Go | 分析 |
+| 维度 | CC | EasyAgent | 分析 |
 |---|---|---|---|
-| **构建时机** | 动态（会话过程中持续变化） | 静态（Agent 创建时一次性构建） | CC 更灵活，Pi-Go 更简单可控 |
-| **动态注入** | `additionalContext` Hook 输出机制 | 无（AppendSystemPrompt 预留但未用） | **Pi-Go 最大缺失** |
-| **SubAgent 系统提示** | 完整替换为 agent markdown body | 无 subagent 系统 | **Pi-Go 第二大缺失** |
-| **工具描述注入** | 内置，机制不可见 | 通过 `ToolWithPromptInfo` 接口（Snippet + Guidelines） | Pi-Go 设计更清晰 |
-| **CLAUDE.md** | 加载方式不可见，但 plugins 中多处引用 | 自底向上遍历目录，按优先级加载 | Pi-Go 实现更明确 |
+| **构建时机** | 动态（会话过程中持续变化） | 静态（Agent 创建时一次性构建） | CC 更灵活，EasyAgent 更简单可控 |
+| **动态注入** | `additionalContext` Hook 输出机制 | 无（AppendSystemPrompt 预留但未用） | **EasyAgent 最大缺失** |
+| **SubAgent 系统提示** | 完整替换为 agent markdown body | 无 subagent 系统 | **EasyAgent 第二大缺失** |
+| **工具描述注入** | 内置，机制不可见 | 通过 `ToolWithPromptInfo` 接口（Snippet + Guidelines） | EasyAgent 设计更清晰 |
+| **CLAUDE.md** | 加载方式不可见，但 plugins 中多处引用 | 自底向上遍历目录，按优先级加载 | EasyAgent 实现更明确 |
 | **Skill 注入** | 元数据始终可见，内容按需读取 | 同 CC（XML 列表 + 按需读取） | 两者一致 |
-| **基础提示自定义** | 不可见（编译二进制） | 支持 `PI_GO_PROMPT_TEMPLATE` 环境变量覆盖 | Pi-Go 更开放 |
-| **运行时信息** | 不可见 | 自动注入日期/CWD/分支 | Pi-Go 更实用 |
+| **基础提示自定义** | 不可见（编译二进制） | 支持 `EA_PROMPT_TEMPLATE` 环境变量覆盖 | EasyAgent 更开放 |
+| **运行时信息** | 不可见 | 自动注入日期/CWD/分支 | EasyAgent 更实用 |
 | **扩展注入点** | 9 个 Hook 事件点 | `AppendSystemPrompt` 预留字段 | CC 的 Hook 事件更丰富 |
-| **Guidelines 生成** | 不可见 | 基于工具组合的智能规则生成 | Pi-Go 有独特优势 |
+| **Guidelines 生成** | 不可见 | 基于工具组合的智能规则生成 | EasyAgent 有独特优势 |
 
 ---
 
@@ -321,7 +321,7 @@ Agent 看到这个列表后，如果需要使用某个 skill，会主动读取�
 
 ### 6.1 `additionalContext` 动态注入机制（高优先级）
 
-这是 CC 最实用的系统提示扩展方式，Pi-Go 可以通过已有的 Extension 系统实现。
+这是 CC 最实用的系统提示扩展方式，EasyAgent 可以通过已有的 Extension 系统实现。
 
 **CC 的做法：**
 
@@ -334,21 +334,21 @@ Agent 看到这个列表后，如果需要使用某个 skill，会主动读取�
 }
 ```
 
-**Pi-Go 的实现思路：**
+**EasyAgent 的实现思路：**
 
-Pi-Go 已有 `internal/extensions/types.go` 中的 `Hook` 类型和 `EmitHook` 机制。需要补齐的是：
+EasyAgent 已有 `internal/extensions/types.go` 中的 `Hook` 类型和 `EmitHook` 机制。需要补齐的是：
 
 1. `EmitHook` 返回值中收集 `additionalContext`
 2. 在 `agent.Prompt()` / `PromptStream()` 调用时，将收集到的 context 追加到 `llmRequest().System`
 3. 或者在 `loop.go` 的 `processTurn()` 中每次调用 LLM 前重新构建 system prompt
 
-关键区别：CC 的 system prompt 是**每次 LLM 调用前都可能变化的**，而 Pi-Go 是固定的。
+关键区别：CC 的 system prompt 是**每次 LLM 调用前都可能变化的**，而 EasyAgent 是固定的。
 
 ### 6.2 SubAgent 系统提示替换（高优先级）
 
 CC 的 subagent 在启动时**完全替换系统提示**，这是 subagent 最核心的设计特点。
 
-Pi-Go 当前没有 subagent 概念，如果未来要实现：
+EasyAgent 当前没有 subagent 概念，如果未来要实现：
 - 每个 subagent 有自己的系统提示（markdown body）
 - 系统提示与工具白名单、模型选择一起构成 Agent 规格
 
@@ -356,7 +356,7 @@ Pi-Go 当前没有 subagent 概念，如果未来要实现：
 
 CC 的 `explanatory-output-style` 和 `learning-output-style` 演示了如何通过 SessionStart hook 注入"输出风格"这类贯穿整个会话的指令。
 
-Pi-Go 可以通过以下方式实现类似能力：
+EasyAgent 可以通过以下方式实现类似能力：
 - 新增 `SessionStart` 事件类型到 Extension 系统
 - 在 `buildAgent()` 中调用 `EmitHook("SessionStart")`
 - 将返回的 `additionalContext` 拼接到系统提示
@@ -369,7 +369,7 @@ CC 将 agent 视为**可复用、可发现、可触发**的一等公民：
 agent 定义 = 元数据 + 系统提示 + 工具白名单 + 模型选择 + UI 配置
 ```
 
-Pi-Go 当前没有对应的抽象。但值得思考的是：Pi-Go 是否需要 subagent？还是说当前"一个 Agent 实例 + 所有工具"的模式已经足够？
+EasyAgent 当前没有对应的抽象。但值得思考的是：EasyAgent 是否需要 subagent？还是说当前"一个 Agent 实例 + 所有工具"的模式已经足够？
 
 ### 6.5 Hook 的 `systemMessage` 机制（低优先级）
 
@@ -379,19 +379,19 @@ CC 的 Hook 还可以输出 `systemMessage`，这不是修改系统提示，而�
 
 ---
 
-## 七、Pi-Go 的优势与应保持的设计
+## 七、EasyAgent 的优势与应保持的设计
 
 ### 7.1 明确的构建流程
 
-Pi-Go 的 `prompt/builder.go` 只有 ~130 行代码，9 层结构清晰可读。CC 的构建流程分散在 Hook 系统、Agent 系统、Skill 系统中，理解成本更高。
+EasyAgent 的 `prompt/builder.go` 只有 ~130 行代码，9 层结构清晰可读。CC 的构建流程分散在 Hook 系统、Agent 系统、Skill 系统中，理解成本更高。
 
-**Pi-Go 应保持**：核心构建逻辑的简单性和可读性。
+**EasyAgent 应保持**：核心构建逻辑的简单性和可读性。
 
 ### 7.2 开放的基础提示自定义
 
-`PI_GO_PROMPT_TEMPLATE` 环境变量允许用户完全替换基础提示。CC 的基础提示是编译在二进制中的，用户无法修改。
+`EA_PROMPT_TEMPLATE` 环境变量允许用户完全替换基础提示。CC 的基础提示是编译在二进制中的，用户无法修改。
 
-**Pi-Go 应保持**：对用户的自定义开放性。
+**EasyAgent 应保持**：对用户的自定义开放性。
 
 ### 7.3 Tool 贡献系统提示
 
@@ -401,7 +401,7 @@ Pi-Go 的 `prompt/builder.go` 只有 ~130 行代码，9 层结构清晰可读。
 
 这是 CC 没有的优雅设计。CC 的工具描述可能也是内置的，但从 plugins 中看不到对应机制。
 
-**Pi-Go 应保持**：Tool 自描述系统提示的设计。
+**EasyAgent 应保持**：Tool 自描述系统提示的设计。
 
 ### 7.4 智能 Guidelines 生成
 
@@ -411,7 +411,7 @@ Pi-Go 的 `prompt/builder.go` 只有 ~130 行代码，9 层结构清晰可读。
 
 这是 CC 没有的智能特性。
 
-**Pi-Go 应保持**：基于上下文感知的规则生成。
+**EasyAgent 应保持**：基于上下文感知的规则生成。
 
 ---
 
@@ -461,10 +461,10 @@ Pi-Go 的 `prompt/builder.go` 只有 ~130 行代码，9 层结构清晰可读。
 │  缺点：行为难以预测、调试困难                                          │
 └────────────────────────────────────────────────────────────┘
 
-┌─ Pi-Go 当前系统提示架构 ──────────────────────────────────────┐
+┌─ EasyAgent 当前系统提示架构 ──────────────────────────────────────┐
 │                                                              │
 │  一次性构建（Agent 创建时）                                         │
-│  ├── 基础提示（默认或 PI_GO_PROMPT_TEMPLATE）                       │
+│  ├── 基础提示（默认或 EA_PROMPT_TEMPLATE）                       │
 │  ├── Tool Summary（每个工具的 PromptSnippet）                      │
 │  ├── Available Tools（完整描述）                                   │
 │  ├── Guidelines（智能规则 + 自定义规则 + 通用规则）                    │
@@ -477,7 +477,7 @@ Pi-Go 的 `prompt/builder.go` 只有 ~130 行代码，9 层结构清晰可读。
 │  缺点：无动态注入、无 subagent 系统提示替换                              │
 └────────────────────────────────────────────────────────────┘
 
-┌─ Pi-Go 建议目标架构 ─────────────────────────────────────────┐
+┌─ EasyAgent 建议目标架构 ─────────────────────────────────────────┐
 │                                                              │
 │  构建时（Agent 创建时一次性构建基础）                                  │
 │  ├── 基础提示 + Tool 信息 + Guidelines + Context + Skills        │
@@ -502,4 +502,4 @@ CC 的系统提示设计体现了三个核心哲学：
 2. **组合优于继承** — 系统提示 = 基础 + CLAUDE.md + Hook 注入 + SubAgent 替换，各层独立
 3. **约定优于配置** — Agent/Skill 通过文件系统发现和 frontmatter 描述自注册
 
-Pi-Go 当前的静态构建方式更简单、更可预测，但缺少动态注入能力。**建议的策略是"保留 80% 静态核心 + 增加 20% 动态注入点"**，而不是照搬 CC 的全动态架构。这样既获得了灵活性，又不会失去 Pi-Go 当前的可维护性优势。
+EasyAgent 当前的静态构建方式更简单、更可预测，但缺少动态注入能力。**建议的策略是"保留 80% 静态核心 + 增加 20% 动态注入点"**，而不是照搬 CC 的全动态架构。这样既获得了灵活性，又不会失去 EasyAgent 当前的可维护性优势。

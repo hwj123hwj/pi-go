@@ -6,7 +6,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/hwj123hwj/pi-go/sdk/util"
+	"github.com/hwj123hwj/easyagent/sdk/util"
 )
 
 // web fetch 安全相关的常量（参考 cc-haha WebFetchTool/utils.ts）。

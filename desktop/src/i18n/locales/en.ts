@@ -434,13 +434,13 @@ export const en = {
   'profile.hint': 'The profile grows automatically as you use the app. Agents learn your preferences, habits, and info during conversations.',
 
   // ── mobile / server connect ────────────────────────────────────────────────
-  'server.subtitle': 'Connect to your Pi-Go server',
+  'server.subtitle': 'Connect to your EasyAgent server',
   'server.connect': 'Connect',
   'server.connecting': 'Connecting…',
   'server.errorEmpty': 'Please enter a server address',
   'server.errorFormat': 'Please enter a valid URL (http:// or https://)',
   'server.errorConnect': 'Could not connect',
-  'server.hint': 'Enter the address of your Pi-Go backend (e.g. http://192.168.1.100:8080). Run pi-agent -mode serve on your server.',
+  'server.hint': 'Enter the address of your EasyAgent backend (e.g. http://192.168.1.100:8080). Run easyagent -mode serve on your server.',
   // ── mobile layout ──
   'mobile.chats': 'Chats',
   'mobile.settings': 'Settings',

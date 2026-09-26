@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/hwj123hwj/pi-go/sdk/runtime"
-	"github.com/hwj123hwj/pi-go/sdk/slashcmd"
+	"github.com/hwj123hwj/easyagent/sdk/runtime"
+	"github.com/hwj123hwj/easyagent/sdk/slashcmd"
 )
 
 // Run starts the Bubble Tea TUI program.
@@ -46,7 +46,7 @@ func BannerText() string {
 	var b strings.Builder
 	b.WriteString("\n")
 	b.WriteString("╔══════════════════════════════════════════╗\n")
-	b.WriteString("║     π-go Interactive TUI (Bubble Tea)    ║\n")
+	b.WriteString("║           EasyAgent TUI           ║\n")
 	b.WriteString("║                                          ║\n")
 	b.WriteString("║  Enter: Send  │  Ctrl+J: Newline          ║\n")
 	b.WriteString("║  Ctrl+C: Cancel/Exit  │  Ctrl+L: Clear      ║\n")

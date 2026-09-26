@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hwj123hwj/pi-go/sdk/slashcmd"
+	"github.com/hwj123hwj/easyagent/sdk/slashcmd"
 )
 
 // RegisterBuiltins registers coding-agent slash commands into the shared framework registry.

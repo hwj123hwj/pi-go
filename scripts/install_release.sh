@@ -37,9 +37,9 @@ fi
 
 if [[ ! -f "${SHARED_DIR}/.env" ]]; then
   cat > "${SHARED_DIR}/.env" <<'EOF'
-PI_GO_PROVIDER=openai
-PI_GO_HOST=127.0.0.1
-PI_GO_PORT=8080
+EA_PROVIDER=openai
+EA_HOST=127.0.0.1
+EA_PORT=8080
 EOF
 fi
 

@@ -10,7 +10,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/hwj123hwj/pi-go/sdk/session"
+	"github.com/hwj123hwj/easyagent/sdk/session"
 )
 
 // Manager manages session persistence and indexing.

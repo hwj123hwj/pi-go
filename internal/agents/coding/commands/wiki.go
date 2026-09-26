@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/hwj123hwj/pi-go/sdk/slashcmd"
+	"github.com/hwj123hwj/easyagent/sdk/slashcmd"
 )
 
 // RegisterWikiCommands registers all /wiki sub-commands into the shared registry.

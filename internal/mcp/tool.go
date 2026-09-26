@@ -1,8 +1,8 @@
 package mcp
 
-// tool.go — MCP 工具适配器：将 MCP 服务器提供的工具适配为 pi-go agent.Tool 接口。
+// tool.go — MCP 工具适配器：将 MCP 服务器提供的工具适配为 easyagent agent.Tool 接口。
 //
-// pi-go 的 agent.Tool 接口（见 internal/agent/tool.go）要求实现：
+// easyagent 的 agent.Tool 接口（见 internal/agent/tool.go）要求实现：
 //   - Name() string
 //   - Description() string
 //   - Parameters() map[string]any
@@ -24,14 +24,14 @@ import (
 
 	"log/slog"
 
-	"github.com/hwj123hwj/pi-go/sdk/agent"
+	"github.com/hwj123hwj/easyagent/sdk/agent"
 )
 
 // ---------------------------------------------------------------------------
 // MCPToolAdapter
 // ---------------------------------------------------------------------------
 
-// MCPToolAdapter 将单个 MCP 工具适配为 pi-go agent.Tool 接口。
+// MCPToolAdapter 将单个 MCP 工具适配为 easyagent agent.Tool 接口。
 type MCPToolAdapter struct {
 	client      *Client
 	tool        MCPTool

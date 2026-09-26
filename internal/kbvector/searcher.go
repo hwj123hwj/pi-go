@@ -18,7 +18,7 @@ import (
 	"sync"
 	"time"
 
-	kbtools "github.com/hwj123hwj/pi-go/internal/agents/kb/tools"
+	kbtools "github.com/hwj123hwj/easyagent/internal/agents/kb/tools"
 )
 
 // VectorSearcher implements SearchStrategy using vector embeddings.

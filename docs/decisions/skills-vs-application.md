@@ -1,3 +1,5 @@
+> 历史文档：本文保留更名前的 pi-go 项目记录；项目现名为 EasyAgent。
+
 # 什么时候用 Skills，什么时候拆成独立 Application
 
 > 性质：决策参考文档

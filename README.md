@@ -1,6 +1,6 @@
 <div align="center">
 
-# π-go
+# EasyAgent
 
 **你的 AI 编程搭档，也是你的个人 AI 助手。**
 
@@ -72,7 +72,7 @@ Go 实现的智能 Agent 框架 — 写代码、搜知识、放音乐，一个�
 ### 安装
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/hwj123hwj/pi-go/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/hwj123hwj/easyagent/main/scripts/install.sh | bash
 ```
 
 安装脚本会自动完成一切：下载二进制 → 配置 PATH → 创建配置 → 引导填入 API Key。
@@ -80,9 +80,9 @@ curl -fsSL https://raw.githubusercontent.com/hwj123hwj/pi-go/main/scripts/instal
 ### 使用
 
 ```bash
-pi-go chat              # 💬 交互式聊天（推荐）
-pi-go run -p "你好"      # ⚡ 单次提问
-pi-go serve             # 🌐 HTTP 服务模式
+easyagent chat              # 💬 交互式聊天（推荐）
+easyagent run -p "你好"      # ⚡ 单次提问
+easyagent serve             # 🌐 HTTP 服务模式
 ```
 
 ### 终端界面快捷键
@@ -100,15 +100,15 @@ pi-go serve             # 🌐 HTTP 服务模式
 安装时如果没有填 API Key，或者想修改配置：
 
 ```bash
-nano ~/.pi-go/.env
+nano ~/.easyagent/.env
 ```
 
 最简配置：
 ```env
-PI_GO_PROVIDER=openai
-PI_GO_API_KEY=your-api-key
-PI_GO_BASE_URL=http://localhost:4001
-PI_GO_MODEL=longcat-opus
+EA_PROVIDER=openai
+EA_API_KEY=your-api-key
+EA_BASE_URL=http://localhost:4001
+EA_MODEL=longcat-opus
 ```
 
 <details>
@@ -116,13 +116,13 @@ PI_GO_MODEL=longcat-opus
 
 **go install**
 ```bash
-go install github.com/hwj123hwj/pi-go/cmd/pi-agent@latest
+go install github.com/hwj123hwj/easyagent/cmd/easyagent@latest
 ```
 
 **从源码构建**
 ```bash
-git clone https://github.com/hwj123hwj/pi-go.git
-cd pi-go
+git clone https://github.com/hwj123hwj/easyagent.git
+cd easyagent
 make build && make install
 ```
 
@@ -132,7 +132,7 @@ make build && make install
 
 ## 桌面客户端
 
-pi-go 提供了基于 Electron + React 的桌面客户端，含全局音乐播放器、文件浏览器、知识库面板：
+EasyAgent 提供了基于 Electron + React 的桌面客户端，含全局音乐播放器、文件浏览器、知识库面板：
 
 ```bash
 cd desktop
@@ -145,7 +145,7 @@ npm run electron:build    # 打包
 
 ## 飞书集成
 
-通过 `pi-feishu-bridge` 桥接服务，可以将 AI Agent 接入飞书群聊，在群里直接和 AI 对话、执行 Slash 命令。
+通过 `easyagent-bridge` 桥接服务，可以将 AI Agent 接入飞书群聊，在群里直接和 AI 对话、执行 Slash 命令。
 
 运行 `/feishu start` 会真正启动飞书长连接；连接就绪后，机器人会私聊完成扫码注册的账号，发送欢迎语、默认工作目录、`/help` 用法和权限体检结果。手动配置凭据时，可设置 `FEISHU_OWNER_OPEN_ID` 指定接收欢迎语的飞书用户。部署到 systemd 时，`/feishu stop`、`/feishu status` 和 `/feishu logout` 也会控制桥接服务。
 
@@ -157,13 +157,13 @@ npm run electron:build    # 打包
 
 ## 作为 SDK 嵌入你的 Go 服务
 
-π-go 不只是命令行工具——核心 Agent 能力以 `sdk/` 包对外提供，任何 Go 后端服务都能 import 拿到原子能力（Agent 循环、工具系统、会话持久化、上下文压缩、Provider 注册制）：
+EasyAgent 不只是命令行工具——核心 Agent 能力以 `sdk/` 包对外提供，任何 Go 后端服务都能 import 拿到原子能力（Agent 循环、工具系统、会话持久化、上下文压缩、Provider 注册制）：
 
 ```go
 import (
-    "github.com/hwj123hwj/pi-go/sdk/agent"
-    "github.com/hwj123hwj/pi-go/sdk/ai"
-    "github.com/hwj123hwj/pi-go/sdk/ai/providers"
+    "github.com/hwj123hwj/easyagent/sdk/agent"
+    "github.com/hwj123hwj/easyagent/sdk/ai"
+    "github.com/hwj123hwj/easyagent/sdk/ai/providers"
 )
 
 registry := providers.NewRegistry()
@@ -201,8 +201,8 @@ reply, err := ag.Prompt(ctx, ai.NewTextUserMessage("..."))
 欢迎 Issue 和 PR！开发流程详见 [贡献指南](docs/CONTRIBUTING.md)。
 
 ```bash
-git clone https://github.com/hwj123hwj/pi-go.git
-cd pi-go
+git clone https://github.com/hwj123hwj/easyagent.git
+cd easyagent
 make test    # 跑测试
 make build   # 编译
 ```

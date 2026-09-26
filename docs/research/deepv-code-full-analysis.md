@@ -2,7 +2,7 @@
 
 > 调研日期：2026-05-24
 > 来源：本地源码 `/Users/weijian/Desktop/develop/test/pi/DeepVcodeClient`，GitHub: `OrionStarAI/DeepVCode`
-> 调研目标：全面分析 DeepV Code 的架构、功能、与 pi-go 的对比，提取可借鉴的设计
+> 调研目标：全面分析 DeepV Code 的架构、功能、与 EasyAgent 的对比，提取可借鉴的设计
 > 版本：v1.0.319
 
 ---
@@ -14,17 +14,17 @@
 | 项目 | 角色 | 技术栈 | 定位 |
 |------|------|--------|------|
 | DeepV Code | AI 编程助手（CLI + VS Code） | TypeScript, Ink(React), Gemini SDK | Google Gemini CLI 的国产化 Fork，Proxy 架构支持多模型 |
-| pi-go | Agent 框架 | Go | 通用 Agent 底座 + coding-agent 应用层 |
+| EasyAgent | Agent 框架 | Go | 通用 Agent 底座 + coding-agent 应用层 |
 
-**关键发现**：DeepV Code 是 **Google Gemini CLI 的一个深度 Fork**（原始仓库 `github.com/google-gemini/gemini-cli`），并非从零开发的独立项目。它将 Google 原版 Gemini CLI 做了大量改造，核心变化包括：替换为自建 Proxy Server 架构、支持多模型（Claude/GPT/Qwen 等）、替换认证为飞书/DeepVlab、新增技能市场等。代码量约 **17 万行 TypeScript**（不含测试），规模远大于 pi-go。
+**关键发现**：DeepV Code 是 **Google Gemini CLI 的一个深度 Fork**（原始仓库 `github.com/google-gemini/gemini-cli`），并非从零开发的独立项目。它将 Google 原版 Gemini CLI 做了大量改造，核心变化包括：替换为自建 Proxy Server 架构、支持多模型（Claude/GPT/Qwen 等）、替换认证为飞书/DeepVlab、新增技能市场等。代码量约 **17 万行 TypeScript**（不含测试），规模远大于 EasyAgent。
 
 ### 核心发现摘要
 
 1. **Fork 而非原创**：DeepV Code 站在 Google Gemini CLI 的肩膀上，其 Agent 循环、工具系统、TUI 框架的基础能力来自 Google，但其**技能系统、Hook 系统、代理架构、多模型支持**是自己扩展的。
 2. **Proxy 代理架构是其核心差异化**：所有 LLM 请求通过自建 Proxy Server (`api-code.deepvlab.ai`)，实现了一个**统一网关**，支持路由到不同模型（Claude、GPT、Gemini、Qwen 等），同时处理认证、计费、配额管理。
-3. **Hook 系统非常成熟**：11 种生命周期事件，支持 BeforeTool/AfterTool/BeforeModel/AfterModel 等，可以修改 LLM 请求、替换响应、变更工具配置——这是 pi-go 目前完全缺失的能力。
-4. **技能系统与 pi-go 高度相似**：都使用 `SKILL.md` 文件（YAML frontmatter + Markdown），都支持多层级存储。但 DeepV Code 还有**技能市场**和**脚本执行器**。
-5. **TUI 使用 Ink/React**：相比 pi-go 的 bubbletea，Ink 提供了 React 的声明式 UI 开发体验，但重度组件（如 App.tsx 2870 行）也暴露了大型组件难维护的问题。
+3. **Hook 系统非常成熟**：11 种生命周期事件，支持 BeforeTool/AfterTool/BeforeModel/AfterModel 等，可以修改 LLM 请求、替换响应、变更工具配置——这是 EasyAgent 目前完全缺失的能力。
+4. **技能系统与 EasyAgent 高度相似**：都使用 `SKILL.md` 文件（YAML frontmatter + Markdown），都支持多层级存储。但 DeepV Code 还有**技能市场**和**脚本执行器**。
+5. **TUI 使用 Ink/React**：相比 EasyAgent 的 bubbletea，Ink 提供了 React 的声明式 UI 开发体验，但重度组件（如 App.tsx 2870 行）也暴露了大型组件难维护的问题。
 
 ---
 
@@ -62,14 +62,14 @@
 
 ### 核心抽象
 
-| 抽象 | 位置 | 职责 | 与 pi-go 对比 |
+| 抽象 | 位置 | 职责 | 与 EasyAgent 对比 |
 |------|------|------|---------------|
-| `Turn` (event loop) | `packages/core/src/core/turn.ts` | 事件驱动的 Agent 循环，emit Content/ToolCallRequest/Error 等事件 | pi-go 的 `agent-loop.ts` 是函数式双层循环，DeepV Code 是事件驱动 |
-| `GeminiChat` | `packages/core/src/core/geminiChat.ts` | 聊天会话管理、历史校验、`fixRequestContents()` | pi-go 的 `session/` 管理会话，但无历史修复逻辑 |
-| `DeepVServerAdapter` | `packages/core/src/core/DeepVServerAdapter.ts` | LLM 请求代理、多模型路由、认证、重试 | pi-go 通过 `internal/ai/providers/` 直接对接 Provider |
-| `Config` (singleton) | `packages/core/src/config/config.ts` (1100行) | 全局配置聚合：模型、MCP、安全策略等 | pi-go 的 `config/` 小而美，职责分离 |
-| `AgentDefinition` | `packages/core/src/agents/agentDefinition.ts` | 多 Agent 类型定义、工具过滤 | pi-go 无多 Agent 概念（目前） |
-| `Tool` interface | `packages/core/src/tools/tools.ts` | 工具 schema + 校验 + 执行 + 7种确认类型 | pi-go 使用泛型 `AgentTool[T, D]`，类型安全更好 |
+| `Turn` (event loop) | `packages/core/src/core/turn.ts` | 事件驱动的 Agent 循环，emit Content/ToolCallRequest/Error 等事件 | EasyAgent 的 `agent-loop.ts` 是函数式双层循环，DeepV Code 是事件驱动 |
+| `GeminiChat` | `packages/core/src/core/geminiChat.ts` | 聊天会话管理、历史校验、`fixRequestContents()` | EasyAgent 的 `session/` 管理会话，但无历史修复逻辑 |
+| `DeepVServerAdapter` | `packages/core/src/core/DeepVServerAdapter.ts` | LLM 请求代理、多模型路由、认证、重试 | EasyAgent 通过 `internal/ai/providers/` 直接对接 Provider |
+| `Config` (singleton) | `packages/core/src/config/config.ts` (1100行) | 全局配置聚合：模型、MCP、安全策略等 | EasyAgent 的 `config/` 小而美，职责分离 |
+| `AgentDefinition` | `packages/core/src/agents/agentDefinition.ts` | 多 Agent 类型定义、工具过滤 | EasyAgent 无多 Agent 概念（目前） |
+| `Tool` interface | `packages/core/src/tools/tools.ts` | 工具 schema + 校验 + 执行 + 7种确认类型 | EasyAgent 使用泛型 `AgentTool[T, D]`，类型安全更好 |
 
 ### 数据流
 
@@ -91,7 +91,7 @@
     → Ink 渲染器输出到终端
 ```
 
-**关键区别 vs pi-go**：DeepV Code 的所有 LLM 请求不直接发给模型厂商，而是经过 **Proxy Server**，这是架构上最大的不同。
+**关键区别 vs EasyAgent**：DeepV Code 的所有 LLM 请求不直接发给模型厂商，而是经过 **Proxy Server**，这是架构上最大的不同。
 
 ---
 
@@ -125,7 +125,7 @@
 
 #### 1. Hook 系统（最值得学习）
 
-DeepV Code 的 Hook 系统是自研的，pi-go 的 `tool_lifecycle.go` 只有 Before/After hook，而 DeepV Code 有 11 种事件：
+DeepV Code 的 Hook 系统是自研的，EasyAgent 的 `tool_lifecycle.go` 只有 Before/After hook，而 DeepV Code 有 11 种事件：
 
 ```typescript
 // hooks/types.ts (line 23-35)
@@ -178,32 +178,32 @@ export const BUILT_IN_AGENT_TYPES = [
 ] as const;
 ```
 
-每个 Agent 有自己的 `systemPrompt`、`tools`、`model` 配置，通过 `TaskTool` 创建 `SubAgent` 实例并行执行。Tools 通过 `allowSubAgentUse` 标志控制哪些工具对子 Agent 可用。这比 pi-go 当前的单一 Agent 模型更灵活。
+每个 Agent 有自己的 `systemPrompt`、`tools`、`model` 配置，通过 `TaskTool` 创建 `SubAgent` 实例并行执行。Tools 通过 `allowSubAgentUse` 标志控制哪些工具对子 Agent 可用。这比 EasyAgent 当前的单一 Agent 模型更灵活。
 
 ---
 
-## 4. 与 pi-go 对比
+## 4. 与 EasyAgent 对比
 
 ### 架构理念对比
 
-| 维度 | DeepV Code | pi-go | 评价 |
+| 维度 | DeepV Code | EasyAgent | 评价 |
 |------|-----------|-------|------|
-| 架构模式 | Forked from Google, 三层（CLI/Core/IDE） | 自研分层（Entrypoints/Application/Platform/Core） | pi-go 分层更清晰干净 |
-| Agent 循环 | 事件驱动 (Turn emit events) | 双层函数式（外层 follow-up + 内层 tool call） | 各有优劣，pi-go 更易理解 |
-| LLM 抽象 | DeepVServerAdapter (Proxy) | Provider 接口（注册制 + 懒加载） | pi-go 的 Provider 抽象更通用，不依赖代理 |
-| 工具系统 | Tool interface + FunctionDeclaration | 泛型 `AgentTool[T, D]` + TypeBox | pi-go 类型安全更好 |
-| 多 Agent | ✅ 4 种 Agent 类型 + SubAgent | ❌ 目前仅单一 Agent | pi-go 可以借鉴 |
+| 架构模式 | Forked from Google, 三层（CLI/Core/IDE） | 自研分层（Entrypoints/Application/Platform/Core） | EasyAgent 分层更清晰干净 |
+| Agent 循环 | 事件驱动 (Turn emit events) | 双层函数式（外层 follow-up + 内层 tool call） | 各有优劣，EasyAgent 更易理解 |
+| LLM 抽象 | DeepVServerAdapter (Proxy) | Provider 接口（注册制 + 懒加载） | EasyAgent 的 Provider 抽象更通用，不依赖代理 |
+| 工具系统 | Tool interface + FunctionDeclaration | 泛型 `AgentTool[T, D]` + TypeBox | EasyAgent 类型安全更好 |
+| 多 Agent | ✅ 4 种 Agent 类型 + SubAgent | ❌ 目前仅单一 Agent | EasyAgent 可以借鉴 |
 | Hook 系统 | ✅ 11 种事件，可修改 LLM 请求/响应 | ⚠️ 只有 Before/After Tool | DeepV 更成熟 |
 | 扩展性 | Extension/Plugin 体系 | Extension 接口（工具/命令/事件钩子） | 类似，但 DeepV 的 Hook 更强 |
-| 配置 | 单例 Config (1100行) | 小 Config struct | pi-go 设计更克制 |
+| 配置 | 单例 Config (1100行) | 小 Config struct | EasyAgent 设计更克制 |
 
 ### 功能覆盖对比
 
-| 功能 | DeepV Code | pi-go | 差距评估 |
+| 功能 | DeepV Code | EasyAgent | 差距评估 |
 |------|-----------|-------|----------|
 | 统一 LLM API | ✅ (通过 Proxy) | ✅ (多 Provider) | 持平，方向不同 |
 | Agent 循环 | ✅ Turn 事件驱动 | ✅ 双层循环 | 持平 |
-| 文件读写工具 | ✅ 7 个 | ✅ 7 个 (更多：MultiEdit/Batch) | pi-go 更丰富 |
+| 文件读写工具 | ✅ 7 个 | ✅ 7 个 (更多：MultiEdit/Batch) | EasyAgent 更丰富 |
 | Shell 工具 | ✅ ShellTool | ✅ BashTool | 持平 |
 | Web 搜索/抓取 | ✅ WebFetch + WebSearch | ❌ 通过 Skill 实现 | DeepV 原生内置 |
 | MCP 协议 | ✅ (3种 Transport + OAuth) | ✅ (stdio + SSE) | DeepV 更完整 |
@@ -211,7 +211,7 @@ export const BUILT_IN_AGENT_TYPES = [
 | 技能系统 | ✅ 含 Marketplace | ✅ 基础技能加载 | DeepV 有市场机制 |
 | 多 Agent | ✅ 4 类型 + SubAgent | ❌ | **DeepV 领先** |
 | 上下文压缩 | ✅ 多级策略 | ✅ LLM 摘要 + 保留最近 | 持平 |
-| 会话树状分支 | ✅ JSON 会话 | ✅ JSONL 树状 | pi-go 更高效 (JSONL) |
+| 会话树状分支 | ✅ JSON 会话 | ✅ JSONL 树状 | EasyAgent 更高效 (JSONL) |
 | LSP 支持 | ✅ 完整 LSP 客户端 | ❌ | **DeepV 领先** |
 | TUI | ✅ Ink/React | ✅ bubbletea | 不同技术栈 |
 | VSCode 插件 | ✅ 2 个专业插件 | ❌ (规划中 Desktop App) | DeepV 领先 |
@@ -224,25 +224,25 @@ export const BUILT_IN_AGENT_TYPES = [
 | 自定义规则 | ✅ Custom Rules 系统 | ❌ | DeepV 领先 |
 | 飞书/企业集成 | ✅ Feishu Bot | ❌ | DeepV 领先 |
 
-### pi-go 的优势
+### EasyAgent 的优势
 
-不要只看到差距——pi-go 有很多 DeepV Code 不具备的优势：
+不要只看到差距——EasyAgent 有很多 DeepV Code 不具备的优势：
 
-1. **架构更清晰、更干净**：pi-go 的 4 层架构（Core → Platform → Application → Entrypoints）经过精心设计，层间依赖规则明确，而 DeepV Code 的 core/cli 之间职责有重叠，Config 单例大到 1100 行。
+1. **架构更清晰、更干净**：EasyAgent 的 4 层架构（Core → Platform → Application → Entrypoints）经过精心设计，层间依赖规则明确，而 DeepV Code 的 core/cli 之间职责有重叠，Config 单例大到 1100 行。
 
-2. **Go 单二进制分发**：pi-go 编译为单一可执行文件，无 Node.js 依赖；DeepV Code 需要 Node.js 20+ 运行时，用户需要额外安装运行时。
+2. **Go 单二进制分发**：EasyAgent 编译为单一可执行文件，无 Node.js 依赖；DeepV Code 需要 Node.js 20+ 运行时，用户需要额外安装运行时。
 
-3. **Provider 抽象更通用**：pi-go 的 `providers.Provider` 接口是插件注册制 + 懒加载，不依赖任何代理服务器。DeepV Code 的 Proxy 架构虽然方便了计费和路由，但也引入了单点故障和延迟。
+3. **Provider 抽象更通用**：EasyAgent 的 `providers.Provider` 接口是插件注册制 + 懒加载，不依赖任何代理服务器。DeepV Code 的 Proxy 架构虽然方便了计费和路由，但也引入了单点故障和延迟。
 
-4. **类型安全**：pi-go 使用 Go 泛型 + TypeBox schema，工具参数在编译时和运行时都有类型检查；DeepV Code 使用 `FunctionDeclaration`（来自 Gemini SDK），类型约束较弱。
+4. **类型安全**：EasyAgent 使用 Go 泛型 + TypeBox schema，工具参数在编译时和运行时都有类型检查；DeepV Code 使用 `FunctionDeclaration`（来自 Gemini SDK），类型约束较弱。
 
-5. **Operations 抽象**：pi-go 的 `operations.Operations` 接口支持 Local/SSH 无缝切换，实现与调用分离。DeepV Code 的文件操作直接依赖 `fs-extra`。
+5. **Operations 抽象**：EasyAgent 的 `operations.Operations` 接口支持 Local/SSH 无缝切换，实现与调用分离。DeepV Code 的文件操作直接依赖 `fs-extra`。
 
-6. **JSONL 会话存储**：pi-go 的 `session/` 使用 JSONL 流式存储，支持大会话；DeepV Code 使用 JSON，大会话需全部加载到内存。
+6. **JSONL 会话存储**：EasyAgent 的 `session/` 使用 JSONL 流式存储，支持大会话；DeepV Code 使用 JSON，大会话需全部加载到内存。
 
-7. **无外部依赖膨胀**：pi-go 极简依赖（标准库为主）；DeepV Code 有大量第三方依赖（Ink/React/Express/fs-extra等），`node_modules` 体积大。
+7. **无外部依赖膨胀**：EasyAgent 极简依赖（标准库为主）；DeepV Code 有大量第三方依赖（Ink/React/Express/fs-extra等），`node_modules` 体积大。
 
-8. **License 清晰**：pi-go 自研代码，无 License 争议；DeepV Code 是 Apache 2.0 的 Fork，需要遵守原始 Google 项目的 License 条款。
+8. **License 清晰**：EasyAgent 自研代码，无 License 争议；DeepV Code 是 Apache 2.0 的 Fork，需要遵守原始 Google 项目的 License 条款。
 
 ---
 

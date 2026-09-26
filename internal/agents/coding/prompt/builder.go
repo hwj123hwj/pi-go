@@ -7,11 +7,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hwj123hwj/pi-go/sdk/agent"
-	codingprofile "github.com/hwj123hwj/pi-go/internal/agents/coding/profile"
-	"github.com/hwj123hwj/pi-go/internal/handoff"
-	platformprompt "github.com/hwj123hwj/pi-go/sdk/prompt"
-	"github.com/hwj123hwj/pi-go/sdk/skill"
+	"github.com/hwj123hwj/easyagent/sdk/agent"
+	codingprofile "github.com/hwj123hwj/easyagent/internal/agents/coding/profile"
+	"github.com/hwj123hwj/easyagent/internal/handoff"
+	platformprompt "github.com/hwj123hwj/easyagent/sdk/prompt"
+	"github.com/hwj123hwj/easyagent/sdk/skill"
 )
 
 // Options configures the coding-agent system prompt.

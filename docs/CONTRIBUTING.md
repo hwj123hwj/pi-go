@@ -1,4 +1,4 @@
-# Pi-Go 贡献指南
+# EasyAgent 贡献指南
 
 > 本文档帮助新开发者快速了解项目结构、开发流程和规范，使你能高效参与协作。
 
@@ -6,10 +6,10 @@
 
 ## 一、项目简介
 
-Pi-Go 是一个 AI Coding Agent，由 **Go 后端** + **Electron/React 桌面前端** 组成。
+EasyAgent 是一个 AI Coding Agent，由 **Go 后端** + **Electron/React 桌面前端** 组成。
 
-- **Go 后端**（`cmd/pi-agent`）：Agent 循环、LLM 调用、工具执行、会话管理、HTTP/WebSocket API
-- **飞书桥接**（`cmd/pi-feishu-bridge`）：将 Agent 接入飞书群聊的独立服务
+- **Go 后端**（`cmd/easyagent`）：Agent 循环、LLM 调用、工具执行、会话管理、HTTP/WebSocket API
+- **飞书桥接**（`cmd/easyagent-bridge`）：将 Agent 接入飞书群聊的独立服务
 - **桌面客户端**（`desktop/`）：Electron 壳 + React UI，内嵌 Go 二进制，开箱即用
 
 项目目前处于 **v0.1 阶段**——核心功能可用，正在持续迭代产品和体验。
@@ -40,10 +40,10 @@ Pi-Go 是一个 AI Coding Agent，由 **Go 后端** + **Electron/React 桌面前
 ## 三、项目结构
 
 ```
-pi-go/
+EasyAgent/
 ├── cmd/
-│   ├── pi-agent/           # Agent CLI 入口
-│   └── pi-feishu-bridge/   # 飞书桥接入口
+│   ├── easyagent/           # Agent CLI 入口
+│   └── easyagent-bridge/   # 飞书桥接入口
 ├── internal/                # Go 内部包（不对外暴露）
 │   ├── agent/              #   Agent 循环（双层：外层 follow-up + 内层 tool call + goal-driven）
 │   ├── agents/             #   Agent 应用层
@@ -87,7 +87,7 @@ pi-go/
 ### 核心依赖关系
 
 ```
-cmd/pi-agent
+cmd/easyagent
   └── internal/app          ← 组装层，连接所有组件
         ├── internal/ai     ← LLM Provider 抽象
         ├── internal/agent  ← Agent 循环引擎
@@ -104,8 +104,8 @@ cmd/pi-agent
 
 ```bash
 # Fork 后 clone 你自己的仓库
-git clone https://github.com/<your-username>/pi-go.git
-cd pi-go
+git clone https://github.com/<your-username>/easyagent.git
+cd easyagent
 ```
 
 ### 4.2 分支规范
@@ -141,7 +141,7 @@ git checkout -b feat/next-feature
 
 ```bash
 # 编译
-go build -o pi-agent ./cmd/pi-agent
+go build -o easyagent ./cmd/easyagent
 
 # 运行测试
 go test ./...
@@ -150,10 +150,10 @@ go test ./...
 go test ./sdk/tools/ -v
 
 # 开发模式：交互式聊天
-./pi-agent -mode chat
+./easyagent -mode chat
 
 # 开发模式：HTTP 服务（配合前端开发）
-./pi-agent -mode serve -listen 127.0.0.1:8080
+./easyagent -mode serve -listen 127.0.0.1:8080
 ```
 
 **配置**：复制 `.env.example` 为 `.env`，根据需要修改：
@@ -187,7 +187,7 @@ npm run electron:dev
 
 ```bash
 # 另一个终端
-PI_GO_ENABLE_BASH=true ./pi-agent -mode serve -listen 127.0.0.1:8080
+EA_ENABLE_BASH=true ./easyagent -mode serve -listen 127.0.0.1:8080
 ```
 
 ### 4.5 构建桌面安装包
@@ -198,7 +198,7 @@ PI_GO_ENABLE_BASH=true ./pi-agent -mode serve -listen 127.0.0.1:8080
 ./scripts/build-desktop.sh --x64  # x64
 
 # 或手动分步
-go build -o pi-agent ./cmd/pi-agent
+go build -o easyagent ./cmd/easyagent
 cd desktop
 npm run electron:build:arm64
 
@@ -335,7 +335,7 @@ chore: update Go dependencies
 
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
-| `PI_GO_PROVIDER` | `mock` | LLM Provider：`mock` / `anthropic` / `openai` / `deepv` |
+| `EA_PROVIDER` | `mock` | LLM Provider：`mock` / `anthropic` / `openai` / `deepv` |
 | `ANTHROPIC_API_KEY` | — | Anthropic API Key |
 | `ANTHROPIC_MODEL` | — | Anthropic 模型名 |
 | `ANTHROPIC_BASE_URL` | `https://api.anthropic.com` | Anthropic API 地址 |
@@ -346,24 +346,24 @@ chore: update Go dependencies
 | `DEEPV_SERVER_URL` | — | DeepV 服务器地址 |
 | `DEEPV_MODEL` | — | DeepV 模型名 |
 | `DEEPV_WORK_DIR` | 当前目录 | DeepV 工作目录（用于获取 Git 信息） |
-| `DEEPV_GIT_REMOTE` | `https://gitlab.liebaopay.com/fake/pi-go-workspace.git` | 无 remote 时伪造的 Git 地址 |
-| `PI_GO_HOST` | `127.0.0.1` | HTTP 监听地址 |
-| `PI_GO_PORT` | `8080` | HTTP 监听端口 |
-| `PI_GO_SESSION_FILE` | `./data/session.jsonl` | 会话文件路径 |
-| `PI_GO_DATA_DIR` | — | 数据目录（Electron 打包模式使用） |
-| `PI_GO_ENV_FILE` | `.env` | .env 文件路径 |
-| `PI_GO_ENABLE_BASH` | `false` | 启用 Bash 工具 |
-| `PI_GO_BASH_TIMEOUT_SECONDS` | `30` | Bash 命令超时 |
-| `PI_GO_MAX_OUTPUT_LEN` | `30000` | 工具输出最大字符数 |
-| `PI_GO_WORKSPACE` | 当前目录 | 工作目录（工具文件操作的根目录） |
-| `PI_GO_EXECUTION_MODE` | `local` | 执行后端：`local` 或 `ssh` |
-| `PI_GO_SSH_HOST` | — | SSH 模式目标主机（`user@host`） |
-| `PI_GO_SSH_PORT` | `22` | SSH 端口 |
-| `PI_GO_SSH_WORKDIR` | — | SSH 模式远程工作目录 |
-| `PI_GO_ALLOWED_TOOLS` | — | 工具白名单（逗号分隔，为空表示允许所有） |
-| `PI_GO_BLOCKED_TOOLS` | — | 工具黑名单（逗号分隔） |
-| `PI_GO_HISTORY_FILE` | — | 交互模式历史记录文件路径 |
-| `PI_GO_PROMPT_TEMPLATE` | — | 自定义提示模板文件路径 |
+| `DEEPV_GIT_REMOTE` | `https://gitlab.liebaopay.com/fake/EasyAgent-workspace.git` | 无 remote 时伪造的 Git 地址 |
+| `EA_HOST` | `127.0.0.1` | HTTP 监听地址 |
+| `EA_PORT` | `8080` | HTTP 监听端口 |
+| `EA_SESSION_FILE` | `./data/session.jsonl` | 会话文件路径 |
+| `EA_DATA_DIR` | — | 数据目录（Electron 打包模式使用） |
+| `EA_ENV_FILE` | `.env` | .env 文件路径 |
+| `EA_ENABLE_BASH` | `false` | 启用 Bash 工具 |
+| `EA_BASH_TIMEOUT_SECONDS` | `30` | Bash 命令超时 |
+| `EA_MAX_OUTPUT_LEN` | `30000` | 工具输出最大字符数 |
+| `EA_WORKSPACE` | 当前目录 | 工作目录（工具文件操作的根目录） |
+| `EA_EXECUTION_MODE` | `local` | 执行后端：`local` 或 `ssh` |
+| `EA_SSH_HOST` | — | SSH 模式目标主机（`user@host`） |
+| `EA_SSH_PORT` | `22` | SSH 端口 |
+| `EA_SSH_WORKDIR` | — | SSH 模式远程工作目录 |
+| `EA_ALLOWED_TOOLS` | — | 工具白名单（逗号分隔，为空表示允许所有） |
+| `EA_BLOCKED_TOOLS` | — | 工具黑名单（逗号分隔） |
+| `EA_HISTORY_FILE` | — | 交互模式历史记录文件路径 |
+| `EA_PROMPT_TEMPLATE` | — | 自定义提示模板文件路径 |
 
 ---
 

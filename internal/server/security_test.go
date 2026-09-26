@@ -11,8 +11,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/hwj123hwj/pi-go/internal/app"
-	"github.com/hwj123hwj/pi-go/sdk/config"
+	"github.com/hwj123hwj/easyagent/internal/app"
+	"github.com/hwj123hwj/easyagent/sdk/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -153,7 +153,7 @@ func TestAuth_DefaultLoopbackOnly(t *testing.T) {
 		Error string `json:"error"`
 	}
 	require.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
-	assert.Contains(t, resp.Error, "PI_GO_API_KEY")
+	assert.Contains(t, resp.Error, "EA_API_KEY")
 }
 
 func TestWSAuth(t *testing.T) {
@@ -216,12 +216,12 @@ func TestWorkspaceEndpoints_PathContainment(t *testing.T) {
 
 	// 写外部 → 400
 	body := bytes.NewReader([]byte(`{"content":"pwned"}`))
-	req = localReq(http.MethodPut, "/workspace/write-file?path=/tmp/pi-go-pwned.txt", body)
+	req = localReq(http.MethodPut, "/workspace/write-file?path=/tmp/easyagent-pwned.txt", body)
 	req.Header.Set("Content-Type", "application/json")
 	w = httptest.NewRecorder()
 	handler.ServeHTTP(w, req)
 	assert.Equal(t, http.StatusBadRequest, w.Code)
-	_, err := os.Stat("/tmp/pi-go-pwned.txt")
+	_, err := os.Stat("/tmp/easyagent-pwned.txt")
 	assert.True(t, os.IsNotExist(err), "external write must not land on disk")
 }
 

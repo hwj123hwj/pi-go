@@ -11,7 +11,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       GO_VERSION: "1.24.2"
-      BINARY_NAME: pi-agent
+      BINARY_NAME: easyagent
+      BRIDGE_BINARY_NAME: easyagent-bridge
       SERVICE_NAME: pi-go
     steps:
       - name: Checkout
@@ -28,15 +29,15 @@ jobs:
       - name: Build linux binary
         run: |
           mkdir -p dist
-          GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o "dist/${BINARY_NAME}" ./cmd/pi-agent
-          GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o "dist/pi-feishu-bridge" ./cmd/pi-feishu-bridge
+          GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o "dist/${BINARY_NAME}" ./cmd/easyagent
+          GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o "dist/${BRIDGE_BINARY_NAME}" ./cmd/easyagent-bridge
 
       - name: Package release
         run: |
           RELEASE_NAME="release-${GITHUB_SHA}"
           mkdir -p "dist/${RELEASE_NAME}"
           cp "dist/${BINARY_NAME}" "dist/${RELEASE_NAME}/${BINARY_NAME}"
-          cp "dist/pi-feishu-bridge" "dist/${RELEASE_NAME}/pi-feishu-bridge"
+          cp "dist/${BRIDGE_BINARY_NAME}" "dist/${RELEASE_NAME}/${BRIDGE_BINARY_NAME}"
           mkdir -p "dist/${RELEASE_NAME}/scripts"
           cp scripts/feishu-bridge-configured.sh "dist/${RELEASE_NAME}/scripts/feishu-bridge-configured.sh"
           chmod +x "dist/${RELEASE_NAME}/scripts/feishu-bridge-configured.sh"

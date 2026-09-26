@@ -10,11 +10,11 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/hwj123hwj/pi-go/sdk/agent"
+	"github.com/hwj123hwj/easyagent/sdk/agent"
 )
 
 // newUpgrader 返回带同源校验的 upgrader：无 Origin（原生客户端）放行；
-// 同源放行；其余仅 PI_GO_ALLOWED_ORIGINS 白名单放行。防止恶意网页
+// 同源放行；其余仅 EA_ALLOWED_ORIGINS 白名单放行。防止恶意网页
 // 借用户浏览器连接受害者本机的 WS（鉴权之外的第二道防线）。
 func (s *Server) newUpgrader() *websocket.Upgrader {
 	return &websocket.Upgrader{

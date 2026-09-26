@@ -1,6 +1,6 @@
 /**
  * ServerConnect.tsx — Shown on mobile/PWA platforms to configure the remote
- * pi-go backend URL.
+ * easyagent backend URL.
  *
  * On Electron, the backend runs locally and its URL is obtained via IPC.
  * On mobile (Capacitor) or browser, the user must point to a remote server.
@@ -57,7 +57,7 @@ export function ServerConnect({ onConnect }: { onConnect: () => void }) {
         <div className="server-connect-icon">
           <Icon name="sparkle" size={28} />
         </div>
-        <h1>Pi-Go</h1>
+        <h1>EasyAgent</h1>
         <p className="server-connect-subtitle">{t('server.subtitle')}</p>
 
         <div className="server-connect-input">

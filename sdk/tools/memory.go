@@ -10,17 +10,17 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/hwj123hwj/pi-go/sdk/agent"
+	"github.com/hwj123hwj/easyagent/sdk/agent"
+	"github.com/hwj123hwj/easyagent/sdk/config"
 )
 
 const (
 	memorySectionHeader = "## Easy Code Added Memories"
-	memoryDirName       = ".pi-go"
 	memoryFileName      = "AGENTS.md"
 )
 
 // MemoryTool saves a specific piece of information or fact to long-term memory.
-// Memory entries are appended to ~/.pi-go/AGENTS.md under a dedicated section.
+// Memory entries are appended to ~/.easyagent/AGENTS.md under a dedicated section.
 type MemoryTool struct {
 	mu       sync.Mutex
 	filePath string // resolved on first use
@@ -109,12 +109,7 @@ func (t *MemoryTool) getFilePath() (string, error) {
 		return t.filePath, nil
 	}
 
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", fmt.Errorf("get home dir: %w", err)
-	}
-
-	t.filePath = filepath.Join(home, memoryDirName, memoryFileName)
+	t.filePath = filepath.Join(config.HomeDir(), memoryFileName)
 	return t.filePath, nil
 }
 

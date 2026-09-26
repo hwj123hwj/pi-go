@@ -10,17 +10,17 @@ import (
 // MessageViewport is a scrollable viewport that renders conversation messages
 // with full styling: Markdown rendering, tool panels, diff highlighting.
 type MessageViewport struct {
-	width        int
-	height       int
-	messages     []ChatMessage
-	streaming    string // text being streamed (not yet finalized)
-	lines        []string // rendered lines (cached)
-	cachedLines  []string // rendered message lines (without streaming) — cached for incremental updates
-	scrollOffset int
-	userScrolled bool // true if user manually scrolled up
-	newLinesSinceScroll int // lines added since user scrolled up
-	theme        *Theme
-	md           *MarkdownRenderer
+	width               int
+	height              int
+	messages            []ChatMessage
+	streaming           string   // text being streamed (not yet finalized)
+	lines               []string // rendered lines (cached)
+	cachedLines         []string // rendered message lines (without streaming) — cached for incremental updates
+	scrollOffset        int
+	userScrolled        bool // true if user manually scrolled up
+	newLinesSinceScroll int  // lines added since user scrolled up
+	theme               *Theme
+	md                  *MarkdownRenderer
 }
 
 // NewMessageViewport creates a new viewport.
@@ -208,7 +208,7 @@ func (v *MessageViewport) renderMessage(msg ChatMessage) []string {
 		label = "You"
 		labelStyle = v.theme.UserLabel
 	case "assistant":
-		label = "π"
+		label = "EA"
 		labelStyle = v.theme.AssistantLabel
 	case "system":
 		label = "system"
@@ -262,7 +262,7 @@ func (v *MessageViewport) renderStreaming(text string) []string {
 	var lines []string
 
 	lines = append(lines, fmt.Sprintf("%s %s",
-		v.theme.AssistantLabel.Render("π"),
+		v.theme.AssistantLabel.Render("EA"),
 		v.theme.StatusDim.Render("typing…"),
 	))
 

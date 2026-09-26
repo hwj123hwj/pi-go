@@ -13,7 +13,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/hwj123hwj/pi-go/sdk/ai"
+	"github.com/hwj123hwj/easyagent/sdk/ai"
 )
 
 // OpenAIProvider 通过 HTTP 调用 OpenAI Chat Completions API。

@@ -1,5 +1,5 @@
 #!/bin/bash
-# build-desktop.sh — One-click build script for Pi-Go macOS desktop app.
+# build-desktop.sh — One-click build script for EasyAgent macOS desktop app.
 # Usage: ./scripts/build-desktop.sh [--x64]
 set -e
 
@@ -7,7 +7,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 ARCH="${1:-arm64}"
 
-echo "=== Pi-Go Desktop Build ==="
+echo "=== EasyAgent Desktop Build ==="
 echo "Project root: $PROJECT_ROOT"
 echo "Architecture: $ARCH"
 echo ""
@@ -15,8 +15,8 @@ echo ""
 # Step 1: Build Go binary
 echo "=== Step 1/3: Building Go binary (darwin/$ARCH) ==="
 cd "$PROJECT_ROOT"
-GOOS=darwin GOARCH="$ARCH" go build -o pi-agent ./cmd/pi-agent
-echo "✓ Built pi-agent ($(du -h pi-agent | cut -f1))"
+GOOS=darwin GOARCH="$ARCH" go build -o easyagent ./cmd/easyagent
+echo "✓ Built easyagent ($(du -h easyagent | cut -f1))"
 echo ""
 
 # Step 2: Install npm dependencies if needed

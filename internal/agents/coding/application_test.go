@@ -6,13 +6,13 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/hwj123hwj/pi-go/sdk/config"
-	"github.com/hwj123hwj/pi-go/sdk/slashcmd"
+	"github.com/hwj123hwj/easyagent/sdk/config"
+	"github.com/hwj123hwj/easyagent/sdk/slashcmd"
 	"github.com/stretchr/testify/require"
 )
 
 func TestGatewayCatalogIsAuthoritative(t *testing.T) {
-	t.Setenv("PI_GO_MODELS_FILE", filepath.Join(t.TempDir(), "missing.json"))
+	t.Setenv("EA_MODELS_FILE", filepath.Join(t.TempDir(), "missing.json"))
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, "/v1/models", r.URL.Path)
 		require.Equal(t, "Bearer test-key", r.Header.Get("Authorization"))
@@ -33,7 +33,7 @@ func TestGatewayCatalogIsAuthoritative(t *testing.T) {
 }
 
 func TestGatewayEmptyCatalogDoesNotInventModels(t *testing.T) {
-	t.Setenv("PI_GO_MODELS_FILE", filepath.Join(t.TempDir(), "missing.json"))
+	t.Setenv("EA_MODELS_FILE", filepath.Join(t.TempDir(), "missing.json"))
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`{"data":[]}`))
 	}))

@@ -5,30 +5,28 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"github.com/hwj123hwj/easyagent/sdk/config"
 )
 
 // Credentials holds the Feishu app credentials persisted to disk.
 type Credentials struct {
-	AppID           string `json:"app_id"`
-	AppSecret       string `json:"app_secret"`
-	UserOpenID      string `json:"user_open_id,omitempty"`
-	UserAccessToken string `json:"user_access_token,omitempty"`
+	AppID            string `json:"app_id"`
+	AppSecret        string `json:"app_secret"`
+	UserOpenID       string `json:"user_open_id,omitempty"`
+	UserAccessToken  string `json:"user_access_token,omitempty"`
 	UserRefreshToken string `json:"user_refresh_token,omitempty"`
-	BotName         string `json:"bot_name,omitempty"`
-	BotOpenID       string `json:"bot_open_id,omitempty"`
-	Platform        string `json:"platform,omitempty"` // "feishu" or "lark"
+	BotName          string `json:"bot_name,omitempty"`
+	BotOpenID        string `json:"bot_open_id,omitempty"`
+	Platform         string `json:"platform,omitempty"` // "feishu" or "lark"
 }
 
 // credentialsPath returns the path to the feishu credentials file.
 func credentialsPath() string {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "feishu-credentials.json"
-	}
-	return filepath.Join(home, ".pi-go", "feishu-credentials.json")
+	return filepath.Join(config.HomeDir(), "feishu-credentials.json")
 }
 
-// SaveCredentials writes feishu credentials to ~/.pi-go/feishu-credentials.json.
+// SaveCredentials writes feishu credentials to ~/.easyagent/feishu-credentials.json.
 func SaveCredentials(creds Credentials) error {
 	dir := filepath.Dir(credentialsPath())
 	if err := os.MkdirAll(dir, 0o700); err != nil {

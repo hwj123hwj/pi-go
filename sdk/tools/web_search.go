@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hwj123hwj/pi-go/sdk/agent"
+	"github.com/hwj123hwj/easyagent/sdk/agent"
 )
 
 // ─── SearXNG-based Web Search ──────────────────────────────────────────────
@@ -191,7 +191,7 @@ func (e *searxngEngine) search(ctx context.Context, query string, maxResults int
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("User-Agent", "pi-go-agent/1.0")
+	req.Header.Set("User-Agent", "easyagent-agent/1.0")
 	req.Header.Set("Accept", "application/json")
 
 	resp, err := e.client.Do(req)
@@ -263,7 +263,7 @@ func (e *duckduckgoEngine) search(ctx context.Context, query string, maxResults 
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("User-Agent", "pi-go-agent/1.0")
+	req.Header.Set("User-Agent", "easyagent-agent/1.0")
 
 	resp, err := e.client.Do(req)
 	if err != nil {

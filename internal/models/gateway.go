@@ -10,7 +10,7 @@ import (
 )
 
 // FetchGatewayModels 从 OpenAI 兼容端点拉取模型列表（GET {baseURL}/models）。
-// 适配 LiteLLM / pi-go 网关等任何返回 {"data":[{"id":"..."}]} 的端点。
+// 适配 LiteLLM / easyagent 网关等任何返回 {"data":[{"id":"..."}]} 的端点。
 // 网关不可达或响应异常时返回 error，调用方降级为本地清单，不阻塞启动。
 func FetchGatewayModels(ctx context.Context, baseURL, apiKey string) ([]string, error) {
 	baseURL = strings.TrimRight(baseURL, "/")

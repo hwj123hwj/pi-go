@@ -14,13 +14,15 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/hwj123hwj/easyagent/sdk/config"
 )
 
 const (
 	// TaskFileName is the canonical task handoff file name.
 	TaskFileName = "TASK.md"
 	// TaskDir is the subdirectory inside the workspace for task files.
-	TaskDir = ".pi-go"
+	TaskDir = config.HomeDirName
 )
 
 // TaskState represents the current state of a task.
@@ -35,16 +37,16 @@ const (
 
 // TaskDocument represents the structured content of a TASK.md file.
 type TaskDocument struct {
-	Title       string     `json:"title"`
-	Goal        string     `json:"goal"`
-	State       TaskState  `json:"state"`
-	CreatedAt   time.Time  `json:"created_at"`
-	UpdatedAt   time.Time  `json:"updated_at"`
-	Progress    []string   `json:"progress"`
-	NextSteps   []string   `json:"next_steps"`
-	Blockers    []string   `json:"blockers"`
+	Title        string    `json:"title"`
+	Goal         string    `json:"goal"`
+	State        TaskState `json:"state"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+	Progress     []string  `json:"progress"`
+	NextSteps    []string  `json:"next_steps"`
+	Blockers     []string  `json:"blockers"`
 	FilesChanged []string  `json:"files_changed"`
-	Notes       string     `json:"notes"`
+	Notes        string    `json:"notes"`
 }
 
 // NewTaskDocument creates a new TaskDocument for the given goal.

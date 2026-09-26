@@ -56,10 +56,10 @@ jobs:
             arch="${target#*/}"
             echo "::group::Building ${os}/${arch}"
             CGO_ENABLED=0 GOOS=$os GOARCH=$arch \
-              go build -ldflags "$LDFLAGS" -o "dist/pi-agent-${os}-${arch}" ./cmd/pi-agent
+              go build -ldflags "$LDFLAGS" -o "dist/easyagent-${os}-${arch}" ./cmd/easyagent
             if [ "$os" = "linux" ]; then
               CGO_ENABLED=0 GOOS=$os GOARCH=$arch \
-                go build -ldflags "$LDFLAGS" -o "dist/pi-feishu-bridge-${os}-${arch}" ./cmd/pi-feishu-bridge
+                go build -ldflags "$LDFLAGS" -o "dist/easyagent-bridge-${os}-${arch}" ./cmd/easyagent-bridge
             fi
             echo "::endgroup::"
           done
@@ -67,7 +67,7 @@ jobs:
       - name: Generate checksums
         run: |
           cd dist
-          sha256sum pi-agent-* pi-feishu-bridge-* > checksums.txt 2>/dev/null || true
+          sha256sum easyagent-linux-* easyagent-darwin-* easyagent-bridge-* > checksums.txt 2>/dev/null || true
           cat checksums.txt
 
       - name: Create GitHub Release
@@ -77,10 +77,10 @@ jobs:
           name: ${{ steps.ver.outputs.version }}
           generate_release_notes: true
           files: |
-            dist/pi-agent-linux-amd64
-            dist/pi-agent-linux-arm64
-            dist/pi-agent-darwin-amd64
-            dist/pi-agent-darwin-arm64
-            dist/pi-feishu-bridge-linux-amd64
-            dist/pi-feishu-bridge-linux-arm64
+            dist/easyagent-linux-amd64
+            dist/easyagent-linux-arm64
+            dist/easyagent-darwin-amd64
+            dist/easyagent-darwin-arm64
+            dist/easyagent-bridge-linux-amd64
+            dist/easyagent-bridge-linux-arm64
             dist/checksums.txt

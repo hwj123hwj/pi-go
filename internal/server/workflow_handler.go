@@ -8,9 +8,9 @@ import (
 	"net/http"
 	"path/filepath"
 
-	"github.com/hwj123hwj/pi-go/internal/app"
-	"github.com/hwj123hwj/pi-go/sdk/runtime"
-	"github.com/hwj123hwj/pi-go/sdk/workflow"
+	"github.com/hwj123hwj/easyagent/internal/app"
+	"github.com/hwj123hwj/easyagent/sdk/runtime"
+	"github.com/hwj123hwj/easyagent/sdk/workflow"
 )
 
 // ─── app 适配器：AgentSession → workflow.Runner ──────────────────────────────
